@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildIssueBody, parseRepoSlug } from "./feedback";
+import { buildIssueBody, clearSentDraft, parseRepoSlug } from "./feedback";
 
 const context = { screenLabel: "夜", date: "2026-10-30", version: "0.1.0" };
 
@@ -44,5 +44,20 @@ describe("parseRepoSlug", () => {
     expect(parseRepoSlug("owner/")).toBeUndefined();
     expect(parseRepoSlug("owner/..")).toBeUndefined();
     expect(parseRepoSlug("-owner/repo")).toBeUndefined();
+  });
+});
+
+describe("clearSentDraft", () => {
+  const sent = { title: "保存ボタンを上に", body: "夜に押しにくい" };
+
+  it("送信した内容のままなら空にする", () => {
+    expect(clearSentDraft({ ...sent }, sent)).toEqual({ title: "", body: "" });
+  });
+
+  it("送信中や送信後に書き換えられた書きかけは消さない", () => {
+    const next = { title: "別の要望", body: "" };
+    expect(clearSentDraft(next, sent)).toBe(next);
+    const appended = { title: sent.title, body: `${sent.body}。追記` };
+    expect(clearSentDraft(appended, sent)).toBe(appended);
   });
 });

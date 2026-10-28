@@ -49,3 +49,23 @@ export const buildIssueBody = (body: string, context: FeedbackContext): string =
   const trimmed = body.trim();
   return trimmed === "" ? footer : `${trimmed}\n\n${footer}`;
 };
+
+/**
+ * 要望の書きかけ。タイトルと本文。
+ */
+export type FeedbackDraft = {
+  title: string;
+  body: string;
+};
+
+/**
+ * 送信が済んだあとに残す書きかけを決める。
+ *
+ * 送信中に書き足された、または別の内容に書き換えられた書きかけは消さない。
+ *
+ * @param current - 送信が済んだ時点の書きかけ。
+ * @param sent - 送信した書きかけ。
+ * @returns `current` が `sent` と同じなら空、違えば `current` をそのまま返す。
+ */
+export const clearSentDraft = (current: FeedbackDraft, sent: FeedbackDraft): FeedbackDraft =>
+  current.title === sent.title && current.body === sent.body ? { title: "", body: "" } : current;

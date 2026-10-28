@@ -1,18 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { removeDraft, saveDraft } from "./drafts";
-import { buildIssueBody, parseRepoSlug } from "./feedback";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { buildIssueBody, clearSentDraft, parseRepoSlug, type FeedbackDraft } from "./feedback";
 import { describeFailure, type Failure } from "./failure";
 import { createIssue, type CreatedIssue } from "./github";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
-
-/**
- * 要望の書きかけ。シートを閉じても App が持ち続ける。
- */
-export type FeedbackDraft = {
-  title: string;
-  body: string;
-};
 
 type SendState =
   | { status: "idle" }
@@ -26,13 +17,13 @@ type Props = {
   date: string;
   isOnline: boolean;
   draft: FeedbackDraft;
-  onDraftChange: (draft: FeedbackDraft) => void;
+  onDraftChange: Dispatch<SetStateAction<FeedbackDraft>>;
   onClose: () => void;
   onOpenSettings: () => void;
 };
 
 /**
- * 書きかけを保存する鍵。`drafts.ts` で localStorage に残す。
+ * 書きかけを保存する鍵。App が `drafts.ts` で localStorage に残す。
  */
 export const FEEDBACK_DRAFT_KEYS = { title: "feedback:title", body: "feedback:body" } as const;
 
@@ -40,6 +31,7 @@ export const FEEDBACK_DRAFT_KEYS = { title: "feedback:title", body: "feedback:bo
  * 要望を GitHub Issue として送るシート。
  *
  * 書きかけは閉じても消えないので、外側のタップや Esc で閉じてよい。
+ * 送信中だけは閉じさせない。閉じて開き直すと送信中の状態を失い、同じ Issue を 2 回作れてしまうため。
  */
 export const FeedbackSheet = ({
   settings,
@@ -54,11 +46,19 @@ export const FeedbackSheet = ({
   const [send, setSend] = useState<SendState>({ status: "idle" });
   const titleRef = useRef<HTMLInputElement>(null);
   const target = parseRepoSlug(settings.issueRepo);
+  const isSending = send.status === "sending";
+  const close = (): void => {
+    if (!isSending) {
+      onClose();
+    }
+  };
+  const isSendingRef = useRef(isSending);
+  isSendingRef.current = isSending;
 
   useEffect(() => {
     titleRef.current?.focus();
     const handleKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !isSendingRef.current) {
         onClose();
       }
     };
@@ -74,8 +74,6 @@ export const FeedbackSheet = ({
 
   const update = (next: FeedbackDraft): void => {
     onDraftChange(next);
-    saveDraft(FEEDBACK_DRAFT_KEYS.title, next.title);
-    saveDraft(FEEDBACK_DRAFT_KEYS.body, next.body);
     if (send.status === "sent" || send.status === "error") {
       setSend({ status: "idle" });
     }
@@ -106,18 +104,17 @@ export const FeedbackSheet = ({
     }
     setSend({ status: "sending" });
     const body = buildIssueBody(draft.body, { screenLabel, date, version: __APP_VERSION__ });
+    const sent = draft;
     createIssue(settings.token, target, draft.title.trim(), body)
       .then((issue) => {
         setSend({ status: "sent", issue });
-        removeDraft(FEEDBACK_DRAFT_KEYS.title);
-        removeDraft(FEEDBACK_DRAFT_KEYS.body);
-        onDraftChange({ title: "", body: "" });
+        onDraftChange((current) => clearSentDraft(current, sent));
       })
       .catch((error: unknown) => setSend({ status: "error", failure: describeFailure(error) }));
   };
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
+    <div className="sheet-backdrop" onClick={close}>
       <div
         className="sheet"
         role="dialog"
@@ -129,7 +126,13 @@ export const FeedbackSheet = ({
           <h2 id="feedback-title" className="sheet-title">
             要望を送る
           </h2>
-          <button type="button" className="icon-button" aria-label="閉じる" onClick={onClose}>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="閉じる"
+            disabled={isSending}
+            onClick={close}
+          >
             <CloseIcon />
           </button>
         </div>
@@ -141,6 +144,7 @@ export const FeedbackSheet = ({
             className="input"
             type="text"
             enterKeyHint="next"
+            disabled={isSending}
             value={draft.title}
             placeholder="例: チェックした項目を下に回したい"
             onChange={(event) => update({ ...draft, title: event.target.value })}
@@ -153,6 +157,7 @@ export const FeedbackSheet = ({
           <textarea
             className="textarea textarea-feedback"
             rows={5}
+            disabled={isSending}
             value={draft.body}
             placeholder="困ったこと、こうなってほしいこと"
             onChange={(event) => update({ ...draft, body: event.target.value })}

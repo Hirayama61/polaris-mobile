@@ -48,3 +48,26 @@ export const removeDraft = (key: string): void => {
     // 消せなくても次の保存で上書きされる。
   }
 };
+
+/**
+ * 夜の画面の書きかけの鍵を作る。
+ *
+ * 日付ごとに分けるので、4:00 をまたいで「今日」が変わっても前日の書きかけは前日の鍵に残り、当日の保存に混ざらない。
+ *
+ * @param date - `YYYY-MM-DD`。
+ * @returns 振り返りと日記の鍵。
+ */
+export const nightDraftKeys = (date: string): { review: string; journal: string } => ({
+  review: `review:${date}`,
+  journal: `journal:${date}`,
+});
+
+/**
+ * 保存が済んだあとに入力欄に残す内容を決める。
+ *
+ * @param current - 保存が済んだ時点の入力。
+ * @param saved - 保存した入力。
+ * @returns 同じなら undefined(消してよい)、保存中に書き換えられていれば `current`。
+ */
+export const remainingAfterSave = (current: string, saved: string): string | undefined =>
+  current === saved ? undefined : current;

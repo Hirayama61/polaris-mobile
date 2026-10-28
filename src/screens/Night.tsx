@@ -1,7 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatTokyoIso } from "../clock";
 import { createMinimalDaily, extractReview, extractReviewAt, setReview, setReviewAt } from "../daily";
-import { loadDraft, removeDraft, saveDraft } from "../drafts";
+import { loadDraft, nightDraftKeys, remainingAfterSave, removeDraft, saveDraft } from "../drafts";
 import { describeFailure, type Failure } from "../failure";
 import { updateFile } from "../github";
 import { appendJournal } from "../journal";
@@ -41,11 +41,14 @@ const OFFLINE_FAILURE: Failure = {
 export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }: Props) => {
   const { state } = daily;
   const existingReview = state.status === "ready" ? extractReview(state.content) : "";
-  const reviewKey = `review:${date}`;
-  const journalKey = `journal:${date}`;
+  // 日付が変わったら App が key で作り直すので、鍵はマウント時の date のままでよい。
+  const { review: reviewKey, journal: journalKey } = nightDraftKeys(date);
   const [review, setReviewDraft] = useState(() => loadDraft(reviewKey) ?? existingReview);
   const [journal, setJournal] = useState(() => loadDraft(journalKey) ?? "");
   const [save, setSave] = useState<SaveState>({ status: "idle" });
+  // 保存の完了時に、その時点の入力と保存した内容を比べるために使う。
+  const latest = useRef({ review, journal });
+  latest.current = { review, journal };
 
   // daily を読み終えたら、既に書いてある振り返りを入力欄に入れる。書きかけがあれば上書きしない。
   const [hasEditedReview, setHasEditedReview] = useState(() => loadDraft(reviewKey) !== undefined);
@@ -78,6 +81,8 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     const now = new Date();
     const shouldWriteReview = isReviewChanged;
     const shouldWriteJournal = hasJournal;
+    const savedReview = review;
+    const savedJournal = journal;
     let isReviewSaved = false;
     const run = async (): Promise<void> => {
       if (shouldWriteReview) {
@@ -85,16 +90,20 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           setReviewAt(setReview(current ?? createMinimalDaily(date), review), formatTokyoIso(now)),
         );
         isReviewSaved = true;
-        removeDraft(reviewKey);
-        setHasEditedReview(false);
+        if (remainingAfterSave(latest.current.review, savedReview) === undefined) {
+          removeDraft(reviewKey);
+          setHasEditedReview(false);
+        }
         daily.replace(written.content, written.sha);
       }
       if (shouldWriteJournal) {
         await updateFile(settings, journalPath(date), message, (current) =>
           appendJournal(current, date, journal),
         );
-        removeDraft(journalKey);
-        setJournal("");
+        if (remainingAfterSave(latest.current.journal, savedJournal) === undefined) {
+          removeDraft(journalKey);
+          setJournal("");
+        }
       }
     };
     const what = [shouldWriteReview ? "振り返り" : "", shouldWriteJournal ? "日記" : ""]
@@ -131,6 +140,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           </span>
           <textarea
             className="textarea textarea-review"
+            readOnly={save.status === "saving"}
             rows={6}
             value={review}
             placeholder="できたこと、明日に回すこと"
@@ -154,6 +164,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           </span>
           <textarea
             className="textarea textarea-journal"
+            readOnly={save.status === "saving"}
             rows={8}
             value={journal}
             placeholder="思ったことを自由に"

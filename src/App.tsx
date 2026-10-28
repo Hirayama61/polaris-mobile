@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { formatDateLabel, polarisToday } from "./clock";
-import { loadDraft } from "./drafts";
-import { FEEDBACK_DRAFT_KEYS, FeedbackSheet, type FeedbackDraft } from "./FeedbackSheet";
+import { loadDraft, saveDraft } from "./drafts";
+import type { FeedbackDraft } from "./feedback";
+import { FEEDBACK_DRAFT_KEYS, FeedbackSheet } from "./FeedbackSheet";
 import { NightScreen } from "./screens/Night";
 import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
@@ -64,6 +65,10 @@ export const App = () => {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(loadFeedbackDraft);
   const closeFeedback = useCallback(() => setIsFeedbackOpen(false), []);
+  useEffect(() => {
+    saveDraft(FEEDBACK_DRAFT_KEYS.title, feedbackDraft.title);
+    saveDraft(FEEDBACK_DRAFT_KEYS.body, feedbackDraft.body);
+  }, [feedbackDraft]);
   const hasFeedbackDraft = feedbackDraft.title.trim() !== "" || feedbackDraft.body.trim() !== "";
 
   const handleSaveSettings = (next: Settings): void => {
@@ -103,6 +108,7 @@ export const App = () => {
         )}
         {screen === "night" && (
           <NightScreen
+            key={today}
             settings={settings}
             date={today}
             daily={daily}

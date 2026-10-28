@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { loadCachedFile, removeCachedFile, saveCachedFile } from "./cache";
 import { describeFailure, type Failure } from "./failure";
 import { readFile } from "./github";
@@ -51,6 +51,8 @@ export const useDaily = (
   const [state, setState] = useState<DailyState>({ status: "unconfigured" });
   const [reloadCount, setReloadCount] = useState(0);
   const path = dailyPath(date);
+  const currentPath = useRef(path);
+  currentPath.current = path;
 
   useEffect(() => {
     if (!isConfigured(settings)) {
@@ -106,6 +108,10 @@ export const useDaily = (
   const replace = useCallback(
     (content: string, sha: string) => {
       saveCachedFile(path, { content, sha, fetchedAt: new Date().toISOString() });
+      // 書き込み中に日付が変わったら、前日の内容で当日の表示を上書きしない。
+      if (currentPath.current !== path) {
+        return;
+      }
       setState({ status: "ready", content, sha, freshness: { kind: "fresh" } });
     },
     [path],
