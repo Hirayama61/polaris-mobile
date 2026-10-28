@@ -9,9 +9,14 @@
 
 | 画面 | できること |
 | --- | --- |
-| 今日 | `daily/YYYY-MM-DD.md` の「今日の時間割」と「あなたの番」を表示する。チェックを切り替えると即座に commit する |
+| 今日 | `daily/YYYY-MM-DD.md` の「あなたの番」と「今日の時間割」を表示する。チェックを切り替えると即座に commit する |
 | 夜 | 振り返りと日記を書く。保存で daily の「振り返り」節と frontmatter の `review_at` を更新し、`journal/YYYY-MM-DD.md` に追記する |
-| 設定 | fine-grained PAT・owner/repo・ブランチを localStorage に保存する |
+| 設定 | fine-grained PAT・owner/repo・ブランチ・要望の送り先を localStorage に保存する |
+
+ヘッダー右の吹き出しから、どの画面でも要望を送れる。
+送ると要望の送り先(既定 `Hirayama61/polaris-mobile`)に Issue ができる。
+本文の末尾には送信元の画面名・日付・アプリのバージョンが 1 行入る。
+書きかけの要望と夜の入力は localStorage に残るので、シートを閉じたりタブを移ったりしても消えない。
 
 「今日」は Asia/Tokyo の日付。
 0:00〜4:00 は前日を「今日」として扱う。
@@ -28,8 +33,11 @@ GitHub の [Fine-grained personal access tokens](https://github.com/settings/per
 
 1. Token name: `polaris-mobile` など。
 2. Expiration: 任意。切れたら設定画面で入れ直す。
-3. Repository access: **Only select repositories** を選び、`polaris-data` だけを選ぶ。
-4. Permissions > Repository permissions: **Contents** を **Read and write** にする。他は付けない(Metadata は自動で Read-only が付く)。
+3. Repository access: **Only select repositories** を選び、`polaris-data` と `polaris-mobile` を選ぶ。
+4. Permissions > Repository permissions: **Contents** と **Issues** を **Read and write** にする。他は付けない(Metadata は自動で Read-only が付く)。
+   - `polaris-data` には Contents が要る(daily と journal の読み書き)。
+   - `polaris-mobile` には Issues が要る(要望の送信)。fine-grained PAT の権限は選んだリポジトリ全部に同じように付くため、`polaris-mobile` にも Contents の書き込み権限が付く(`main` への push は Pages のデプロイにつながる)。
+   - 要望の送り先を別のリポジトリに変えたときは、そのリポジトリも Repository access に足す。
 5. Generate token を押し、`github_pat_` で始まる文字列をアプリの設定画面に貼る。
 
 トークンはこの端末のブラウザの localStorage にだけ保存される。

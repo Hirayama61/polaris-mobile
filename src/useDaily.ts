@@ -1,19 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
 import { loadCachedFile, removeCachedFile, saveCachedFile } from "./cache";
-import { GitHubError, readFile } from "./github";
+import { describeFailure, type Failure } from "./failure";
+import { readFile } from "./github";
 import { isConfigured, type Settings } from "./settings";
+
+/**
+ * 表示中の daily がリモートの最新かどうか。
+ */
+export type Freshness =
+  | { kind: "fresh" }
+  | { kind: "refreshing" }
+  | { kind: "stale"; failure: Failure };
 
 /**
  * 読み込んだ daily の状態。
  *
- * `ready` の `notice` は、キャッシュ表示など利用者に伝えるべき事情。
+ * `ready` の `freshness` は表示中の内容がどこから来たか。
+ * `refreshing` は前回の内容を出しながら読み直している途中、`stale` は読み直しに失敗して前回の内容を出している状態。
  */
 export type DailyState =
   | { status: "unconfigured" }
   | { status: "loading" }
-  | { status: "ready"; content: string; sha: string; notice: string | undefined }
+  | { status: "ready"; content: string; sha: string; freshness: Freshness }
   | { status: "missing" }
-  | { status: "error"; message: string };
+  | { status: "error"; failure: Failure };
 
 /**
  * daily のパスを作る。
@@ -22,13 +32,6 @@ export type DailyState =
  * @returns `daily/YYYY-MM-DD.md`。
  */
 export const dailyPath = (date: string): string => `daily/${date}.md`;
-
-const describe = (error: unknown): string => {
-  if (error instanceof GitHubError) {
-    return error.message;
-  }
-  return error instanceof Error ? error.message : String(error);
-};
 
 /**
  * 今日の daily を GitHub から読み、オフラインならキャッシュで代える。
@@ -59,7 +62,7 @@ export const useDaily = (
     setState(
       cached === undefined
         ? { status: "loading" }
-        : { status: "ready", ...cached, notice: "読み込み中(前回の内容)" },
+        : { status: "ready", ...cached, freshness: { kind: "refreshing" } },
     );
     readFile(settings, path)
       .then((file) => {
@@ -76,21 +79,21 @@ export const useDaily = (
           sha: file.sha,
           fetchedAt: new Date().toISOString(),
         });
-        setState({ status: "ready", content: file.content, sha: file.sha, notice: undefined });
+        setState({ status: "ready", content: file.content, sha: file.sha, freshness: { kind: "fresh" } });
       })
       .catch((error: unknown) => {
         if (isCancelled) {
           return;
         }
-        const message = describe(error);
+        const failure = describeFailure(error);
         if (cached === undefined) {
-          setState({ status: "error", message });
+          setState({ status: "error", failure });
           return;
         }
         setState({
           status: "ready",
           ...cached,
-          notice: `GitHub から読めないため前回の内容を表示しています (${message})`,
+          freshness: { kind: "stale", failure },
         });
       });
     return () => {
@@ -103,7 +106,7 @@ export const useDaily = (
   const replace = useCallback(
     (content: string, sha: string) => {
       saveCachedFile(path, { content, sha, fetchedAt: new Date().toISOString() });
-      setState({ status: "ready", content, sha, notice: undefined });
+      setState({ status: "ready", content, sha, freshness: { kind: "fresh" } });
     },
     [path],
   );

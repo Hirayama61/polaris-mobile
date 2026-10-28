@@ -1,10 +1,21 @@
 import { useState, type ChangeEvent } from "react";
+import { parseRepoSlug } from "../feedback";
 import type { Settings } from "../settings";
 
 type Props = {
   settings: Settings;
   onSave: (settings: Settings) => void;
 };
+
+const textInputProps = {
+  className: "input",
+  type: "text",
+  autoCapitalize: "off",
+  autoCorrect: "off",
+  spellCheck: false,
+} as const;
+
+const settingKeys = ["token", "owner", "repo", "branch", "issueRepo"] as const satisfies readonly (keyof Settings)[];
 
 /**
  * GitHub の接続設定を入力して localStorage に保存する。
@@ -16,95 +27,97 @@ export const SettingsScreen = ({ settings, onSave }: Props) => {
   const update = (key: keyof Settings) => (event: ChangeEvent<HTMLInputElement>) =>
     setDraft({ ...draft, [key]: event.target.value });
 
+  const isIssueRepoValid = parseRepoSlug(draft.issueRepo) !== undefined;
+  const isChanged = settingKeys.some(
+    (key) => draft[key].trim() !== settings[key],
+  );
   const canSave =
     draft.token.trim() !== "" &&
     draft.owner.trim() !== "" &&
     draft.repo.trim() !== "" &&
-    draft.branch.trim() !== "";
+    draft.branch.trim() !== "" &&
+    isIssueRepoValid &&
+    isChanged;
 
+  // Enter で黙って送信しないよう、form の submit は使わない。
   return (
-    <form
-      className="card"
-      onSubmit={(event) => {
-        event.preventDefault();
-        if (canSave) {
-          onSave(draft);
-        }
-      }}
-    >
-      <h2 className="card-title">GitHub</h2>
+    <>
+      <section className="section">
+        <h2 className="section-title">GitHub</h2>
+        <div className="panel panel-form">
+          <label className="field">
+            <span className="field-label">トークン(fine-grained PAT)</span>
+            <span className="input-with-action">
+              <input
+                {...textInputProps}
+                type={isTokenVisible ? "text" : "password"}
+                autoComplete="off"
+                value={draft.token}
+                placeholder="github_pat_…"
+                onChange={update("token")}
+              />
+              <button
+                type="button"
+                className="input-action"
+                aria-pressed={isTokenVisible}
+                onClick={() => setIsTokenVisible(!isTokenVisible)}
+              >
+                {isTokenVisible ? "隠す" : "表示"}
+              </button>
+            </span>
+            <span className="field-hint">この端末にだけ保存します。作り方は README にあります。</span>
+          </label>
 
-      <label className="field">
-        <span className="field-label">Fine-grained PAT</span>
-        <input
-          className="input"
-          type={isTokenVisible ? "text" : "password"}
-          autoComplete="off"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={draft.token}
-          placeholder="github_pat_…"
-          onChange={update("token")}
-        />
-      </label>
-      <label className="check">
-        <input
-          type="checkbox"
-          checked={isTokenVisible}
-          onChange={(event) => setIsTokenVisible(event.target.checked)}
-        />
-        <span>トークンを表示</span>
-      </label>
+          <div className="field-row">
+            <label className="field">
+              <span className="field-label">owner</span>
+              <input {...textInputProps} value={draft.owner} onChange={update("owner")} />
+            </label>
+            <label className="field">
+              <span className="field-label">データのリポジトリ</span>
+              <input {...textInputProps} value={draft.repo} onChange={update("repo")} />
+            </label>
+          </div>
 
-      <div className="field-row">
-        <label className="field">
-          <span className="field-label">owner</span>
-          <input
-            className="input"
-            type="text"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            value={draft.owner}
-            onChange={update("owner")}
-          />
-        </label>
-        <label className="field">
-          <span className="field-label">repo</span>
-          <input
-            className="input"
-            type="text"
-            autoCapitalize="off"
-            autoCorrect="off"
-            spellCheck={false}
-            value={draft.repo}
-            onChange={update("repo")}
-          />
-        </label>
+          <label className="field">
+            <span className="field-label">ブランチ</span>
+            <input {...textInputProps} value={draft.branch} onChange={update("branch")} />
+          </label>
+        </div>
+      </section>
+
+      <section className="section">
+        <h2 className="section-title">要望の送り先</h2>
+        <div className="panel panel-form">
+          <label className="field">
+            <span className="field-label">Issue を作るリポジトリ</span>
+            <input
+              {...textInputProps}
+              value={draft.issueRepo}
+              placeholder="owner/repo"
+              aria-invalid={!isIssueRepoValid}
+              onChange={update("issueRepo")}
+            />
+            <span className={isIssueRepoValid ? "field-hint" : "field-hint field-hint-error"}>
+              {isIssueRepoValid
+                ? "トークンにこのリポジトリの Issues: Read and write が要ります。"
+                : "owner/repo の形で入れてください。"}
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <div className="save-bar save-bar-static">
+        <button
+          type="button"
+          className="button button-primary button-block"
+          disabled={!canSave}
+          onClick={() => onSave(draft)}
+        >
+          保存
+        </button>
+        <p className="app-version">Polaris Mobile v{__APP_VERSION__}</p>
       </div>
-
-      <label className="field">
-        <span className="field-label">ブランチ</span>
-        <input
-          className="input"
-          type="text"
-          autoCapitalize="off"
-          autoCorrect="off"
-          spellCheck={false}
-          value={draft.branch}
-          onChange={update("branch")}
-        />
-      </label>
-
-      <p className="muted">
-        トークンはこの端末の localStorage にだけ保存します。対象リポジトリを <code>polaris-data</code> だけにし、権限は
-        Contents の Read and write だけにしてください。
-      </p>
-
-      <button type="submit" className="button button-primary" disabled={!canSave}>
-        保存
-      </button>
-    </form>
+    </>
   );
 };

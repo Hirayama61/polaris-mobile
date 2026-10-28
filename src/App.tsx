@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
-import { polarisToday } from "./clock";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { formatDateLabel, polarisToday } from "./clock";
+import { loadDraft } from "./drafts";
+import { FEEDBACK_DRAFT_KEYS, FeedbackSheet, type FeedbackDraft } from "./FeedbackSheet";
 import { NightScreen } from "./screens/Night";
 import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
 import { isConfigured, loadSettings, saveSettings, type Settings } from "./settings";
+import { GearIcon, MessageIcon, MoonIcon, SunIcon } from "./ui";
 import { useDaily } from "./useDaily";
 import { useOnline } from "./useOnline";
 
@@ -16,6 +19,17 @@ const screenLabels = {
   night: "夜",
   settings: "設定",
 } satisfies Record<Screen, string>;
+
+const screenIcons = {
+  today: <SunIcon />,
+  night: <MoonIcon />,
+  settings: <GearIcon />,
+} satisfies Record<Screen, ReactNode>;
+
+const loadFeedbackDraft = (): FeedbackDraft => ({
+  title: loadDraft(FEEDBACK_DRAFT_KEYS.title) ?? "",
+  body: loadDraft(FEEDBACK_DRAFT_KEYS.body) ?? "",
+});
 
 // 「今日」は端末の日付が変わるか、画面に戻ってきたときに取り直す。
 const useToday = (): string => {
@@ -47,18 +61,34 @@ export const App = () => {
   const today = useToday();
   const isOnline = useOnline();
   const daily = useDaily(settings, today);
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
+  const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(loadFeedbackDraft);
+  const closeFeedback = useCallback(() => setIsFeedbackOpen(false), []);
+  const hasFeedbackDraft = feedbackDraft.title.trim() !== "" || feedbackDraft.body.trim() !== "";
 
   const handleSaveSettings = (next: Settings): void => {
     setSettings(saveSettings(next));
     setScreen("today");
   };
 
+  const openSettings = (): void => {
+    setIsFeedbackOpen(false);
+    setScreen("settings");
+  };
+
   return (
     <div className="app">
       <header className="app-header">
-        <h1 className="app-title">Polaris</h1>
-        <span className="app-date">{today}</span>
+        <h1 className="app-title">{formatDateLabel(today)}</h1>
         {!isOnline && <span className="badge badge-offline">オフライン</span>}
+        <button
+          type="button"
+          className={hasFeedbackDraft ? "icon-button icon-button-dot" : "icon-button"}
+          aria-label={hasFeedbackDraft ? "要望を送る(書きかけあり)" : "要望を送る"}
+          onClick={() => setIsFeedbackOpen(true)}
+        >
+          <MessageIcon />
+        </button>
       </header>
 
       <main className="app-main">
@@ -68,7 +98,7 @@ export const App = () => {
             date={today}
             daily={daily}
             isOnline={isOnline}
-            onOpenSettings={() => setScreen("settings")}
+            onOpenSettings={openSettings}
           />
         )}
         {screen === "night" && (
@@ -77,7 +107,7 @@ export const App = () => {
             date={today}
             daily={daily}
             isOnline={isOnline}
-            onOpenSettings={() => setScreen("settings")}
+            onOpenSettings={openSettings}
           />
         )}
         {screen === "settings" && (
@@ -94,10 +124,24 @@ export const App = () => {
             aria-current={candidate === screen ? "page" : undefined}
             onClick={() => setScreen(candidate)}
           >
-            {screenLabels[candidate]}
+            {screenIcons[candidate]}
+            <span>{screenLabels[candidate]}</span>
           </button>
         ))}
       </nav>
+
+      {isFeedbackOpen && (
+        <FeedbackSheet
+          settings={settings}
+          screenLabel={screenLabels[screen]}
+          date={today}
+          isOnline={isOnline}
+          draft={feedbackDraft}
+          onDraftChange={setFeedbackDraft}
+          onClose={closeFeedback}
+          onOpenSettings={openSettings}
+        />
+      )}
     </div>
   );
 };

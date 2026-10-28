@@ -1,9 +1,13 @@
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
+import packageJson from "./package.json" with { type: "json" };
 
 export default defineConfig({
   base: "/polaris-mobile/",
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+  },
   plugins: [
     react(),
     VitePWA({
@@ -17,8 +21,8 @@ export default defineConfig({
         display: "standalone",
         start_url: "/polaris-mobile/",
         scope: "/polaris-mobile/",
-        background_color: "#111418",
-        theme_color: "#111418",
+        background_color: "#eef2f6",
+        theme_color: "#eef2f6",
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "icon-512.png", sizes: "512x512", type: "image/png" },

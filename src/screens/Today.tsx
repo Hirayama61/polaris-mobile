@@ -1,8 +1,13 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { tokyoMinutesOfDay } from "../clock";
 import { extractTurns, parseDaily, setTurnChecked, type TurnItem } from "../daily";
-import { GitHubError, writeKnownFile } from "../github";
+import { isNowInSlot, splitTaskRef } from "../display";
+import { describeFailure, type Failure } from "../failure";
+import { writeKnownFile } from "../github";
 import type { Settings } from "../settings";
+import { StateCard } from "../ui";
 import { dailyPath, useDaily } from "../useDaily";
+import { FailureAction, UnconfiguredCard } from "./common";
 
 type Props = {
   settings: Settings;
@@ -14,70 +19,105 @@ type Props = {
 
 type WriteState =
   | { status: "idle" }
-  | { status: "writing"; line: number }
-  | { status: "error"; message: string };
+  | { status: "writing"; line: number; nextChecked: boolean }
+  | { status: "error"; failure: Failure };
 
-const describe = (error: unknown): string =>
-  error instanceof GitHubError || error instanceof Error
-    ? error.message
-    : String(error);
+const OFFLINE_FAILURE: Failure = {
+  reason: "オフラインのため保存できません。",
+  hint: "つながったらもう一度タップしてください。",
+  action: "retry",
+};
 
-const OFFLINE_MESSAGE = "オフラインです。オンラインになってからチェックしてください";
+// 「いま」の印を分単位で動かす。
+const useMinutesOfDay = (): number => {
+  const [minutes, setMinutes] = useState(() => tokyoMinutesOfDay(new Date()));
+  useEffect(() => {
+    const timer = window.setInterval(() => setMinutes(tokyoMinutesOfDay(new Date())), 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return minutes;
+};
+
+const isMine = (who: string): boolean => who === "あなた";
 
 /**
- * 今日の時間割と「あなたの番」を表示し、チェックを GitHub へ commit する。
+ * 「あなたの番」を先頭に、今日の時間割を続けて出す。チェックはその場で GitHub へ commit する。
  */
 export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }: Props) => {
   const [write, setWrite] = useState<WriteState>({ status: "idle" });
+  const minutesOfDay = useMinutesOfDay();
   const { state } = daily;
 
+  // オフラインで出した失敗は、つながったら消す。
+  useEffect(() => {
+    if (isOnline) {
+      setWrite((current) =>
+        current.status === "error" && current.failure === OFFLINE_FAILURE ? { status: "idle" } : current,
+      );
+    }
+  }, [isOnline]);
+
   if (state.status === "unconfigured") {
-    return (
-      <section className="card">
-        <p>GitHub の設定がまだありません。</p>
-        <button type="button" className="button button-primary" onClick={onOpenSettings}>
-          設定を開く
-        </button>
-      </section>
-    );
+    return <UnconfiguredCard onOpenSettings={onOpenSettings} />;
   }
   if (state.status === "loading") {
-    return <p className="status">読み込み中…</p>;
+    return (
+      <div className="skeleton" aria-busy="true" aria-label="読み込み中">
+        <div className="skeleton-line skeleton-title" />
+        <div className="skeleton-line" />
+        <div className="skeleton-line" />
+        <div className="skeleton-line skeleton-short" />
+      </div>
+    );
   }
   if (state.status === "error") {
     return (
-      <section className="card">
-        <p className="message message-error">{state.message}</p>
-        <button type="button" className="button" onClick={daily.reload}>
-          再読み込み
-        </button>
-      </section>
+      <StateCard
+        title="今日の計画を読めませんでした"
+        tone="error"
+        action={
+          <FailureAction
+            failure={state.failure}
+            onRetry={daily.reload}
+            onOpenSettings={onOpenSettings}
+          />
+        }
+      >
+        <p>{state.failure.reason}</p>
+        <p className="muted">{state.failure.hint}</p>
+      </StateCard>
     );
   }
   if (state.status === "missing") {
     return (
-      <section className="card">
-        <p>今日の計画はまだありません。</p>
-        <p className="muted">朝ジョブが <code>{dailyPath(date)}</code> を作ると表示されます。</p>
-        <button type="button" className="button" onClick={daily.reload}>
-          再読み込み
-        </button>
-      </section>
+      <StateCard
+        title="今日の計画はまだありません"
+        action={
+          <button type="button" className="button" onClick={daily.reload}>
+            読み直す
+          </button>
+        }
+      >
+        <p className="muted">毎朝 6:00 に朝ジョブが作ります。夜の振り返りは今日も書けます。</p>
+      </StateCard>
     );
   }
 
   const view = parseDaily(state.content);
+  const checkedOf = (turn: TurnItem): boolean =>
+    write.status === "writing" && write.line === turn.line ? write.nextChecked : turn.isChecked;
+  const remaining = view.turns.filter((turn) => !checkedOf(turn)).length;
 
   const handleToggle = (turn: TurnItem): void => {
     if (write.status === "writing") {
       return;
     }
     if (!isOnline) {
-      setWrite({ status: "error", message: OFFLINE_MESSAGE });
+      setWrite({ status: "error", failure: OFFLINE_FAILURE });
       return;
     }
     const nextChecked = !turn.isChecked;
-    setWrite({ status: "writing", line: turn.line });
+    setWrite({ status: "writing", line: turn.line, nextChecked });
     writeKnownFile(
       settings,
       dailyPath(date),
@@ -94,59 +134,56 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         setWrite({ status: "idle" });
       })
       .catch((error: unknown) => {
-        setWrite({ status: "error", message: `保存できませんでした: ${describe(error)}` });
+        setWrite({ status: "error", failure: describeFailure(error) });
       });
   };
 
   return (
     <>
-      {state.notice !== undefined && <p className="message message-notice">{state.notice}</p>}
+      {state.freshness.kind === "stale" && (
+        <div className="banner">
+          <p>
+            {state.freshness.failure.reason}
+            前回読んだ内容を出しています。
+          </p>
+          <button type="button" className="button button-small" onClick={daily.reload}>
+            読み直す
+          </button>
+        </div>
+      )}
 
-      <section className="card">
-        <h2 className="card-title">今日の時間割</h2>
-        {view.schedule.length === 0 ? (
-          <p className="muted">時間割がありません。</p>
-        ) : (
-          <table className="schedule">
-            <thead>
-              <tr>
-                <th>時刻</th>
-                <th>やること</th>
-                <th>誰</th>
-              </tr>
-            </thead>
-            <tbody>
-              {view.schedule.map((row, index) => (
-                <tr key={index} className={row.who === "あなた" ? "schedule-mine" : undefined}>
-                  <td className="schedule-time">{row.time}</td>
-                  <td>{row.what}</td>
-                  <td className="schedule-who">{row.who}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-
-      <section className="card">
-        <h2 className="card-title">あなたの番</h2>
+      <section className="section" aria-labelledby="turns-title">
+        <div className="section-head">
+          <h2 id="turns-title" className="section-title">
+            あなたの番
+          </h2>
+          {view.turns.length > 0 && (
+            <span className="section-meta">{remaining === 0 ? "完了" : `残り ${remaining}`}</span>
+          )}
+        </div>
         {view.turns.length === 0 ? (
-          <p className="muted">項目がありません。</p>
+          <p className="panel panel-empty muted">今日はありません。</p>
         ) : (
-          <ul className="turns">
+          <ul className="panel turns">
             {view.turns.map((turn) => {
+              const isChecked = checkedOf(turn);
               const isWriting = write.status === "writing" && write.line === turn.line;
+              const { text, taskId } = splitTaskRef(turn.label);
               return (
                 <li key={turn.line}>
-                  <label className={turn.isChecked ? "turn turn-checked" : "turn"}>
+                  <label className={isChecked ? "turn turn-checked" : "turn"}>
                     <input
                       type="checkbox"
-                      checked={turn.isChecked}
+                      className="turn-box"
+                      checked={isChecked}
                       disabled={write.status === "writing"}
                       onChange={() => handleToggle(turn)}
                     />
-                    <span className="turn-label">{turn.label}</span>
-                    {isWriting && <span className="turn-status">保存中…</span>}
+                    <span className="turn-text">
+                      <span className="turn-label">{text}</span>
+                      {taskId !== undefined && <span className="turn-task">{taskId}</span>}
+                    </span>
+                    {isWriting && <span className="turn-status">保存中</span>}
                   </label>
                 </li>
               );
@@ -154,9 +191,51 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           </ul>
         )}
         {write.status === "error" && (
-          <p className="message message-error" role="alert">
-            {write.message}
-          </p>
+          <div className="message message-error" role="alert">
+            <p>{write.failure.reason}</p>
+            <p>{write.failure.hint}</p>
+            {write.failure.action === "settings" && (
+              <button type="button" className="button button-small" onClick={onOpenSettings}>
+                設定を開く
+              </button>
+            )}
+          </div>
+        )}
+      </section>
+
+      <section className="section" aria-labelledby="schedule-title">
+        <div className="section-head">
+          <h2 id="schedule-title" className="section-title">
+            時間割
+          </h2>
+        </div>
+        {view.schedule.length === 0 ? (
+          <p className="panel panel-empty muted">時間割はありません。</p>
+        ) : (
+          <ol className="panel timeline">
+            {view.schedule.map((row, index) => {
+              const isNow = isNowInSlot(row.time, minutesOfDay);
+              const { text, taskId } = splitTaskRef(row.what);
+              const classes = ["slot", isMine(row.who) ? "slot-mine" : "", isNow ? "slot-now" : ""]
+                .filter((name) => name !== "")
+                .join(" ");
+              return (
+                <li key={index} className={classes} aria-current={isNow ? "time" : undefined}>
+                  <span className="slot-time">{row.time}</span>
+                  <span className="slot-body">
+                    <span className="slot-what">{text}</span>
+                    <span className="slot-meta">
+                      {isNow && <span className="tag tag-now">いま</span>}
+                      {row.who !== "" && (
+                        <span className={isMine(row.who) ? "tag tag-mine" : "tag"}>{row.who}</span>
+                      )}
+                      {taskId !== undefined && <span className="slot-task">{taskId}</span>}
+                    </span>
+                  </span>
+                </li>
+              );
+            })}
+          </ol>
         )}
       </section>
     </>

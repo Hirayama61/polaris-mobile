@@ -39,3 +39,32 @@ export const formatTokyoIso = (now: Date): string => {
   const wallClock = toTokyoWallClock(now);
   return `${formatDate(wallClock)}T${pad(wallClock.getUTCHours())}:${pad(wallClock.getUTCMinutes())}:${pad(wallClock.getUTCSeconds())}+09:00`;
 };
+
+const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"] as const;
+
+/**
+ * 画面の見出しに出す日付を作る。
+ *
+ * @param date - `YYYY-MM-DD`。
+ * @returns 例: `10月30日(金)`。形式が違えば受け取った文字列をそのまま返す。
+ */
+export const formatDateLabel = (date: string): string => {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date);
+  if (match === null) {
+    return date;
+  }
+  const [, year, month, day] = match;
+  const weekday = WEEKDAYS[new Date(Date.UTC(Number(year), Number(month) - 1, Number(day))).getUTCDay()];
+  return `${Number(month)}月${Number(day)}日(${weekday ?? ""})`;
+};
+
+/**
+ * 東京の壁時計で 0:00 からの経過分を求める。
+ *
+ * @param now - 現在時刻。
+ * @returns 0〜1439。
+ */
+export const tokyoMinutesOfDay = (now: Date): number => {
+  const wallClock = toTokyoWallClock(now);
+  return wallClock.getUTCHours() * 60 + wallClock.getUTCMinutes();
+};
