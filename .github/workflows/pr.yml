@@ -1,0 +1,47 @@
+name: pr
+
+on:
+  push:
+    branches: ['claude/**']
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  pr:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: PR を作る (無ければ)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -eu
+          if [ -n "$(gh pr list --repo "$REPO" --head "$BRANCH" --state open --json number -q '.[0].number')" ]; then
+            echo "PR は既にある"; exit 0
+          fi
+          n="${BRANCH#claude/issue-}"
+          case "$n" in ''|*[!0-9]*) n='';; esac
+          title="$BRANCH"
+          if [ -n "$n" ]; then
+            title="$(gh issue view "$n" --repo "$REPO" --json title -q .title 2>/dev/null || echo "$BRANCH")"
+          fi
+          body="$(git log -1 --format=%b)"
+          if [ -n "$n" ] && ! printf '%s' "$body" | grep -q "#$n"; then
+            body="$(printf '%s\n\nCloses #%s' "$body" "$n")"
+          fi
+          draft=''
+          if ! git diff --name-only origin/main...HEAD | grep -v '^docs/questions/' | grep -q .; then
+            draft='--draft'
+          fi
+          gh pr create --repo "$REPO" --head "$BRANCH" --base main --title "$title" --body "$body" $draft
+          url="$(gh pr list --repo "$REPO" --head "$BRANCH" --json url -q '.[0].url')"
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --repo "$REPO" --body "PR: $url"
+          fi
