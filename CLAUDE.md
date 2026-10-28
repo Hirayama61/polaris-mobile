@@ -26,3 +26,5 @@
 - 要望はアプリの要望シートから GitHub Issue として届く。
 - 実装は cloud の Routine が行う。Issue 1 件につきブランチ `claude/issue-<番号>` と PR 1 本。CI (check) が通れば auto-merge され、Pages に出る。
 - 人の判断が要る Issue には `hold` ラベルを付ける。Routine は触らない。`needs-info` は Routine が質問中。`human` は PC の Polaris が人のタスクとして取り込む。
+
+レビューと修正の基準は AGENTS.md にある。
