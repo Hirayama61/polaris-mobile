@@ -149,7 +149,13 @@ const putFile = async (
 };
 
 // sha 不一致は 409 で返る。古い API は 422 を返したので両方を競合とみなす。
-const isConflict = (error: unknown): boolean =>
+/**
+ * 書き込みの失敗が sha の不一致 (競合) か。
+ *
+ * @param error - 書き込みで起きた例外。
+ * @returns 409 / 422 なら true。
+ */
+export const isConflict = (error: unknown): boolean =>
   error instanceof GitHubError && (error.status === 409 || error.status === 422);
 
 /**
@@ -245,3 +251,81 @@ export const createFile = async (
 ): Promise<void> => {
   await putFile(settings, path, content, message, undefined);
 };
+
+/**
+ * ディレクトリ直下のファイル名を読む。
+ *
+ * @param settings - 接続設定。
+ * @param path - リポジトリ内のディレクトリ。
+ * @returns ファイル名。ディレクトリが無ければ空。
+ * @throws GitHubError 404 以外の失敗。
+ */
+export const listFileNames = async (settings: Settings, path: string): Promise<string[]> => {
+  const url = `${contentsUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
+  const response = await request(url, {
+    headers: headers(settings, "application/vnd.github+json"),
+    cache: "no-store",
+  });
+  if (response.status === 404) {
+    return [];
+  }
+  if (!response.ok) {
+    throw new GitHubError(response.status, await describeError(response));
+  }
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) {
+    return [];
+  }
+  return body.flatMap((entry: unknown) =>
+    typeof entry === "object" &&
+    entry !== null &&
+    "type" in entry &&
+    entry.type === "file" &&
+    "name" in entry &&
+    typeof entry.name === "string"
+      ? [entry.name]
+      : [],
+  );
+};
+
+/**
+ * ファイルの本文だけを読む。sha は取らない。
+ *
+ * @param settings - 接続設定。
+ * @param path - リポジトリ内のパス。
+ * @returns 本文。無ければ undefined。
+ * @throws GitHubError 404 以外の失敗。
+ */
+export const readText = async (settings: Settings, path: string): Promise<string | undefined> => {
+  const url = `${contentsUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
+  const response = await request(url, {
+    headers: headers(settings, "application/vnd.github.raw+json"),
+    cache: "no-store",
+  });
+  if (response.status === 404) {
+    return undefined;
+  }
+  if (!response.ok) {
+    throw new GitHubError(response.status, await describeError(response));
+  }
+  return response.text();
+};
+
+/**
+ * 手元の sha のまま変わっていなければ書く。競合してもやり直さない。
+ *
+ * @param settings - 接続設定。
+ * @param path - リポジトリ内のパス。
+ * @param content - 書く内容。
+ * @param message - commit メッセージ。
+ * @param sha - 読んだときの sha。
+ * @returns 新しい sha。
+ * @throws GitHubError 競合 (`isConflict` が true) を含む失敗。
+ */
+export const writeIfUnchanged = async (
+  settings: Settings,
+  path: string,
+  content: string,
+  message: string,
+  sha: string,
+): Promise<string> => (await putFile(settings, path, content, message, sha)).sha;

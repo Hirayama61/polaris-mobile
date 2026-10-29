@@ -8,6 +8,14 @@
 const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 /**
+ * path に埋め込んでよい ID か。
+ *
+ * @param id - task ID やプロジェクトの slug。
+ * @returns 英数字で始まり、英数字と `_` `-` だけなら true。
+ */
+export const isSafeId = (id: string): boolean => SAFE_ID_PATTERN.test(id);
+
+/**
  * frontmatter から 1 つのキーの値を取り出す。
  *
  * @param text - Markdown ファイル全体。
@@ -63,7 +71,7 @@ export const createProjectNameLoader = (
     return pending;
   };
   const valueOf = async (kind: string, id: string, key: string): Promise<string | undefined> => {
-    if (!SAFE_ID_PATTERN.test(id)) {
+    if (!isSafeId(id)) {
       return undefined;
     }
     const text = await readOnce(`${kind}/${id}.md`);
