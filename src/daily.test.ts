@@ -5,10 +5,13 @@ import {
   extractReviewAt,
   extractSchedule,
   extractTurns,
+  extractWakeAt,
   parseDaily,
   setReview,
   setReviewAt,
+  setScheduleActual,
   setTurnChecked,
+  setWakeAt,
   toggleTurn,
 } from "./daily";
 
@@ -38,6 +41,26 @@ review_at:
 - ...
 `;
 
+// 「実績」列と wake_at を持つ新しい形式の daily。
+const fixtureWithActual = `---
+date: 2026-10-31
+plan_at: 2026-10-31T06:00:00+09:00
+wake_at:
+review_at:
+---
+
+## 今日の時間割
+| 時刻 | やること | 誰 | 実績 |
+| --- | --- | --- | --- |
+| 07:00–07:30 | 散歩 | あなた | |
+| 09:00–18:00 | 仕事 | | 10:00 から |
+
+## あなたの番 (3 つまで)
+- [ ] 散歩
+
+## 振り返り (夜に書く)
+`;
+
 const lines = (text: string): readonly string[] => text.split("\n");
 
 // 指定した行以外が元の全文と一致することを確かめる。
@@ -60,11 +83,20 @@ describe("extractSchedule", () => {
   it("ヘッダーと区切り行を除いた表の行を返す", () => {
     expect(extractSchedule(fixture)).toEqual([
       {
+        line: 9,
         time: "07:00–07:30",
         what: "Google アカウントを作る (task: 20261025-oubf)",
         who: "あなた",
+        actual: undefined,
       },
-      { time: "09:00–18:00", what: "仕事", who: "" },
+      { line: 10, time: "09:00–18:00", what: "仕事", who: "", actual: undefined },
+    ]);
+  });
+
+  it("「実績」列があれば各行のセルを返す", () => {
+    expect(extractSchedule(fixtureWithActual)).toEqual([
+      { line: 10, time: "07:00–07:30", what: "散歩", who: "あなた", actual: "" },
+      { line: 11, time: "09:00–18:00", what: "仕事", who: "", actual: "10:00 から" },
     ]);
   });
 
@@ -146,6 +178,75 @@ describe("setReviewAt", () => {
   });
 });
 
+describe("setWakeAt", () => {
+  it("frontmatter の wake_at だけを変える", () => {
+    const after = setWakeAt(fixtureWithActual, "2026-10-31T06:42:10+09:00");
+    expect(lines(after)[3]).toBe("wake_at: 2026-10-31T06:42:10+09:00");
+    expectOnlyLinesChanged(fixtureWithActual, after, [3]);
+    expect(extractWakeAt(after)).toBe("2026-10-31T06:42:10+09:00");
+  });
+
+  it("既に値があれば置き換える", () => {
+    const once = setWakeAt(fixtureWithActual, "2026-10-31T06:00:00+09:00");
+    const twice = setWakeAt(once, "2026-10-31T07:00:00+09:00");
+    expect(extractWakeAt(twice)).toBe("2026-10-31T07:00:00+09:00");
+    expectOnlyLinesChanged(fixtureWithActual, twice, [3]);
+  });
+
+  it("キーが無ければ frontmatter の末尾に足し、他の行は変えない", () => {
+    const after = setWakeAt(fixture, "2026-10-30T06:30:00+09:00");
+    expect(after).toBe(
+      fixture.replace("review_at:\n---", "review_at:\nwake_at: 2026-10-30T06:30:00+09:00\n---"),
+    );
+    expect(extractReviewAt(after)).toBeUndefined();
+  });
+
+  it("frontmatter が無ければ全文を変えない", () => {
+    expect(setWakeAt("## 振り返り\n", "2026-10-30T06:30:00+09:00")).toBe("## 振り返り\n");
+  });
+});
+
+describe("setScheduleActual", () => {
+  it("対象の行の「実績」セルだけを書き、他の行は 1 文字も変えない", () => {
+    const after = setScheduleActual(fixtureWithActual, 10, "7:10 から 20 分");
+    expect(lines(after)[10]).toBe("| 07:00–07:30 | 散歩 | あなた | 7:10 から 20 分 |");
+    expectOnlyLinesChanged(fixtureWithActual, after, [10]);
+    expect(extractSchedule(after)[0]?.actual).toBe("7:10 から 20 分");
+  });
+
+  it("既存の値を置き換え、空にすると空のセルに戻す", () => {
+    const after = setScheduleActual(fixtureWithActual, 11, "");
+    expect(lines(after)[11]).toBe("| 09:00–18:00 | 仕事 | | |");
+    expectOnlyLinesChanged(fixtureWithActual, after, [11]);
+    expect(setScheduleActual(setScheduleActual(fixtureWithActual, 10, "した"), 10, "")).toBe(
+      fixtureWithActual,
+    );
+  });
+
+  it("改行と | をセルを壊さない文字に置き換える", () => {
+    const after = setScheduleActual(fixtureWithActual, 10, " 散歩 | 読書\n半分 ");
+    expect(lines(after)[10]).toBe("| 07:00–07:30 | 散歩 | あなた | 散歩 ｜ 読書 半分 |");
+    expect(extractSchedule(after)).toHaveLength(2);
+  });
+
+  it("末尾の | が無い行でも最後のセルだけを書く", () => {
+    const text = fixtureWithActual.replace("| 仕事 | | 10:00 から |", "| 仕事 | | 10:00 から");
+    const after = setScheduleActual(text, 11, "定時");
+    expect(lines(after)[11]).toBe("| 09:00–18:00 | 仕事 | | 定時");
+    expectOnlyLinesChanged(text, after, [11]);
+  });
+
+  it("「実績」列が無い表、表の行でない行、セルが無い行では全文を変えない", () => {
+    expect(setScheduleActual(fixture, 9, "した")).toBe(fixture);
+    expect(setScheduleActual(fixtureWithActual, 8, "した")).toBe(fixtureWithActual);
+    expect(setScheduleActual(fixtureWithActual, 9, "した")).toBe(fixtureWithActual);
+    expect(setScheduleActual(fixtureWithActual, 14, "した")).toBe(fixtureWithActual);
+    expect(setScheduleActual(fixtureWithActual, 999, "した")).toBe(fixtureWithActual);
+    const short = fixtureWithActual.replace("| 散歩 | あなた | |", "| 散歩 | あなた |");
+    expect(setScheduleActual(short, 10, "した")).toBe(short);
+  });
+});
+
 describe("setReview", () => {
   it("振り返り節の本文だけを書き、前後の節は 1 文字も変えない", () => {
     const after = setReview(fixture, "よく寝た。\n明日は早起き。");
@@ -203,5 +304,6 @@ describe("parseDaily", () => {
     expect(view.turns).toHaveLength(2);
     expect(view.review).toBe("");
     expect(view.reviewAt).toBeUndefined();
+    expect(view.wakeAt).toBeUndefined();
   });
 });

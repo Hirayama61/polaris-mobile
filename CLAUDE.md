@@ -6,7 +6,7 @@
 ## 守ること
 
 - 画面は「今日」「夜」「設定」の 3 つ。増やさない。機能は既存の画面か、要望シートのようなシートに収める。
-- daily で書き換えてよいのは「あなたの番」のチェック、「振り返り」、frontmatter の `review_at` だけ。他の行は 1 文字も変えない。`src/daily.ts` のテストがこの契約。
+- daily で書き換えてよいのは「あなたの番」のチェック、「振り返り」、frontmatter の `review_at` と `wake_at`、時間割の「実績」列のセルだけ。他の行は 1 文字も変えない。「実績」列が無い daily に列を足さない。`src/daily.ts` のテストがこの契約。
 - 通信先は api.github.com だけ。PAT を他に送らない、ログに出さない。
 - ライブラリを足さない (UI ライブラリ、ルーター、状態管理、octokit)。手書き CSS。
 - `bun run test`、`bunx tsc --noEmit`、`bun run build` が通らない変更は出さない。

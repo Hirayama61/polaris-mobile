@@ -197,8 +197,8 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
     }
     setSave({ status: "saving" });
     const content = replaceAnswer(detail.content, answer);
-    writeIfUnchanged(settings, taskPath(selected.id), content, `chore(mobile): ${selected.id} に回答`, detail.sha)
-      .then((sha) => {
+    writeIfUnchanged(settings, taskPath(selected.id), `chore(mobile): ${selected.id} に回答`, detail.sha, content)
+      .then(({ sha }) => {
         setDetail({ status: "ready", content, sha });
         setSave({ status: "saved" });
       })

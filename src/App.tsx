@@ -4,9 +4,11 @@ import { loadDraft, saveDraft } from "./drafts";
 import type { FeedbackDraft } from "./feedback";
 import { FEEDBACK_DRAFT_KEYS, FeedbackSheet } from "./FeedbackSheet";
 import { QuestionSheet } from "./QuestionSheet";
+import { ProjectsSheet } from "./ProjectsSheet";
 import { NightScreen } from "./screens/Night";
 import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
+import { TasksSheet } from "./TasksSheet";
 import { isConfigured, loadSettings, saveSettings, type Settings } from "./settings";
 import { GearIcon, MessageIcon, MoonIcon, SunIcon } from "./ui";
 import { useDaily } from "./useDaily";
@@ -68,6 +70,10 @@ export const App = () => {
   const closeFeedback = useCallback(() => setIsFeedbackOpen(false), []);
   const [isQuestionOpen, setIsQuestionOpen] = useState(false);
   const closeQuestion = useCallback(() => setIsQuestionOpen(false), []);
+  const [isProjectsOpen, setIsProjectsOpen] = useState(false);
+  const closeProjects = useCallback(() => setIsProjectsOpen(false), []);
+  const [isTasksOpen, setIsTasksOpen] = useState(false);
+  const closeTasks = useCallback(() => setIsTasksOpen(false), []);
   useEffect(() => {
     saveDraft(FEEDBACK_DRAFT_KEYS.title, feedbackDraft.title);
     saveDraft(FEEDBACK_DRAFT_KEYS.body, feedbackDraft.body);
@@ -82,6 +88,8 @@ export const App = () => {
   const openSettings = (): void => {
     setIsFeedbackOpen(false);
     setIsQuestionOpen(false);
+    setIsProjectsOpen(false);
+    setIsTasksOpen(false);
     setScreen("settings");
   };
 
@@ -128,7 +136,12 @@ export const App = () => {
           />
         )}
         {screen === "settings" && (
-          <SettingsScreen settings={settings} onSave={handleSaveSettings} />
+          <SettingsScreen
+            settings={settings}
+            onSave={handleSaveSettings}
+            onOpenProjects={() => setIsProjectsOpen(true)}
+            onOpenTasks={() => setIsTasksOpen(true)}
+          />
         )}
       </main>
 
@@ -167,6 +180,10 @@ export const App = () => {
           onOpenSettings={openSettings}
         />
       )}
+      {isProjectsOpen && (
+        <ProjectsSheet settings={settings} onClose={closeProjects} onOpenSettings={openSettings} />
+      )}
+      {isTasksOpen && <TasksSheet settings={settings} onClose={closeTasks} onOpenSettings={openSettings} />}
     </div>
   );
 };

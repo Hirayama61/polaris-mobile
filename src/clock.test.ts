@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDateLabel, formatTokyoIso, polarisToday, tokyoMinutesOfDay } from "./clock";
+import { formatDateLabel, formatTokyoIso, formatTokyoTime, polarisToday, tokyoMinutesOfDay } from "./clock";
 
 describe("polarisToday", () => {
   it("日中はその日を返す", () => {
@@ -45,5 +45,12 @@ describe("tokyoMinutesOfDay", () => {
   it("東京の壁時計で 0:00 からの分を返す", () => {
     expect(tokyoMinutesOfDay(new Date("2026-10-30T13:15:07Z"))).toBe(22 * 60 + 15);
     expect(tokyoMinutesOfDay(new Date("2026-10-30T15:00:00Z"))).toBe(0);
+  });
+});
+
+describe("formatTokyoTime", () => {
+  it("東京の時刻を HH:MM で返す", () => {
+    expect(formatTokyoTime(new Date("2026-10-30T13:05:59Z"))).toBe("22:05");
+    expect(formatTokyoTime(new Date("2026-10-30T16:30:00Z"))).toBe("01:30");
   });
 });

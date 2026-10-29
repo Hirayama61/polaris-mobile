@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { createProjectNameLoader, readFrontmatterValue } from "./projects";
+import {
+  createProjectNameLoader,
+  linkifyIssueRefs,
+  loadProjects,
+  parseProject,
+  parseProjectBody,
+  readFrontmatterValue,
+  sortProjects,
+  stripFrontmatter,
+} from "./projects";
 
 describe("readFrontmatterValue", () => {
   it("frontmatter のキーの値を返し、引用符を外す", () => {
@@ -86,5 +95,115 @@ describe("createProjectNameLoader", () => {
     expect(await nameOf("../daily/2026-10-29")).toBeUndefined();
     expect(await nameOf("evil")).toBeUndefined();
     expect(calls).toEqual(["tasks/evil.md"]);
+  });
+});
+
+describe("parseProject", () => {
+  it("name、status、github と frontmatter を除いた本文を読む", () => {
+    const text = "---\nname: Polaris\nstatus: retired\ngithub: Hirayama61/polaris\n---\n\n## 目指すもの\n本文\n";
+    expect(parseProject("polaris", text)).toEqual({
+      slug: "polaris",
+      name: "Polaris",
+      isRetired: true,
+      github: "Hirayama61/polaris",
+      body: "## 目指すもの\n本文\n",
+    });
+  });
+
+  it("name が無ければ slug を名前にし、owner/name の形でない github は使わない", () => {
+    const project = parseProject("x", "---\ngithub: javascript:alert(1)\n---\n本文");
+    expect(project.name).toBe("x");
+    expect(project.isRetired).toBe(false);
+    expect(project.github).toBeUndefined();
+  });
+});
+
+describe("stripFrontmatter", () => {
+  it("frontmatter が無い、または閉じていなければ全体を返す", () => {
+    expect(stripFrontmatter("# 本文\n")).toBe("# 本文\n");
+    expect(stripFrontmatter("---\nname: a\n")).toBe("---\nname: a\n");
+  });
+});
+
+describe("sortProjects", () => {
+  it("retired を末尾に回し、それぞれ名前順に並べる", () => {
+    const make = (name: string, isRetired: boolean) => ({ slug: name, name, isRetired, github: undefined, body: "" });
+    const sorted = sortProjects([make("c", true), make("b", false), make("a", true), make("a2", false)]);
+    expect(sorted.map(({ name }) => name)).toEqual(["a2", "b", "a", "c"]);
+  });
+});
+
+describe("linkifyIssueRefs", () => {
+  it("#N を github の Issue に、(PR: URL) をその URL にする", () => {
+    expect(
+      linkifyIssueRefs("#12 一覧を作る (PR: https://github.com/o/r/pull/13)", "o/r"),
+    ).toEqual([
+      { kind: "link", text: "#12", href: "https://github.com/o/r/issues/12" },
+      { kind: "text", text: " 一覧を作る (PR: " },
+      { kind: "link", text: "https://github.com/o/r/pull/13", href: "https://github.com/o/r/pull/13" },
+      { kind: "text", text: ")" },
+    ]);
+  });
+
+  it("github が無ければ #N は文字のまま", () => {
+    expect(linkifyIssueRefs("#3 済み", undefined)).toEqual([{ kind: "text", text: "#3 済み" }]);
+  });
+
+  it("github.com 以外の URL や、語の途中の # はリンクにしない", () => {
+    expect(linkifyIssueRefs("a#1 (PR: javascript:alert(1)) C#2", "o/r")).toEqual([
+      { kind: "text", text: "a#1 (PR: javascript:alert(1)) C#2" },
+    ]);
+  });
+});
+
+describe("parseProjectBody", () => {
+  it("「## Issue の状況」節の中だけをリンクにする", () => {
+    const body = "## 目指すもの\n#1 はリンクにしない\n\n## Issue の状況\n- #2 作る\n### 細目\n- #3 直す\n## メモ\n- #4\n";
+    expect(parseProjectBody(body, "o/r")).toEqual([
+      { kind: "heading", level: 2, segments: [{ kind: "text", text: "目指すもの" }] },
+      { kind: "text", segments: [{ kind: "text", text: "#1 はリンクにしない" }] },
+      { kind: "blank" },
+      { kind: "heading", level: 2, segments: [{ kind: "text", text: "Issue の状況" }] },
+      {
+        kind: "item",
+        segments: [
+          { kind: "link", text: "#2", href: "https://github.com/o/r/issues/2" },
+          { kind: "text", text: " 作る" },
+        ],
+      },
+      { kind: "heading", level: 3, segments: [{ kind: "text", text: "細目" }] },
+      {
+        kind: "item",
+        segments: [
+          { kind: "link", text: "#3", href: "https://github.com/o/r/issues/3" },
+          { kind: "text", text: " 直す" },
+        ],
+      },
+      { kind: "heading", level: 2, segments: [{ kind: "text", text: "メモ" }] },
+      { kind: "item", segments: [{ kind: "text", text: "#4" }] },
+    ]);
+  });
+});
+
+describe("loadProjects", () => {
+  it("projects/*.md だけを読み、retired を末尾にして返す。書き込みはしない", async () => {
+    const { read, calls } = fakeRead({
+      "projects/b.md": "---\nname: B\n---\n",
+      "projects/a.md": "---\nname: A\nstatus: retired\n---\n",
+    });
+    const listed: string[] = [];
+    const list = async (path: string) => {
+      listed.push(path);
+      return ["b.md", "a.md", "README.txt", "..md", "gone.md"];
+    };
+    const projects = await loadProjects(list, read);
+    expect(projects.map(({ name }) => name)).toEqual(["B", "A"]);
+    expect(listed).toEqual(["projects"]);
+    expect([...calls].sort()).toEqual(["projects/a.md", "projects/b.md", "projects/gone.md"]);
+  });
+
+  it("読めないファイルがあれば例外にする", async () => {
+    const { read } = fakeRead({}, new Set(["projects/a.md"]));
+    await expect(loadProjects(async () => ["a.md"], read)).rejects.toThrow("offline");
   });
 });

@@ -148,12 +148,13 @@ const putFile = async (
   throw new GitHubError(0, "GitHub の応答に content がありません");
 };
 
-// sha 不一致は 409 で返る。古い API は 422 を返したので両方を競合とみなす。
 /**
- * 書き込みの失敗が sha の不一致 (競合) か。
+ * 書き込みが競合 (sha の不一致) で失敗したかを返す。
+ *
+ * sha 不一致は 409 で返る。古い API は 422 を返したので両方を競合とみなす。
  *
  * @param error - 書き込みで起きた例外。
- * @returns 409 / 422 なら true。
+ * @returns 競合なら true。
  */
 export const isConflict = (error: unknown): boolean =>
   error instanceof GitHubError && (error.status === 409 || error.status === 422);
@@ -235,6 +236,25 @@ export const writeKnownFile = async (
 };
 
 /**
+ * 手元の sha のときだけファイルを書く。競合してもやり直さない。
+ *
+ * @param settings - 接続設定。
+ * @param path - リポジトリ内のパス。
+ * @param message - commit メッセージ。
+ * @param sha - 手元の sha。
+ * @param content - 書く内容。
+ * @returns 新しい sha。
+ * @throws GitHubError 失敗したとき。競合は `isConflict` で見分ける。
+ */
+export const writeIfUnchanged = async (
+  settings: Settings,
+  path: string,
+  message: string,
+  sha: string,
+  content: string,
+): Promise<{ sha: string }> => putFile(settings, path, content, message, sha);
+
+/**
  * 新しいファイルを作る。同じパスが既にあれば上書きせず失敗する。
  *
  * @param settings - 接続設定。
@@ -253,11 +273,11 @@ export const createFile = async (
 };
 
 /**
- * ディレクトリ直下のファイル名を読む。
+ * ディレクトリ直下のファイル名を返す。サブディレクトリは含めない。
  *
  * @param settings - 接続設定。
- * @param path - リポジトリ内のディレクトリ。
- * @returns ファイル名。ディレクトリが無ければ空。
+ * @param path - リポジトリ内のディレクトリのパス。
+ * @returns ディレクトリが無ければ空。
  * @throws GitHubError 404 以外の失敗。
  */
 export const listFileNames = async (settings: Settings, path: string): Promise<string[]> => {
@@ -311,21 +331,3 @@ export const readText = async (settings: Settings, path: string): Promise<string
   return response.text();
 };
 
-/**
- * 手元の sha のまま変わっていなければ書く。競合してもやり直さない。
- *
- * @param settings - 接続設定。
- * @param path - リポジトリ内のパス。
- * @param content - 書く内容。
- * @param message - commit メッセージ。
- * @param sha - 読んだときの sha。
- * @returns 新しい sha。
- * @throws GitHubError 競合 (`isConflict` が true) を含む失敗。
- */
-export const writeIfUnchanged = async (
-  settings: Settings,
-  path: string,
-  content: string,
-  message: string,
-  sha: string,
-): Promise<string> => (await putFile(settings, path, content, message, sha)).sha;
