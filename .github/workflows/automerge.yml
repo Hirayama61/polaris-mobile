@@ -31,9 +31,12 @@ jobs:
       OWNER: ${{ github.repository_owner }}
     steps:
       - name: 承認済みで CI が通った PR をマージする
+        id: merge
         run: |
           set -euo pipefail
           merged=0
+          # 途中で失敗しても、それまでにマージした件数を次のステップに渡す
+          trap 'echo "merged=$merged" >> "$GITHUB_OUTPUT"' EXIT
           for n in $(gh api "repos/$REPO/pulls?state=open&per_page=50" --jq '.[] | select(.head.ref|startswith("claude/issue-")) | select(.draft|not) | .number'); do
             pr=$(gh api "repos/$REPO/pulls/$n")
             sha=$(jq -r .head.sha <<<"$pr")
@@ -57,10 +60,10 @@ jobs:
             # sha を渡すと、確認した head から動いていたら 409 で拒否される (未承認のコミットを巻き込まない)
             gh api -X PUT "repos/$REPO/pulls/$n/merge" -f merge_method=squash -f sha="$sha" >/dev/null || { echo "#$n: head moved since approval, skip"; continue; }
             gh api -X DELETE "repos/$REPO/git/refs/heads/$branch" >/dev/null || true
-            gh api -X POST "repos/$REPO/issues/$n/comments" -f body="レビュー係の承認と CI が揃ったので自動でマージした (${sha:0:7})。" >/dev/null
             echo "#$n: merged"
             merged=$((merged+1))
+            gh api -X POST "repos/$REPO/issues/$n/comments" -f body="レビュー係の承認と CI が揃ったので自動でマージした (${sha:0:7})。" >/dev/null || echo "#$n: comment failed (ignored)"
           done
-          if [ "$merged" -gt 0 ]; then
-            gh workflow run deploy-pages.yml --ref main --repo "$REPO"
-          fi
+      - name: マージがあれば Pages をデプロイする
+        if: always() && steps.merge.outputs.merged != '' && steps.merge.outputs.merged != '0'
+        run: gh workflow run deploy-pages.yml --ref main --repo "$REPO"
