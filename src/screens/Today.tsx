@@ -5,6 +5,7 @@ import { isNowInSlot, splitTaskRef, splitTurnLabel } from "../display";
 import { describeFailure, type Failure } from "../failure";
 import { writeKnownFile } from "../github";
 import type { Settings } from "../settings";
+import { useProjectNames } from "../useProjectNames";
 import { StateCard } from "../ui";
 import { dailyPath, useDaily } from "../useDaily";
 import { FailureAction, UnconfiguredCard } from "./common";
@@ -48,6 +49,11 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const [openLine, setOpenLine] = useState<number | undefined>(undefined);
   const minutesOfDay = useMinutesOfDay();
   const { state } = daily;
+  const taskIds =
+    state.status === "ready"
+      ? extractTurns(state.content).flatMap(({ label }) => splitTurnLabel(label).taskId ?? [])
+      : [];
+  const projectNames = useProjectNames(settings, taskIds);
 
   // オフラインで出した失敗は、つながったら消す。
   useEffect(() => {
@@ -170,6 +176,10 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               const isChecked = checkedOf(turn);
               const isWriting = write.status === "writing" && write.line === turn.line;
               const { title, steps, minutes, taskId } = splitTurnLabel(turn.label);
+              const projectName = taskId === undefined ? undefined : projectNames.get(taskId);
+              const project = projectName !== undefined && (
+                <span className="turn-project">{projectName}</span>
+              );
               const checkbox = (
                 <input
                   type="checkbox"
@@ -188,6 +198,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                       {checkbox}
                       <span className="turn-text">
                         <span className="turn-label">{title}</span>
+                        {project}
                         {taskId !== undefined && <span className="turn-task">{taskId}</span>}
                       </span>
                       {status}
@@ -210,7 +221,10 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                       aria-controls={detailId}
                       onClick={() => setOpenLine(isOpen ? undefined : turn.line)}
                     >
-                      <span className="turn-label turn-line">{title}</span>
+                      <span className="turn-text">
+                        <span className="turn-label turn-line">{title}</span>
+                        {project}
+                      </span>
                       {minutes !== undefined && <span className="turn-minutes">{minutes}</span>}
                       {status}
                       <span className="turn-chevron" aria-hidden="true" />
