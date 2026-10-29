@@ -31,7 +31,7 @@ type Props = {
 type WriteTarget =
   | { kind: "turn"; line: number; nextChecked: boolean }
   | { kind: "wake" }
-  | { kind: "actual"; line: number };
+  | { kind: "actual"; slot: string };
 
 // 失敗はその操作をした節の下に出す。
 type WriteArea = "turns" | "wake" | "schedule";
@@ -63,7 +63,8 @@ const isMine = (who: string): boolean => who === "あなた";
 const clockOf = (iso: string | undefined): string | undefined =>
   iso === undefined ? undefined : /T(\d{2}:\d{2})/.exec(iso)?.[1];
 
-const isSameSlot = (a: ScheduleRow, b: ScheduleRow): boolean => a.time === b.time && a.what === b.what;
+// 起床の記録などで frontmatter の行が増えると表の行番号がずれるので、時間枠は時刻とやることで見分ける。
+const slotKey = (row: ScheduleRow): string => `${row.time}\u0000${row.what}`;
 
 const ErrorMessage = ({ failure, onOpenSettings }: { failure: Failure; onOpenSettings: () => void }) => (
   <div className="message message-error" role="alert">
@@ -82,8 +83,8 @@ const ErrorMessage = ({ failure, onOpenSettings }: { failure: Failure; onOpenSet
  */
 export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }: Props) => {
   const [write, setWrite] = useState<WriteState>({ status: "idle" });
-  // 保存前と保存に失敗した実績の入力。キーは表の行番号。
-  const [actualDrafts, setActualDrafts] = useState<ReadonlyMap<number, string>>(new Map());
+  // 保存前と保存に失敗した実績の入力。キーは slotKey。
+  const [actualDrafts, setActualDrafts] = useState<ReadonlyMap<string, string>>(new Map());
   const [openLine, setOpenLine] = useState<number | undefined>(undefined);
   const minutesOfDay = useMinutesOfDay();
   const { state } = daily;
@@ -93,7 +94,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
       : [];
   const projectNames = useProjectNames(settings, taskIds);
 
-  // 4:00 をまたいだら、前日の表の行番号で持っている実績の入力を当日の daily に書かない。
+  // 4:00 をまたいだら、前日の時間割で持っている実績の入力を当日の daily に書かない。
   useEffect(() => {
     setActualDrafts(new Map());
   }, [date]);
@@ -225,27 +226,28 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   };
 
   const saveActual = (row: ScheduleRow): void => {
-    const value = actualDrafts.get(row.line);
+    const slot = slotKey(row);
+    const value = actualDrafts.get(slot);
     if (value === undefined || value.trim() === (row.actual ?? "")) {
       return;
     }
-    // 再試行時はリモートの最新内容に当てるので、行番号ではなく時刻とやることで探し直す。
+    // 再試行時はリモートの最新内容に当てるので、行番号ではなく時間枠で探し直す。
     runWrite(
-      { kind: "actual", line: row.line },
+      { kind: "actual", slot },
       "schedule",
       "実績",
       (current) => {
-        const target = extractSchedule(current).find((candidate) => isSameSlot(candidate, row));
+        const target = extractSchedule(current).find((candidate) => slotKey(candidate) === slot);
         return target === undefined ? current : setScheduleActual(current, target.line, value);
       },
       () =>
         setActualDrafts((drafts) => {
           // 保存中に書き換えた分は残す。
-          if (drafts.get(row.line) !== value) {
+          if (drafts.get(slot) !== value) {
             return drafts;
           }
           const next = new Map(drafts);
-          next.delete(row.line);
+          next.delete(slot);
           return next;
         }),
     );
@@ -423,14 +425,14 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                           enterKeyHint="done"
                           placeholder="実績"
                           readOnly={isWriting}
-                          value={actualDrafts.get(row.line) ?? row.actual}
+                          value={actualDrafts.get(slotKey(row)) ?? row.actual}
                           onChange={(event) => {
                             const value = event.target.value;
-                            setActualDrafts((drafts) => new Map(drafts).set(row.line, value));
+                            setActualDrafts((drafts) => new Map(drafts).set(slotKey(row), value));
                           }}
                           onBlur={() => saveActual(row)}
                         />
-                        {writingTarget?.kind === "actual" && writingTarget.line === row.line && (
+                        {writingTarget?.kind === "actual" && writingTarget.slot === slotKey(row) && (
                           <span className="slot-actual-status">保存中</span>
                         )}
                       </form>
