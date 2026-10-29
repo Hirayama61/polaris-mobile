@@ -28,6 +28,7 @@ jobs:
     env:
       GH_TOKEN: ${{ github.token }}
       REPO: ${{ github.repository }}
+      OWNER: ${{ github.repository_owner }}
     steps:
       - name: 承認済みで CI が通った PR をマージする
         run: |
@@ -39,8 +40,13 @@ jobs:
             labels=$(jq -r '[.labels[].name]|join(",")' <<<"$pr")
             case ",$labels," in *,hold,*|*,needs-fix,*) echo "#$n: skip ($labels)"; continue;; esac
             case ",$labels," in *,approved,*) ;; *) echo "#$n: not approved"; continue;; esac
-            ok=$(gh api "repos/$REPO/issues/$n/comments?per_page=100" | jq --arg sha "$sha" '[.[] | select(.body|contains("<!-- polaris-review: approve sha=" + $sha + " -->"))] | length')
-            [ "$ok" -gt 0 ] || { echo "#$n: approval is for another commit"; continue; }
+            # 承認コメントは、リポジトリの所有者 (レビュー係はその権限で動く) が投稿し、今の head の sha を指すものだけを認める
+            ok=$(gh api "repos/$REPO/issues/$n/comments?per_page=100" | jq --arg sha "$sha" --arg owner "$OWNER" '[.[] | select(.user.login == $owner) | select(.body|contains("<!-- polaris-review: approve sha=" + $sha + " -->"))] | length')
+            if [ "$ok" -eq 0 ]; then
+              echo "#$n: no valid approval for head $sha; removing stale approved label"
+              gh api -X DELETE "repos/$REPO/issues/$n/labels/approved" >/dev/null 2>&1 || true
+              continue
+            fi
             runs=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[] | select(.name!="merge")]')
             total=$(jq 'length' <<<"$runs")
             bad=$(jq '[.[] | select(.conclusion!="success")] | length' <<<"$runs")
