@@ -1,49 +1,41 @@
 import { describe, expect, it } from "vitest";
-import { buildIssueBody, clearSentDraft, parseRepoSlug } from "./feedback";
+import { buildInboxNote, buildInboxPath, clearSentDraft, inboxSuffix } from "./feedback";
 
 const context = { screenLabel: "夜", date: "2026-10-30", version: "0.1.0" };
+const created = "2026-10-30T22:15:00+09:00";
 
-describe("buildIssueBody", () => {
-  it("本文の後に空行を挟んで送信元を 1 行足す", () => {
-    expect(buildIssueBody("保存ボタンを上にほしい", context)).toBe(
-      "保存ボタンを上にほしい\n\n送信元: 夜 / 2026-10-30 / v0.1.0",
+describe("buildInboxNote", () => {
+  it("frontmatter は created だけで、タイトル、本文、送信元を空行で区切る", () => {
+    expect(buildInboxNote({ title: "保存ボタンを上に", body: "夜に押しにくい" }, context, created)).toBe(
+      "---\ncreated: 2026-10-30T22:15:00+09:00\n---\n\n保存ボタンを上に\n\n夜に押しにくい\n\n送信元: 夜 / 2026-10-30 / v0.1.0\n",
     );
   });
 
-  it("本文の前後の空白を取り除き、内部の改行は残す", () => {
-    expect(buildIssueBody("\n 1 行目\n2 行目 \n\n", context)).toBe(
-      "1 行目\n2 行目\n\n送信元: 夜 / 2026-10-30 / v0.1.0",
+  it("前後の空白を取り除き、本文内部の改行は残す", () => {
+    expect(buildInboxNote({ title: " 題 ", body: "\n 1 行目\n2 行目 \n\n" }, context, created)).toBe(
+      "---\ncreated: 2026-10-30T22:15:00+09:00\n---\n\n題\n\n1 行目\n2 行目\n\n送信元: 夜 / 2026-10-30 / v0.1.0\n",
     );
   });
 
-  it("本文が空なら送信元の 1 行だけにする", () => {
-    expect(buildIssueBody("  \n", context)).toBe("送信元: 夜 / 2026-10-30 / v0.1.0");
+  it("本文が空なら本文の段落を省く", () => {
+    expect(buildInboxNote({ title: "題", body: "  \n" }, context, created)).toBe(
+      "---\ncreated: 2026-10-30T22:15:00+09:00\n---\n\n題\n\n送信元: 夜 / 2026-10-30 / v0.1.0\n",
+    );
   });
 });
 
-describe("parseRepoSlug", () => {
-  it("owner/repo を分ける", () => {
-    expect(parseRepoSlug("Hirayama61/polaris-mobile")).toEqual({
-      owner: "Hirayama61",
-      repo: "polaris-mobile",
-    });
+describe("buildInboxPath", () => {
+  it("created の日付と 4 文字から inbox のパスを作る", () => {
+    expect(buildInboxPath(created, "a7k2")).toBe("inbox/20261030-a7k2.md");
   });
+});
 
-  it("前後の空白は無視する", () => {
-    expect(parseRepoSlug("  Hirayama61/polaris.mobile_2 ")).toEqual({
-      owner: "Hirayama61",
-      repo: "polaris.mobile_2",
-    });
-  });
-
-  it("形が違えば undefined を返す", () => {
-    expect(parseRepoSlug("")).toBeUndefined();
-    expect(parseRepoSlug("polaris-mobile")).toBeUndefined();
-    expect(parseRepoSlug("a/b/c")).toBeUndefined();
-    expect(parseRepoSlug("/repo")).toBeUndefined();
-    expect(parseRepoSlug("owner/")).toBeUndefined();
-    expect(parseRepoSlug("owner/..")).toBeUndefined();
-    expect(parseRepoSlug("-owner/repo")).toBeUndefined();
+describe("inboxSuffix", () => {
+  it("base36 の 4 文字を作る", () => {
+    expect(inboxSuffix(() => 0)).toBe("0000");
+    expect(inboxSuffix(() => 0.9999999)).toBe("zzzz");
+    const values = [0, 10 / 36, 35 / 36, 1 / 36];
+    expect(inboxSuffix(() => values.shift() ?? 0)).toBe("0az1");
   });
 });
 

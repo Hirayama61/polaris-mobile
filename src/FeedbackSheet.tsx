@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
-import { buildIssueBody, clearSentDraft, parseRepoSlug, type FeedbackDraft } from "./feedback";
+import { formatTokyoIso } from "./clock";
+import { buildInboxNote, buildInboxPath, clearSentDraft, inboxSuffix, type FeedbackDraft } from "./feedback";
 import { describeFailure, type Failure } from "./failure";
-import { createIssue, type CreatedIssue } from "./github";
+import { createFile } from "./github";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
 
 type SendState =
   | { status: "idle" }
   | { status: "sending" }
-  | { status: "sent"; issue: CreatedIssue }
+  | { status: "sent"; path: string }
   | { status: "error"; failure: Failure };
 
 type Props = {
@@ -28,10 +29,10 @@ type Props = {
 export const FEEDBACK_DRAFT_KEYS = { title: "feedback:title", body: "feedback:body" } as const;
 
 /**
- * 要望を GitHub Issue として送るシート。
+ * 思いつきを polaris-data の `inbox/` にファイルとして書くシート。
  *
  * 書きかけは閉じても消えないので、外側のタップや Esc で閉じてよい。
- * 送信中だけは閉じさせない。閉じて開き直すと送信中の状態を失い、同じ Issue を 2 回作れてしまうため。
+ * 送信中だけは閉じさせない。閉じて開き直すと送信中の状態を失い、同じ思いつきを 2 回書けてしまうため。
  */
 export const FeedbackSheet = ({
   settings,
@@ -45,7 +46,6 @@ export const FeedbackSheet = ({
 }: Props) => {
   const [send, setSend] = useState<SendState>({ status: "idle" });
   const titleRef = useRef<HTMLInputElement>(null);
-  const target = parseRepoSlug(settings.issueRepo);
   const isSending = send.status === "sending";
   const close = (): void => {
     if (!isSending) {
@@ -79,16 +79,11 @@ export const FeedbackSheet = ({
     }
   };
 
-  const blocker =
-    settings.token === ""
-      ? "トークンが未設定です。"
-      : target === undefined
-        ? "送り先のリポジトリが owner/repo の形になっていません。"
-        : undefined;
+  const blocker = settings.token === "" ? "トークンが未設定です。" : undefined;
   const canSend = draft.title.trim() !== "" && send.status !== "sending" && blocker === undefined;
 
   const handleSend = (): void => {
-    if (!canSend || target === undefined) {
+    if (!canSend) {
       return;
     }
     if (!isOnline) {
@@ -103,11 +98,13 @@ export const FeedbackSheet = ({
       return;
     }
     setSend({ status: "sending" });
-    const body = buildIssueBody(draft.body, { screenLabel, date, version: __APP_VERSION__ });
+    const created = formatTokyoIso(new Date());
+    const path = buildInboxPath(created, inboxSuffix(Math.random));
+    const note = buildInboxNote(draft, { screenLabel, date, version: __APP_VERSION__ }, created);
     const sent = draft;
-    createIssue(settings.token, target, draft.title.trim(), body)
-      .then((issue) => {
-        setSend({ status: "sent", issue });
+    createFile(settings, path, note, `inbox: ${draft.title.trim()}`)
+      .then(() => {
+        setSend({ status: "sent", path });
         onDraftChange((current) => clearSentDraft(current, sent));
       })
       .catch((error: unknown) => setSend({ status: "error", failure: describeFailure(error) }));
@@ -124,7 +121,7 @@ export const FeedbackSheet = ({
       >
         <div className="sheet-head">
           <h2 id="feedback-title" className="sheet-title">
-            要望を送る
+            思いつきを送る
           </h2>
           <button
             type="button"
@@ -163,7 +160,7 @@ export const FeedbackSheet = ({
             onChange={(event) => update({ ...draft, body: event.target.value })}
           />
         </label>
-        <p className="field-hint">送り先: {settings.issueRepo}</p>
+        <p className="field-hint">送り先: {settings.repo}/inbox</p>
 
         {blocker !== undefined && (
           <div className="message message-error" role="alert">
@@ -186,10 +183,7 @@ export const FeedbackSheet = ({
         )}
         {send.status === "sent" && (
           <p className="message message-ok" role="status">
-            #{send.issue.number} を作りました。
-            <a href={send.issue.url} target="_blank" rel="noreferrer">
-              {send.issue.url.replace(/^https:\/\//, "")}
-            </a>
+            {send.path} に書きました。
           </p>
         )}
 

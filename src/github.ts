@@ -229,53 +229,19 @@ export const writeKnownFile = async (
 };
 
 /**
- * 作成した Issue。
- */
-export type CreatedIssue = {
-  number: number;
-  url: string;
-};
-
-/**
- * Issue を作る。
+ * 新しいファイルを作る。同じパスが既にあれば上書きせず失敗する。
  *
- * PAT は daily の読み書きと同じものを使う。対象リポジトリに Issues の Read and write が要る。
- *
- * @param token - fine-grained PAT。
- * @param target - Issue を作るリポジトリ。
- * @param title - Issue のタイトル。
- * @param body - Issue の本文。
- * @returns 番号とブラウザで開く URL。
- * @throws GitHubError 作成に失敗したとき。
+ * @param settings - 接続設定。
+ * @param path - リポジトリ内のパス。
+ * @param content - 書く内容。
+ * @param message - commit メッセージ。
+ * @throws GitHubError 作成に失敗したとき。既にあれば 422。
  */
-export const createIssue = async (
-  token: string,
-  target: { owner: string; repo: string },
-  title: string,
-  body: string,
-): Promise<CreatedIssue> => {
-  const response = await request(
-    `${API_BASE}/repos/${encodeURIComponent(target.owner)}/${encodeURIComponent(target.repo)}/issues`,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${token}`,
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ title, body }),
-    },
-  );
-  if (!response.ok) {
-    throw new GitHubError(response.status, await describeError(response));
-  }
-  const created: unknown = await response.json();
-  if (typeof created === "object" && created !== null && "number" in created && "html_url" in created) {
-    const { number, html_url: url } = created;
-    if (typeof number === "number" && typeof url === "string") {
-      return { number, url };
-    }
-  }
-  throw new GitHubError(0, "GitHub の応答に Issue の番号がありません");
+export const createFile = async (
+  settings: Settings,
+  path: string,
+  content: string,
+  message: string,
+): Promise<void> => {
+  await putFile(settings, path, content, message, undefined);
 };

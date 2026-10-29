@@ -1,35 +1,9 @@
 /**
- * 要望を GitHub Issue として送るための純粋関数。
+ * 思いつきを polaris-data の inbox に書くための純粋関数。
  */
 
 /**
- * `owner/repo` を分けた結果。
- */
-export type RepoSlug = {
-  owner: string;
-  repo: string;
-};
-
-const SLUG_PATTERN = /^([A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)\/([A-Za-z0-9._-]+)$/;
-
-/**
- * `owner/repo` の文字列を分ける。
- *
- * @param slug - 例: `Hirayama61/polaris-mobile`。前後の空白は無視する。
- * @returns 形式が正しければ owner と repo、違えば undefined。
- */
-export const parseRepoSlug = (slug: string): RepoSlug | undefined => {
-  const match = SLUG_PATTERN.exec(slug.trim());
-  const owner = match?.[1];
-  const repo = match?.[2];
-  if (owner === undefined || repo === undefined || repo === "." || repo === "..") {
-    return undefined;
-  }
-  return { owner, repo };
-};
-
-/**
- * Issue 本文の末尾に足す送信元の情報。
+ * 本文の末尾に足す送信元の情報。
  */
 export type FeedbackContext = {
   screenLabel: string;
@@ -38,24 +12,55 @@ export type FeedbackContext = {
 };
 
 /**
- * Issue の本文を組み立てる。
- *
- * @param body - 利用者が書いた本文。空でもよい。前後の空白は取り除く。
- * @param context - 送信元の画面・日付・アプリのバージョン。
- * @returns 本文の後に空行を挟み、送信元を 1 行足した文字列。本文が空なら送信元の 1 行だけ。
- */
-export const buildIssueBody = (body: string, context: FeedbackContext): string => {
-  const footer = `送信元: ${context.screenLabel} / ${context.date} / v${context.version}`;
-  const trimmed = body.trim();
-  return trimmed === "" ? footer : `${trimmed}\n\n${footer}`;
-};
-
-/**
- * 要望の書きかけ。タイトルと本文。
+ * 思いつきの書きかけ。タイトルと本文。
  */
 export type FeedbackDraft = {
   title: string;
   body: string;
+};
+
+const SUFFIX_LENGTH = 4;
+
+/**
+ * inbox のファイル名の末尾に付ける base36 の 4 文字を作る。
+ *
+ * @param random - 0 以上 1 未満を返す関数。
+ * @returns `0-9a-z` の 4 文字。
+ */
+export const inboxSuffix = (random: () => number): string => {
+  let suffix = "";
+  for (let index = 0; index < SUFFIX_LENGTH; index += 1) {
+    suffix += Math.min(35, Math.floor(random() * 36)).toString(36);
+  }
+  return suffix;
+};
+
+/**
+ * inbox に作るファイルのパスを決める。
+ *
+ * @param created - +09:00 つきの ISO 8601。日付部分をファイル名に使う。
+ * @param suffix - `inboxSuffix` で作った 4 文字。
+ * @returns 例: `inbox/20261030-a7k2.md`。
+ */
+export const buildInboxPath = (created: string, suffix: string): string =>
+  `inbox/${created.slice(0, 10).replaceAll("-", "")}-${suffix}.md`;
+
+/**
+ * inbox に書くファイルの内容を組み立てる。
+ *
+ * @param draft - 書いたタイトルと本文。前後の空白は取り除く。
+ * @param context - 送信元の画面・日付・アプリのバージョン。
+ * @param created - +09:00 つきの ISO 8601。frontmatter の `created` になる。
+ * @returns frontmatter の後に、タイトル、本文、送信元の 1 行を空行で区切って並べた文字列。本文が空なら本文の段落を省く。
+ */
+export const buildInboxNote = (
+  draft: FeedbackDraft,
+  context: FeedbackContext,
+  created: string,
+): string => {
+  const footer = `送信元: ${context.screenLabel} / ${context.date} / v${context.version}`;
+  const paragraphs = [draft.title.trim(), draft.body.trim(), footer].filter((part) => part !== "");
+  return `---\ncreated: ${created}\n---\n\n${paragraphs.join("\n\n")}\n`;
 };
 
 /**
