@@ -337,6 +337,13 @@ a {
   overflow-wrap: anywhere;
 }
 
+.turn-project {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
 .turn-task,
 .slot-task {
   color: var(--text-3);
