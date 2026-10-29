@@ -88,6 +88,24 @@ describe("extractSection", () => {
 });
 
 describe("replaceAnswer", () => {
+  it("``` の中の ~~~ ではフェンスを閉じず、後ろの節を残す", () => {
+    const text = "## 回答\n\n```\n~~~\n## 例\n```\n\n## メモ\n\n残す\n";
+    const written = replaceAnswer(text, "A");
+    expect(written).toBe("## 回答\n\nA\n\n## メモ\n\n残す\n");
+  });
+
+  it("開きより短いフェンスでは閉じない", () => {
+    const text = "## 回答\n\n````\n```\n## 例\n````\n\n## メモ\n\n残す\n";
+    expect(replaceAnswer(text, "A")).toBe("## 回答\n\nA\n\n## メモ\n\n残す\n");
+  });
+
+  it("閉じていないフェンスの回答を書いても、次の保存で後ろの節を残す", () => {
+    const text = "## 回答\n\n(未回答)\n\n## メモ\n\n残す\n";
+    const once = replaceAnswer(text, "```\nコード");
+    expect(once).toBe("## 回答\n\n```\nコード\n\n## メモ\n\n残す\n");
+    expect(replaceAnswer(once, "B")).toBe(text.replace("(未回答)", "B"));
+  });
+
   it("途中の節を書き換え、他の行は変えない", () => {
     const written = replaceAnswer(task, "A");
     expect(extractSection(written, "回答")).toBe("A");

@@ -25,23 +25,42 @@ const splitLines = (text: string): Lines => {
 
 // 節は次の `#` か `##` の見出しで終わる。`###` 以下は節の中身として扱う。
 const SECTION_END = /^#{1,2}(\s|$)/;
-const FENCE = /^(```|~~~)/;
+const FENCE_OPEN = /^(`{3,}|~{3,})/;
+
+// 閉じたフェンスの中の行に印を付ける。閉じは開きと同じ文字で同じ長さ以上の行だけ (CommonMark)。
+// 閉じていないフェンスは印を付けない。付けると後ろの見出しが全部フェンスの中になり、書き換えで消える。
+const fencedLines = (lines: readonly string[]): boolean[] => {
+  const fenced = lines.map(() => false);
+  let open: { index: number; marker: string } | undefined;
+  for (const [index, raw] of lines.entries()) {
+    const line = raw.trim();
+    if (open === undefined) {
+      const marker = FENCE_OPEN.exec(line)?.[1];
+      if (marker !== undefined) {
+        open = { index, marker };
+      }
+      continue;
+    }
+    const char = open.marker[0] ?? "";
+    if (line.length >= open.marker.length && line === char.repeat(line.length)) {
+      fenced.fill(true, open.index, index + 1);
+      open = undefined;
+    }
+  }
+  return fenced;
+};
 
 const findSection = (
   lines: readonly string[],
   heading: string,
 ): { start: number; end: number } | undefined => {
-  let isInFence = false;
+  const fenced = fencedLines(lines);
   let start = -1;
   for (const [index, raw] of lines.entries()) {
+    if (fenced[index]) {
+      continue;
+    }
     const line = raw.trimEnd();
-    if (FENCE.test(line.trimStart())) {
-      isInFence = !isInFence;
-      continue;
-    }
-    if (isInFence) {
-      continue;
-    }
     if (start === -1) {
       if (line === `## ${heading}`) {
         start = index;
