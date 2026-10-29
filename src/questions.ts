@@ -24,7 +24,8 @@ const splitLines = (text: string): Lines => {
 };
 
 // 節は次の `#` か `##` の見出しで終わる。`###` 以下は節の中身として扱う。
-const SECTION_END = /^#{1,2}(\s|$)/;
+// 先頭 0〜3 個の空白がある見出しも見出し (CommonMark)。見落とすと後ろの節が回答として消える。
+const SECTION_END = /^ {0,3}#{1,2}(\s|$)/;
 const FENCE_OPEN = /^(`{3,}|~{3,})/;
 
 // 閉じたフェンスの中の行に印を付ける。閉じは開きと同じ文字で同じ長さ以上の行だけ (CommonMark)。

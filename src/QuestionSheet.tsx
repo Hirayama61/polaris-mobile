@@ -75,6 +75,8 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
   isSavingRef.current = isSaving;
   // 一覧と詳細の読み込みが前後したとき、古い結果で上書きしないための番号。
   const requestRef = useRef(0);
+  // 既存の回答を回答欄に入れたか。初回の読み込みが落ちたあとの再試行では入れる必要がある。
+  const answerLoadedRef = useRef(false);
 
   const close = (): void => {
     if (!isSaving) {
@@ -132,6 +134,7 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
           setDetail({ status: "ready", content: file.content, sha: file.sha });
           if (fillAnswer) {
             setAnswer(extractSection(file.content, "回答") ?? "");
+            answerLoadedRef.current = true;
           }
         })
         .catch((error: unknown) => {
@@ -150,6 +153,7 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
   const open = (item: QuestionItem): void => {
     setSelected(item);
     setAnswer("");
+    answerLoadedRef.current = false;
     setSave({ status: "idle" });
     loadDetail(item, true);
   };
@@ -166,7 +170,7 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
   const reload = (): void => {
     if (selected !== undefined) {
       setSave({ status: "idle" });
-      loadDetail(selected, false);
+      loadDetail(selected, !answerLoadedRef.current);
     }
   };
 
