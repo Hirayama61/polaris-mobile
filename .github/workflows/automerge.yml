@@ -39,7 +39,7 @@ jobs:
             labels=$(jq -r '[.labels[].name]|join(",")' <<<"$pr")
             case ",$labels," in *,hold,*|*,needs-fix,*) echo "#$n: skip ($labels)"; continue;; esac
             case ",$labels," in *,approved,*) ;; *) echo "#$n: not approved"; continue;; esac
-            ok=$(gh api "repos/$REPO/issues/$n/comments?per_page=100" --jq --arg sha "$sha" '[.[] | select(.body|contains("<!-- polaris-review: approve sha=" + $sha + " -->"))] | length')
+            ok=$(gh api "repos/$REPO/issues/$n/comments?per_page=100" | jq --arg sha "$sha" '[.[] | select(.body|contains("<!-- polaris-review: approve sha=" + $sha + " -->"))] | length')
             [ "$ok" -gt 0 ] || { echo "#$n: approval is for another commit"; continue; }
             runs=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[] | select(.name!="merge")]')
             total=$(jq 'length' <<<"$runs")
