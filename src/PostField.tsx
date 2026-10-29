@@ -1,5 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { formatTokyoTime, polarisToday } from "./clock";
+import { formatTokyoTime } from "./clock";
 import { loadDraft, postDraftKey, remainingAfterSave, removeDraft, saveDraft } from "./drafts";
 import { describeFailure, type Failure } from "./failure";
 import { updateFile } from "./github";
@@ -28,7 +28,7 @@ const OFFLINE_FAILURE: Failure = {
 type Outcome = { status: "sent"; time: string } | { status: "error"; failure: Failure };
 
 // タブを切り替えると投稿欄はアンマウントされるが送信は続く。戻ったときに送信中を引き継いで二重送信させないよう、モジュールに持つ。
-let inFlight: Promise<Outcome> | undefined;
+let inFlight: { promise: Promise<Outcome>; sent: string } | undefined;
 
 /**
  * 送信中の投稿が終わるのを待つ。夜の画面が一覧を読む前に使う。
@@ -36,14 +36,13 @@ let inFlight: Promise<Outcome> | undefined;
  * @returns 送信中でなければすぐに解決する。失敗しても reject しない。
  */
 export const waitForPost = async (): Promise<void> => {
-  await inFlight;
+  await inFlight?.promise;
 };
 
-const startSend = (settings: Settings, draftKey: string, sent: string): Promise<Outcome> => {
-  // 開いたまま 4:00 をまたいでも、投稿した時刻と同じ日の journal に書く。
-  const now = new Date();
-  const date = polarisToday(now);
-  const time = formatTokyoTime(now);
+// 書く先は書きかけと同じ日付 (画面の見出しの日付)。開いたまま 4:00 をまたいでも、書きかけを翌日の journal に混ぜない。
+const startSend = (settings: Settings, date: string, sent: string): NonNullable<typeof inFlight> => {
+  const draftKey = postDraftKey(date);
+  const time = formatTokyoTime(new Date());
   const promise = updateFile(settings, journalPath(date), `chore(mobile): ${date} の投稿`, (current) =>
     appendPost(current, date, time, sent),
   )
@@ -58,8 +57,8 @@ const startSend = (settings: Settings, draftKey: string, sent: string): Promise<
     .finally(() => {
       inFlight = undefined;
     });
-  inFlight = promise;
-  return promise;
+  inFlight = { promise, sent };
+  return inFlight;
 };
 
 /**
@@ -75,11 +74,14 @@ export const PostField = ({ settings, date, isOnline, onOpenSettings }: Props) =
   const isSending = send.status === "sending";
   const canSend = text.trim() !== "" && !isSending && inFlight === undefined;
 
-  const track = (promise: Promise<Outcome>): (() => void) => {
+  const track = (flight: NonNullable<typeof inFlight>): (() => void) => {
     let isMounted = true;
-    void promise.then((outcome) => {
+    void flight.promise.then((outcome) => {
       if (isMounted) {
-        setText(loadDraft(draftKey) ?? "");
+        // 失敗したら入力を残す。成功しても送信中に書き換えた分は残す。
+        if (outcome.status === "sent") {
+          setText((current) => (current === flight.sent ? "" : current));
+        }
         setSend(outcome);
       }
     });
@@ -101,7 +103,7 @@ export const PostField = ({ settings, date, isOnline, onOpenSettings }: Props) =
       return;
     }
     setSend({ status: "sending" });
-    track(startSend(settings, draftKey, text));
+    track(startSend(settings, date, text));
   };
 
   return (
