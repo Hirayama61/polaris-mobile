@@ -24,7 +24,8 @@
 ## 開発の流れ
 
 - 思いつきと要望は polaris-data の `inbox/` に入る。クラウドの整理ループが分類し、明確なものだけをこのリポジトリの Issue にして `ready` ラベルを付ける。曖昧なものは Polaris のタスクとして質問が出る。
-- クラウドの開発ループは `ready` の Issue だけを扱う。Issue 1 件につきブランチ `claude/issue-<番号>` と PR 1 本。CI (check) が通った PR を人がマージすると Pages に出る。
-- ラベル: `ready` は実装してよい。`hold` は人の判断待ち。`needs-info` は質問中 (答えは Polaris のタスクに書く)。`human` は人がやる Issue。`split` は小さな Issue に分割した元。
+- クラウドの開発ループは `ready` の Issue だけを扱う。Issue 1 件につきブランチ `claude/issue-<番号>` と PR 1 本。
+- PR は、CI (check) と、別セッションの Claude であるレビュー係 (Codex の指摘も読み、AGENTS.md の基準で判断する) の両方が通ると、GitHub Actions (automerge) が自動でマージして Pages に出す。止めたいときは PR に `hold` を付ける。指摘があれば `needs-fix` が付き、開発ループが直してから再びレビューに回る。
+- ラベル: `ready` は実装してよい。`hold` は人の判断待ち (PR なら自動マージも止まる)。`needs-info` は質問中 (答えは Polaris のタスクに書く)。`human` は人がやる Issue。`split` は小さな Issue に分割した元。PR 用は `approved` (レビュー係が承認) と `needs-fix` (指摘あり)。
 
 レビューと修正の基準は AGENTS.md にある。
