@@ -49,3 +49,34 @@ export const isNowInSlot = (time: string, minutesOfDay: number): boolean => {
   const end = Number(endHour) * 60 + Number(endMinute);
   return minutesOfDay >= start && minutesOfDay < end;
 };
+
+/**
+ * 「あなたの番」の 1 項目を 1 行表示と展開部分に分けた結果。
+ */
+export type TurnParts = {
+  title: string;
+  steps: string | undefined;
+  minutes: string | undefined;
+  taskId: string | undefined;
+};
+
+const MINUTES_PATTERN = /[(（]\s*(\d+)\s*分\s*[)）]\s*$/;
+const TITLE_SEPARATOR = ": ";
+
+/**
+ * 「あなたの番」のラベルをタイトル・手順・目安時間・task ID に分ける。
+ *
+ * @param label - `タイトル: 手順 (N 分) (task: ID)` の形。手順・目安時間・task は無くてもよい。
+ * @returns `: ` が無い、またはその前後が空なら steps と minutes を undefined にし、本文全体を title にする。
+ */
+export const splitTurnLabel = (label: string): TurnParts => {
+  const { text, taskId } = splitTaskRef(label);
+  const separatorAt = text.indexOf(TITLE_SEPARATOR);
+  const title = separatorAt < 0 ? "" : text.slice(0, separatorAt).trim();
+  const steps = separatorAt < 0 ? "" : text.slice(separatorAt + TITLE_SEPARATOR.length).trim();
+  if (title === "" || steps === "") {
+    return { title: text, steps: undefined, minutes: undefined, taskId };
+  }
+  const minutes = MINUTES_PATTERN.exec(steps)?.[1];
+  return { title, steps, minutes: minutes === undefined ? undefined : `${minutes} 分`, taskId };
+};

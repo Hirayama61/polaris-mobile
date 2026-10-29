@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNowInSlot, splitTaskRef } from "./display";
+import { isNowInSlot, splitTaskRef, splitTurnLabel } from "./display";
 
 describe("splitTaskRef", () => {
   it("末尾の (task: ID) を切り離す", () => {
@@ -40,5 +40,42 @@ describe("isNowInSlot", () => {
   it("形が違えば false", () => {
     expect(isNowInSlot("午前", at(9, 0))).toBe(false);
     expect(isNowInSlot("", at(9, 0))).toBe(false);
+  });
+});
+
+describe("splitTurnLabel", () => {
+  it("タイトル・手順・目安時間・task を分ける", () => {
+    expect(splitTurnLabel("請求書を送る: freee で PDF を出してメールに添付 (15 分) (task: 20261029-abcd)")).toEqual({
+      title: "請求書を送る",
+      steps: "freee で PDF を出してメールに添付 (15 分)",
+      minutes: "15 分",
+      taskId: "20261029-abcd",
+    });
+  });
+
+  it("目安時間と task は無くてもよい", () => {
+    expect(splitTurnLabel("散歩: 近所を 1 周")).toEqual({
+      title: "散歩",
+      steps: "近所を 1 周",
+      minutes: undefined,
+      taskId: undefined,
+    });
+    expect(splitTurnLabel("散歩: 近所を 1 周（20分）")).toMatchObject({ minutes: "20 分" });
+  });
+
+  it("2 つ目以降の `: ` は手順に含める", () => {
+    expect(splitTurnLabel("設定: 手順 1: 開く")).toMatchObject({ title: "設定", steps: "手順 1: 開く" });
+  });
+
+  it("`: ` が無いか前後が空なら全文をタイトルにして展開しない", () => {
+    const none = { steps: undefined, minutes: undefined };
+    expect(splitTurnLabel("小説の構想を音声で入れる (10 分) (task: x)")).toEqual({
+      title: "小説の構想を音声で入れる (10 分)",
+      taskId: "x",
+      ...none,
+    });
+    expect(splitTurnLabel("時刻 9:00 に電話")).toEqual({ title: "時刻 9:00 に電話", taskId: undefined, ...none });
+    expect(splitTurnLabel(": 手順だけ")).toEqual({ title: ": 手順だけ", taskId: undefined, ...none });
+    expect(splitTurnLabel("タイトルだけ: ")).toEqual({ title: "タイトルだけ: ", taskId: undefined, ...none });
   });
 });
