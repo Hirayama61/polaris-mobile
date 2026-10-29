@@ -37,6 +37,7 @@ jobs:
           merged=0
           # 途中で失敗しても、それまでにマージした件数を次のステップに渡す
           trap 'echo "merged=$merged" >> "$GITHUB_OUTPUT"' EXIT
+          main_date=$(gh api "repos/$REPO/commits/main" --jq .commit.committer.date)
           for n in $(gh api "repos/$REPO/pulls?state=open&per_page=50" --jq '.[] | select(.head.ref|startswith("claude/issue-")) | select(.draft|not) | .number'); do
             pr=$(gh api "repos/$REPO/pulls/$n")
             sha=$(jq -r .head.sha <<<"$pr")
@@ -54,6 +55,14 @@ jobs:
             total=$(jq 'length' <<<"$runs")
             bad=$(jq '[.[] | select(.conclusion!="success")] | length' <<<"$runs")
             { [ "$total" -gt 0 ] && [ "$bad" -eq 0 ]; } || { echo "#$n: checks not green ($bad of $total)"; continue; }
+            # main と合わせた状態 (pull_request イベントの check) が、今の main の先頭より新しいこと。古ければ再実行して次の回に回す
+            fresh=$(jq --arg d "$main_date" '[.[] | select((.pull_requests|length) > 0) | select(.started_at > $d)] | length' <<<"$runs")
+            if [ "$fresh" -eq 0 ]; then
+              run_id=$(jq -r '[.[] | select((.pull_requests|length) > 0)][0].html_url // empty' <<<"$runs" | sed -E 's#.*/actions/runs/([0-9]+).*#\1#')
+              [ -n "$run_id" ] && gh api -X POST "repos/$REPO/actions/runs/$run_id/rerun" >/dev/null 2>&1 || true
+              echo "#$n: merge-commit check is older than main; re-running check"
+              continue
+            fi
             state=$(jq -r .mergeable_state <<<"$pr")
             case "$state" in clean|unstable) ;; *) echo "#$n: mergeable_state=$state"; continue;; esac
             branch=$(jq -r .head.ref <<<"$pr")
@@ -63,6 +72,8 @@ jobs:
             echo "#$n: merged"
             merged=$((merged+1))
             gh api -X POST "repos/$REPO/issues/$n/comments" -f body="レビュー係の承認と CI が揃ったので自動でマージした (${sha:0:7})。" >/dev/null || echo "#$n: comment failed (ignored)"
+            # 1 回の実行で 1 件だけ。main が進むので、残りは次の回に新しい check で判定する
+            break
           done
       - name: マージがあれば Pages をデプロイする
         if: always() && steps.merge.outputs.merged != '' && steps.merge.outputs.merged != '0'
