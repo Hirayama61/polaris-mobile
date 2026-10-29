@@ -73,7 +73,13 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     );
   }
   const postField = (
-    <PostField settings={settings} isOnline={isOnline} onOpenSettings={onOpenSettings} />
+    <PostField
+      key={date}
+      settings={settings}
+      date={date}
+      isOnline={isOnline}
+      onOpenSettings={onOpenSettings}
+    />
   );
   if (state.status === "error") {
     return (

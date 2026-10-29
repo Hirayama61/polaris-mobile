@@ -1,6 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { formatTokyoTime, polarisToday } from "./clock";
-import { loadDraft, remainingAfterSave, removeDraft, saveDraft } from "./drafts";
+import { loadDraft, postDraftKey, remainingAfterSave, removeDraft, saveDraft } from "./drafts";
 import { describeFailure, type Failure } from "./failure";
 import { updateFile } from "./github";
 import { appendPost, journalPath } from "./journal";
@@ -8,6 +8,7 @@ import type { Settings } from "./settings";
 
 type Props = {
   settings: Settings;
+  date: string;
   isOnline: boolean;
   onOpenSettings: () => void;
 };
@@ -17,8 +18,6 @@ type SendState =
   | { status: "sending" }
   | { status: "sent"; time: string }
   | { status: "error"; failure: Failure };
-
-const DRAFT_KEY = "post";
 
 const OFFLINE_FAILURE: Failure = {
   reason: "オフラインのため投稿できません。",
@@ -31,7 +30,7 @@ type Outcome = { status: "sent"; time: string } | { status: "error"; failure: Fa
 // タブを切り替えると投稿欄はアンマウントされるが送信は続く。戻ったときに送信中を引き継いで二重送信させないよう、モジュールに持つ。
 let inFlight: Promise<Outcome> | undefined;
 
-const startSend = (settings: Settings, sent: string): Promise<Outcome> => {
+const startSend = (settings: Settings, draftKey: string, sent: string): Promise<Outcome> => {
   // 開いたまま 4:00 をまたいでも、投稿した時刻と同じ日の journal に書く。
   const now = new Date();
   const date = polarisToday(now);
@@ -41,8 +40,8 @@ const startSend = (settings: Settings, sent: string): Promise<Outcome> => {
   )
     .then((): Outcome => {
       // 送信中に書き足した分は残す。
-      if (remainingAfterSave(loadDraft(DRAFT_KEY) ?? "", sent) === undefined) {
-        removeDraft(DRAFT_KEY);
+      if (remainingAfterSave(loadDraft(draftKey) ?? "", sent) === undefined) {
+        removeDraft(draftKey);
       }
       return { status: "sent", time };
     })
@@ -57,8 +56,10 @@ const startSend = (settings: Settings, sent: string): Promise<Outcome> => {
 /**
  * 1 行の投稿欄。送ると今日の journal に `- HH:MM 本文` を追記する。
  */
-export const PostField = ({ settings, isOnline, onOpenSettings }: Props) => {
-  const [text, setText] = useState(() => loadDraft(DRAFT_KEY) ?? "");
+export const PostField = ({ settings, date, isOnline, onOpenSettings }: Props) => {
+  // 日付が変わったら呼び出し側が key で作り直すので、鍵はマウント時の date のままでよい。
+  const draftKey = postDraftKey(date);
+  const [text, setText] = useState(() => loadDraft(draftKey) ?? "");
   const [send, setSend] = useState<SendState>(() =>
     inFlight === undefined ? { status: "idle" } : { status: "sending" },
   );
@@ -69,7 +70,7 @@ export const PostField = ({ settings, isOnline, onOpenSettings }: Props) => {
     let isMounted = true;
     void promise.then((outcome) => {
       if (isMounted) {
-        setText(loadDraft(DRAFT_KEY) ?? "");
+        setText(loadDraft(draftKey) ?? "");
         setSend(outcome);
       }
     });
@@ -91,7 +92,7 @@ export const PostField = ({ settings, isOnline, onOpenSettings }: Props) => {
       return;
     }
     setSend({ status: "sending" });
-    track(startSend(settings, text));
+    track(startSend(settings, draftKey, text));
   };
 
   return (
@@ -117,7 +118,7 @@ export const PostField = ({ settings, isOnline, onOpenSettings }: Props) => {
           placeholder="出来事をひとこと"
           onChange={(event) => {
             setText(event.target.value);
-            saveDraft(DRAFT_KEY, event.target.value);
+            saveDraft(draftKey, event.target.value);
             if (send.status !== "sending") {
               setSend({ status: "idle" });
             }
