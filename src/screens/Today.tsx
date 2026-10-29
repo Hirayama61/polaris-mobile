@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { tokyoMinutesOfDay } from "../clock";
 import { extractTurns, parseDaily, setTurnChecked, type TurnItem } from "../daily";
-import { isNowInSlot, splitTaskRef } from "../display";
+import { isNowInSlot, splitTaskRef, splitTurnLabel } from "../display";
 import { describeFailure, type Failure } from "../failure";
 import { writeKnownFile } from "../github";
 import type { Settings } from "../settings";
@@ -45,6 +45,7 @@ const isMine = (who: string): boolean => who === "あなた";
  */
 export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }: Props) => {
   const [write, setWrite] = useState<WriteState>({ status: "idle" });
+  const [openLine, setOpenLine] = useState<number | undefined>(undefined);
   const minutesOfDay = useMinutesOfDay();
   const { state } = daily;
 
@@ -168,23 +169,59 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             {view.turns.map((turn) => {
               const isChecked = checkedOf(turn);
               const isWriting = write.status === "writing" && write.line === turn.line;
-              const { text, taskId } = splitTaskRef(turn.label);
+              const { title, steps, minutes, taskId } = splitTurnLabel(turn.label);
+              const checkbox = (
+                <input
+                  type="checkbox"
+                  className="turn-box"
+                  checked={isChecked}
+                  disabled={write.status === "writing"}
+                  onChange={() => handleToggle(turn)}
+                />
+              );
+              const status = isWriting && <span className="turn-status">保存中</span>;
+              const rowClass = isChecked ? "turn turn-checked" : "turn";
+              if (steps === undefined) {
+                return (
+                  <li key={turn.line}>
+                    <label className={rowClass}>
+                      {checkbox}
+                      <span className="turn-text">
+                        <span className="turn-label">{title}</span>
+                        {taskId !== undefined && <span className="turn-task">{taskId}</span>}
+                      </span>
+                      {status}
+                    </label>
+                  </li>
+                );
+              }
+              const isOpen = openLine === turn.line;
+              const detailId = `turn-detail-${turn.line}`;
               return (
                 <li key={turn.line}>
-                  <label className={isChecked ? "turn turn-checked" : "turn"}>
-                    <input
-                      type="checkbox"
-                      className="turn-box"
-                      checked={isChecked}
-                      disabled={write.status === "writing"}
-                      onChange={() => handleToggle(turn)}
-                    />
-                    <span className="turn-text">
-                      <span className="turn-label">{text}</span>
+                  <div className={`${rowClass} turn-split`}>
+                    <label className="turn-check" aria-label={title}>
+                      {checkbox}
+                    </label>
+                    <button
+                      type="button"
+                      className="turn-toggle"
+                      aria-expanded={isOpen}
+                      aria-controls={detailId}
+                      onClick={() => setOpenLine(isOpen ? undefined : turn.line)}
+                    >
+                      <span className="turn-label turn-line">{title}</span>
+                      {minutes !== undefined && <span className="turn-minutes">{minutes}</span>}
+                      {status}
+                      <span className="turn-chevron" aria-hidden="true" />
+                    </button>
+                  </div>
+                  {isOpen && (
+                    <div id={detailId} className="turn-detail">
+                      <p className="turn-steps">{steps}</p>
                       {taskId !== undefined && <span className="turn-task">{taskId}</span>}
-                    </span>
-                    {isWriting && <span className="turn-status">保存中</span>}
-                  </label>
+                    </div>
+                  )}
                 </li>
               );
             })}
