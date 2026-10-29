@@ -80,36 +80,36 @@ describe("extractSection", () => {
     expect(extractSection(task, "背景")).toBeUndefined();
   });
 
-  it("コードブロックの中の見出しでは節を切らない", () => {
+  it("コードブロックの中の見出しは節の始まりにしないが、節の終わりにはする", () => {
     const text = "## 質問\n\n```\n## 回答\n```\n続き\n\n## 回答\n\nA\n";
-    expect(extractSection(text, "質問")).toBe("```\n## 回答\n```\n続き");
+    expect(extractSection(text, "質問")).toBe("```");
     expect(extractSection(text, "回答")).toBe("A");
   });
 });
 
 describe("replaceAnswer", () => {
-  it("``` の中の ~~~ ではフェンスを閉じず、後ろの節を残す", () => {
-    const text = "## 回答\n\n```\n~~~\n## 例\n```\n\n## メモ\n\n残す\n";
-    const written = replaceAnswer(text, "A");
-    expect(written).toBe("## 回答\n\nA\n\n## メモ\n\n残す\n");
+  it("回答の中のフェンスにある見出しで節を切り、後ろの行は 1 文字も消さない", () => {
+    const cases: [string, string][] = [
+      ["## 回答\n\n```\n~~~\n", "## 例\n```\n\n## メモ\n\n残す\n"],
+      ["## 回答\n\n````\n```\n", "## 例\n````\n\n## メモ\n\n残す\n"],
+      ["## 回答\n\nA\n\n```\n    ```\n", "## 例\n   ```\n\n## メモ\n\n残す\n"],
+      ["## 回答\n\nA\n\n    ```\n\n", "## メモ\n\n残す\n\n    ```\n"],
+      ["## 回答\n\n```foo```\n\n", "## メモ\n\n残す\n\n```\ncode\n```\n"],
+    ];
+    for (const [answer, rest] of cases) {
+      expect(replaceAnswer(answer + rest, "B")).toBe(`## 回答\n\nB\n\n${rest}`);
+    }
   });
 
-  it("開きより短いフェンスでは閉じない", () => {
-    const text = "## 回答\n\n````\n```\n## 例\n````\n\n## メモ\n\n残す\n";
-    expect(replaceAnswer(text, "A")).toBe("## 回答\n\nA\n\n## メモ\n\n残す\n");
+  it("```foo``` の行は開きフェンスにせず、後ろの「## 回答」を見つける", () => {
+    const text = "## 質問\n\n```foo```\n\n## 回答\n\nA\n\n## メモ\n\n```\ncode\n```\n";
+    expect(replaceAnswer(text, "B")).toBe(text.replace("\nA\n", "\nB\n"));
   });
 
   it("字下げした見出しでも節を切り、後ろの節を残す", () => {
     const text = "## 回答\n\nA\n\n  ## メモ\n\n残す\n   # 大見出し\n";
     expect(replaceAnswer(text, "B")).toBe("## 回答\n\nB\n\n  ## メモ\n\n残す\n   # 大見出し\n");
     expect(extractSection("## 回答\n\nA\n    ## コード\n", "回答")).toBe("A\n    ## コード");
-  });
-
-  it("空白 4 個以上のフェンス文字は開きにも閉じにもせず、後ろの節を残す", () => {
-    const text = "## 回答\n\nA\n\n    ```\n\n## メモ\n\n残す\n\n    ```\n";
-    expect(replaceAnswer(text, "B")).toBe("## 回答\n\nB\n\n## メモ\n\n残す\n\n    ```\n");
-    const closing = "## 回答\n\nA\n\n```\n    ```\n## 例\n   ```\n\n## メモ\n\n残す\n";
-    expect(replaceAnswer(closing, "B")).toBe("## 回答\n\nB\n\n## メモ\n\n残す\n");
   });
 
   it("閉じていないフェンスの回答を書いても、次の保存で後ろの節を残す", () => {

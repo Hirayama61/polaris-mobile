@@ -27,7 +27,8 @@ const splitLines = (text: string): Lines => {
 // 先頭 0〜3 個の空白がある見出しも見出し (CommonMark)。見落とすと後ろの節が回答として消える。
 const SECTION_END = /^ {0,3}#{1,2}(\s|$)/;
 // 開きも閉じも先頭の空白は 0〜3 個まで。4 個以上は字下げコードで、フェンスとみなすと間の見出しを見落とす。
-const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
+// バッククォートの開きは、後ろにバッククォートを含む行を除く (```` ```foo``` ```` はインラインコード、CommonMark)。
+const FENCE_OPEN = /^ {0,3}(`{3,}(?=[^`]*$)|~{3,})/;
 const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})$/;
 
 // 閉じたフェンスの中の行に印を付ける。閉じは開きと同じ文字で同じ長さ以上の行だけ (CommonMark)。
@@ -64,6 +65,8 @@ const escapeStructural = (line: string): string => {
     : line;
 };
 
+// フェンスは節の始まりを探すときだけ見る。終わりはフェンスを見ず、最初の見出しらしい行で切る。
+// フェンスの読み違いは終わりを後ろへずらし、書き換えで後ろの節を消す。見出しらしい行で切れば、誤っても節が短くなるだけで後ろの行は残る。
 const findSection = (
   lines: readonly string[],
   heading: string,
@@ -71,12 +74,9 @@ const findSection = (
   const fenced = fencedLines(lines);
   let start = -1;
   for (const [index, raw] of lines.entries()) {
-    if (fenced[index]) {
-      continue;
-    }
     const line = raw.trimEnd();
     if (start === -1) {
-      if (line === `## ${heading}`) {
+      if (!fenced[index] && line === `## ${heading}`) {
         start = index;
       }
     } else if (SECTION_END.test(line)) {
