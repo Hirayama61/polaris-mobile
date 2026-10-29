@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { formatTokyoTime, polarisToday } from "./clock";
 import { loadDraft, remainingAfterSave, removeDraft, saveDraft } from "./drafts";
 import { describeFailure, type Failure } from "./failure";
@@ -26,16 +26,60 @@ const OFFLINE_FAILURE: Failure = {
   action: "retry",
 };
 
+type Outcome = { status: "sent"; time: string } | { status: "error"; failure: Failure };
+
+// タブを切り替えると投稿欄はアンマウントされるが送信は続く。戻ったときに送信中を引き継いで二重送信させないよう、モジュールに持つ。
+let inFlight: Promise<Outcome> | undefined;
+
+const startSend = (settings: Settings, sent: string): Promise<Outcome> => {
+  // 開いたまま 4:00 をまたいでも、投稿した時刻と同じ日の journal に書く。
+  const now = new Date();
+  const date = polarisToday(now);
+  const time = formatTokyoTime(now);
+  const promise = updateFile(settings, journalPath(date), `chore(mobile): ${date} の投稿`, (current) =>
+    appendPost(current, date, time, sent),
+  )
+    .then((): Outcome => {
+      // 送信中に書き足した分は残す。
+      if (remainingAfterSave(loadDraft(DRAFT_KEY) ?? "", sent) === undefined) {
+        removeDraft(DRAFT_KEY);
+      }
+      return { status: "sent", time };
+    })
+    .catch((error: unknown): Outcome => ({ status: "error", failure: describeFailure(error) }))
+    .finally(() => {
+      inFlight = undefined;
+    });
+  inFlight = promise;
+  return promise;
+};
+
 /**
  * 1 行の投稿欄。送ると今日の journal に `- HH:MM 本文` を追記する。
  */
 export const PostField = ({ settings, isOnline, onOpenSettings }: Props) => {
   const [text, setText] = useState(() => loadDraft(DRAFT_KEY) ?? "");
-  const [send, setSend] = useState<SendState>({ status: "idle" });
-  const latest = useRef(text);
-  latest.current = text;
+  const [send, setSend] = useState<SendState>(() =>
+    inFlight === undefined ? { status: "idle" } : { status: "sending" },
+  );
   const isSending = send.status === "sending";
-  const canSend = text.trim() !== "" && !isSending;
+  const canSend = text.trim() !== "" && !isSending && inFlight === undefined;
+
+  const track = (promise: Promise<Outcome>): (() => void) => {
+    let isMounted = true;
+    void promise.then((outcome) => {
+      if (isMounted) {
+        setText(loadDraft(DRAFT_KEY) ?? "");
+        setSend(outcome);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  };
+
+  // マウント時に前回の送信が続いていれば、その結果を待つ。
+  useEffect(() => (inFlight === undefined ? undefined : track(inFlight)), []);
 
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
@@ -46,23 +90,8 @@ export const PostField = ({ settings, isOnline, onOpenSettings }: Props) => {
       setSend({ status: "error", failure: OFFLINE_FAILURE });
       return;
     }
-    // 開いたまま 4:00 をまたいでも、投稿した時刻と同じ日の journal に書く。
-    const now = new Date();
-    const date = polarisToday(now);
-    const time = formatTokyoTime(now);
-    const sent = text;
     setSend({ status: "sending" });
-    updateFile(settings, journalPath(date), `chore(mobile): ${date} の投稿`, (current) =>
-      appendPost(current, date, time, sent),
-    )
-      .then(() => {
-        if (remainingAfterSave(latest.current, sent) === undefined) {
-          removeDraft(DRAFT_KEY);
-          setText("");
-        }
-        setSend({ status: "sent", time });
-      })
-      .catch((error: unknown) => setSend({ status: "error", failure: describeFailure(error) }));
+    track(startSend(settings, text));
   };
 
   return (
