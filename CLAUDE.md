@@ -23,8 +23,8 @@
 
 ## 開発の流れ
 
-- 要望はアプリの要望シートから GitHub Issue として届く。
-- 実装は cloud の Routine が行う。Issue 1 件につきブランチ `claude/issue-<番号>` と PR 1 本。CI (check) が通れば auto-merge され、Pages に出る。
-- 人の判断が要る Issue には `hold` ラベルを付ける。Routine は触らない。`needs-info` は Routine が質問中。`human` は PC の Polaris が人のタスクとして取り込む。
+- 思いつきと要望は polaris-data の `inbox/` に入る。クラウドの整理ループが分類し、明確なものだけをこのリポジトリの Issue にして `ready` ラベルを付ける。曖昧なものは Polaris のタスクとして質問が出る。
+- クラウドの開発ループは `ready` の Issue だけを扱う。Issue 1 件につきブランチ `claude/issue-<番号>` と PR 1 本。CI (check) が通った PR を人がマージすると Pages に出る。
+- ラベル: `ready` は実装してよい。`hold` は人の判断待ち。`needs-info` は質問中 (答えは Polaris のタスクに書く)。`human` は人がやる Issue。`split` は小さな Issue に分割した元。
 
 レビューと修正の基準は AGENTS.md にある。
