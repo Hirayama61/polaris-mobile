@@ -5,6 +5,7 @@ type Props = {
   settings: Settings;
   onSave: (settings: Settings) => void;
   onOpenProjects: () => void;
+  onOpenTasks: () => void;
 };
 
 const textInputProps = {
@@ -20,7 +21,7 @@ const settingKeys = ["token", "owner", "repo", "branch"] as const satisfies read
 /**
  * GitHub の接続設定を入力して localStorage に保存する。プロジェクトのシートもここから開く。
  */
-export const SettingsScreen = ({ settings, onSave, onOpenProjects }: Props) => {
+export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenTasks }: Props) => {
   const [draft, setDraft] = useState<Settings>(settings);
   const [isTokenVisible, setIsTokenVisible] = useState(false);
 
@@ -95,6 +96,9 @@ export const SettingsScreen = ({ settings, onSave, onOpenProjects }: Props) => {
         </button>
         <button type="button" className="button button-block" onClick={onOpenProjects}>
           プロジェクトを見る
+        </button>
+        <button type="button" className="button button-block" onClick={onOpenTasks}>
+          タスクを見る
         </button>
         <p className="app-version">Polaris Mobile v{__APP_VERSION__}</p>
       </div>

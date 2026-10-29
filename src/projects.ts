@@ -5,7 +5,7 @@
  */
 
 // ID は path に埋め込むので、`..` や `/` で別のファイルを指せないよう文字を限る。
-const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
+export const SAFE_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9_-]*$/;
 
 /**
  * frontmatter から 1 つのキーの値を取り出す。
