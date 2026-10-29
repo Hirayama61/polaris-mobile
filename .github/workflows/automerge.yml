@@ -47,7 +47,10 @@ jobs:
             { [ "$total" -gt 0 ] && [ "$bad" -eq 0 ]; } || { echo "#$n: checks not green ($bad of $total)"; continue; }
             state=$(jq -r .mergeable_state <<<"$pr")
             case "$state" in clean|unstable) ;; *) echo "#$n: mergeable_state=$state"; continue;; esac
-            gh pr merge "$n" --repo "$REPO" --squash --delete-branch
+            branch=$(jq -r .head.ref <<<"$pr")
+            # sha を渡すと、確認した head から動いていたら 409 で拒否される (未承認のコミットを巻き込まない)
+            gh api -X PUT "repos/$REPO/pulls/$n/merge" -f merge_method=squash -f sha="$sha" >/dev/null || { echo "#$n: head moved since approval, skip"; continue; }
+            gh api -X DELETE "repos/$REPO/git/refs/heads/$branch" >/dev/null || true
             gh api -X POST "repos/$REPO/issues/$n/comments" -f body="レビュー係の承認と CI が揃ったので自動でマージした (${sha:0:7})。" >/dev/null
             echo "#$n: merged"
             merged=$((merged+1))
