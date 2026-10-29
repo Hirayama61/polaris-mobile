@@ -125,6 +125,15 @@ export const loadHumanTasks = async (list: ListNames, read: ReadText): Promise<H
 };
 
 /**
+ * daily の「あなたの番」の `(task: ID)` から `tasks/<id>.md` のパスを決める。
+ *
+ * @param taskId - `splitTurnLabel` の `taskId`。
+ * @returns ID が無いか、path に埋め込めない文字を含むときは undefined。
+ */
+export const taskPathOf = (taskId: string | undefined): string | undefined =>
+  taskId !== undefined && SAFE_ID_PATTERN.test(taskId) ? `tasks/${taskId}.md` : undefined;
+
+/**
  * 「## あなたがやること」節のチェックリストを取り出す。節は次の `#` / `##` 見出しで終わる。
  * コードブロックの中の行は見出しにもチェック項目にも数えない。
  *
