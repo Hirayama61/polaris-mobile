@@ -3,6 +3,7 @@ import { formatDateLabel, polarisToday } from "./clock";
 import { loadDraft, saveDraft } from "./drafts";
 import type { FeedbackDraft } from "./feedback";
 import { FEEDBACK_DRAFT_KEYS, FeedbackSheet } from "./FeedbackSheet";
+import { ProjectsSheet } from "./ProjectsSheet";
 import { NightScreen } from "./screens/Night";
 import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
@@ -65,6 +66,8 @@ export const App = () => {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(loadFeedbackDraft);
   const closeFeedback = useCallback(() => setIsFeedbackOpen(false), []);
+  const [isProjectsOpen, setIsProjectsOpen] = useState(false);
+  const closeProjects = useCallback(() => setIsProjectsOpen(false), []);
   useEffect(() => {
     saveDraft(FEEDBACK_DRAFT_KEYS.title, feedbackDraft.title);
     saveDraft(FEEDBACK_DRAFT_KEYS.body, feedbackDraft.body);
@@ -78,6 +81,7 @@ export const App = () => {
 
   const openSettings = (): void => {
     setIsFeedbackOpen(false);
+    setIsProjectsOpen(false);
     setScreen("settings");
   };
 
@@ -117,7 +121,11 @@ export const App = () => {
           />
         )}
         {screen === "settings" && (
-          <SettingsScreen settings={settings} onSave={handleSaveSettings} />
+          <SettingsScreen
+            settings={settings}
+            onSave={handleSaveSettings}
+            onOpenProjects={() => setIsProjectsOpen(true)}
+          />
         )}
       </main>
 
@@ -147,6 +155,9 @@ export const App = () => {
           onClose={closeFeedback}
           onOpenSettings={openSettings}
         />
+      )}
+      {isProjectsOpen && (
+        <ProjectsSheet settings={settings} onClose={closeProjects} onOpenSettings={openSettings} />
       )}
     </div>
   );

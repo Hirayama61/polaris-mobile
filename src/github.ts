@@ -245,3 +245,39 @@ export const createFile = async (
 ): Promise<void> => {
   await putFile(settings, path, content, message, undefined);
 };
+
+/**
+ * ディレクトリ直下のファイル名を返す。サブディレクトリは含めない。
+ *
+ * @param settings - 接続設定。
+ * @param path - リポジトリ内のディレクトリのパス。
+ * @returns ディレクトリが無ければ空。
+ * @throws GitHubError 404 以外の失敗。
+ */
+export const listFileNames = async (settings: Settings, path: string): Promise<string[]> => {
+  const url = `${contentsUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
+  const response = await request(url, {
+    headers: headers(settings, "application/vnd.github+json"),
+    cache: "no-store",
+  });
+  if (response.status === 404) {
+    return [];
+  }
+  if (!response.ok) {
+    throw new GitHubError(response.status, await describeError(response));
+  }
+  const body: unknown = await response.json();
+  if (!Array.isArray(body)) {
+    return [];
+  }
+  return body.flatMap((entry: unknown) =>
+    typeof entry === "object" &&
+    entry !== null &&
+    "type" in entry &&
+    entry.type === "file" &&
+    "name" in entry &&
+    typeof entry.name === "string"
+      ? [entry.name]
+      : [],
+  );
+};
