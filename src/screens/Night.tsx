@@ -3,9 +3,9 @@ import { formatTokyoIso } from "../clock";
 import { createMinimalDaily, extractReview, extractReviewAt, setReview, setReviewAt } from "../daily";
 import { loadDraft, nightDraftKeys, remainingAfterSave, removeDraft, saveDraft } from "../drafts";
 import { describeFailure, type Failure } from "../failure";
-import { updateFile } from "../github";
-import { appendJournal } from "../journal";
-import type { Settings } from "../settings";
+import { readFile, updateFile } from "../github";
+import { appendJournal, extractPosts, journalPath, type JournalPost } from "../journal";
+import { isConfigured, type Settings } from "../settings";
 import { dailyPath, useDaily } from "../useDaily";
 import { UnconfiguredCard } from "./common";
 
@@ -23,11 +23,14 @@ type SaveState =
   | { status: "saved"; what: string }
   | { status: "error"; failure: Failure; isReviewSaved: boolean };
 
-const journalPath = (date: string): string => `journal/${date}.md`;
-
 // review_at(+09:00 つき ISO 8601)から時刻だけを出す。
 const clockOf = (iso: string | undefined): string | undefined =>
   iso === undefined ? undefined : /T(\d{2}:\d{2})/.exec(iso)?.[1];
+
+type PostsState =
+  | { status: "loading" }
+  | { status: "ready"; posts: JournalPost[] }
+  | { status: "error" };
 
 const OFFLINE_FAILURE: Failure = {
   reason: "オフラインのため保存できません。",
@@ -35,8 +38,34 @@ const OFFLINE_FAILURE: Failure = {
   action: "retry",
 };
 
+// 今日の journal から投稿を読む。日記を保存したら reloadKey を変えて読み直す。
+const usePosts = (settings: Settings, date: string, reloadKey: number): PostsState => {
+  const [posts, setPosts] = useState<PostsState>({ status: "loading" });
+  useEffect(() => {
+    if (!isConfigured(settings)) {
+      return;
+    }
+    let isCancelled = false;
+    readFile(settings, journalPath(date))
+      .then((file) => {
+        if (!isCancelled) {
+          setPosts({ status: "ready", posts: file.kind === "found" ? extractPosts(file.content) : [] });
+        }
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setPosts({ status: "error" });
+        }
+      });
+    return () => {
+      isCancelled = true;
+    };
+  }, [settings, date, reloadKey]);
+  return posts;
+};
+
 /**
- * 振り返りと日記を書き、daily と journal に commit する。
+ * 今日の投稿を読み、振り返りと日記を書いて daily と journal に commit する。
  */
 export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }: Props) => {
   const { state } = daily;
@@ -46,6 +75,8 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const [review, setReviewDraft] = useState(() => loadDraft(reviewKey) ?? existingReview);
   const [journal, setJournal] = useState(() => loadDraft(journalKey) ?? "");
   const [save, setSave] = useState<SaveState>({ status: "idle" });
+  const [journalSaveCount, setJournalSaveCount] = useState(0);
+  const posts = usePosts(settings, date, journalSaveCount);
   // 保存の完了時に、その時点の入力と保存した内容を比べるために使う。
   const latest = useRef({ review, journal });
   latest.current = { review, journal };
@@ -100,6 +131,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         await updateFile(settings, journalPath(date), message, (current) =>
           appendJournal(current, date, journal),
         );
+        setJournalSaveCount((count) => count + 1);
         if (remainingAfterSave(latest.current.journal, savedJournal) === undefined) {
           removeDraft(journalKey);
           setJournal("");
@@ -124,6 +156,33 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         <p className="banner">
           今日の計画を読めませんでした。書いた内容は保存するときに読み直して書き込みます。
         </p>
+      )}
+
+      {posts.status !== "loading" && (
+        <section className="section" aria-labelledby="posts-title">
+          <div className="section-head">
+            <h2 id="posts-title" className="section-title">
+              今日の投稿
+            </h2>
+            {posts.status === "ready" && posts.posts.length > 0 && (
+              <span className="section-meta">{posts.posts.length} 件</span>
+            )}
+          </div>
+          {posts.status === "error" ? (
+            <p className="panel panel-empty muted">投稿を読めませんでした。</p>
+          ) : posts.posts.length === 0 ? (
+            <p className="panel panel-empty muted">今日の投稿はまだありません。</p>
+          ) : (
+            <ol className="panel posts">
+              {posts.posts.map((post, index) => (
+                <li key={index} className="post">
+                  <span className="post-time">{post.time}</span>
+                  <span className="post-text">{post.text}</span>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
       )}
 
       <section className="section">
