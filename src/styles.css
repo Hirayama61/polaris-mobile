@@ -276,6 +276,29 @@ a {
   padding: 16px;
 }
 
+/* ---------- 起床 ---------- */
+.wake {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+}
+
+.wake-text {
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.wake-time {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.wake-action:not(:disabled) {
+  color: var(--accent-strong);
+}
+
 /* ---------- あなたの番 ---------- */
 .turns li + li .turn {
   border-top: 1px solid var(--border);
@@ -517,6 +540,26 @@ a {
 
 .slot-meta:empty {
   display: none;
+}
+
+.slot-actual {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+
+.input-actual {
+  min-height: 44px;
+  padding: 9px 12px;
+  border-radius: var(--r-sm);
+}
+
+.slot-actual-status {
+  flex: none;
+  color: var(--text-3);
+  font-size: 13px;
+  animation: pulse 1.2s ease-in-out infinite;
 }
 
 .slot-mine::before {
