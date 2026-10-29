@@ -148,8 +148,15 @@ const putFile = async (
   throw new GitHubError(0, "GitHub の応答に content がありません");
 };
 
-// sha 不一致は 409 で返る。古い API は 422 を返したので両方を競合とみなす。
-const isConflict = (error: unknown): boolean =>
+/**
+ * 書き込みが競合 (sha の不一致) で失敗したかを返す。
+ *
+ * sha 不一致は 409 で返る。古い API は 422 を返したので両方を競合とみなす。
+ *
+ * @param error - 書き込みで起きた例外。
+ * @returns 競合なら true。
+ */
+export const isConflict = (error: unknown): boolean =>
   error instanceof GitHubError && (error.status === 409 || error.status === 422);
 
 /**
@@ -227,6 +234,25 @@ export const writeKnownFile = async (
     );
   }
 };
+
+/**
+ * 手元の sha のときだけファイルを書く。競合してもやり直さない。
+ *
+ * @param settings - 接続設定。
+ * @param path - リポジトリ内のパス。
+ * @param message - commit メッセージ。
+ * @param sha - 手元の sha。
+ * @param content - 書く内容。
+ * @returns 新しい sha。
+ * @throws GitHubError 失敗したとき。競合は `isConflict` で見分ける。
+ */
+export const writeIfUnchanged = async (
+  settings: Settings,
+  path: string,
+  message: string,
+  sha: string,
+  content: string,
+): Promise<{ sha: string }> => putFile(settings, path, content, message, sha);
 
 /**
  * 新しいファイルを作る。同じパスが既にあれば上書きせず失敗する。
