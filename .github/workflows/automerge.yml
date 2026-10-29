@@ -1,0 +1,57 @@
+name: automerge
+
+# レビュー係 (別セッションの Claude) が承認し、CI が通った claude/issue-* の PR をマージする。
+# 人が止めたいときは PR に hold を付ける。needs-fix が付いている間は触らない。
+
+on:
+  pull_request:
+    types: [labeled, synchronize, reopened]
+  workflow_run:
+    workflows: [check]
+    types: [completed]
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: automerge
+  cancel-in-progress: false
+
+jobs:
+  merge:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: 承認済みで CI が通った PR をマージする
+        run: |
+          set -euo pipefail
+          merged=0
+          for n in $(gh api "repos/$REPO/pulls?state=open&per_page=50" --jq '.[] | select(.head.ref|startswith("claude/issue-")) | select(.draft|not) | .number'); do
+            pr=$(gh api "repos/$REPO/pulls/$n")
+            sha=$(jq -r .head.sha <<<"$pr")
+            labels=$(jq -r '[.labels[].name]|join(",")' <<<"$pr")
+            case ",$labels," in *,hold,*|*,needs-fix,*) echo "#$n: skip ($labels)"; continue;; esac
+            case ",$labels," in *,approved,*) ;; *) echo "#$n: not approved"; continue;; esac
+            ok=$(gh api "repos/$REPO/issues/$n/comments?per_page=100" --jq --arg sha "$sha" '[.[] | select(.body|contains("<!-- polaris-review: approve sha=" + $sha + " -->"))] | length')
+            [ "$ok" -gt 0 ] || { echo "#$n: approval is for another commit"; continue; }
+            runs=$(gh api "repos/$REPO/commits/$sha/check-runs?per_page=100" --jq '[.check_runs[] | select(.name!="merge")]')
+            total=$(jq 'length' <<<"$runs")
+            bad=$(jq '[.[] | select(.conclusion!="success")] | length' <<<"$runs")
+            { [ "$total" -gt 0 ] && [ "$bad" -eq 0 ]; } || { echo "#$n: checks not green ($bad of $total)"; continue; }
+            state=$(jq -r .mergeable_state <<<"$pr")
+            case "$state" in clean|unstable) ;; *) echo "#$n: mergeable_state=$state"; continue;; esac
+            gh pr merge "$n" --repo "$REPO" --squash --delete-branch
+            gh api -X POST "repos/$REPO/issues/$n/comments" -f body="レビュー係の承認と CI が揃ったので自動でマージした (${sha:0:7})。" >/dev/null
+            echo "#$n: merged"
+            merged=$((merged+1))
+          done
+          if [ "$merged" -gt 0 ]; then
+            gh workflow run deploy-pages.yml --ref main --repo "$REPO"
+          fi
