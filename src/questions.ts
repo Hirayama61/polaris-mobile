@@ -50,6 +50,17 @@ const fencedLines = (lines: readonly string[]): boolean[] => {
   return fenced;
 };
 
+// 回答に書く行がフェンスや `#`/`##` 見出しになると、次の保存で節の境目がずれて後ろの節が消える。
+// 先頭に `\` を足して、Markdown でも見た目の文字のまま、構造を変えない行にする。
+const STRUCTURAL = /^(`{3,}|~{3,}|#{1,2}(\s|$))/;
+
+const escapeStructural = (line: string): string => {
+  const indent = line.length - line.trimStart().length;
+  return STRUCTURAL.test(line.slice(indent))
+    ? `${line.slice(0, indent)}\\${line.slice(indent)}`
+    : line;
+};
+
 const findSection = (
   lines: readonly string[],
   heading: string,
@@ -130,13 +141,13 @@ export const extractSection = (text: string, heading: string): string | undefine
  * 節があればその中身だけを置き換える。無ければファイルの末尾に足す。どちらでも他の行は変えない。
  *
  * @param text - タスクのファイル全体。
- * @param answer - 回答。前後の空白は落とす。
+ * @param answer - 回答。前後の空白は落とす。フェンスや `#`/`##` 見出しになる行は先頭に `\` を足す。
  * @returns 書き換えたファイル全体。
  */
 export const replaceAnswer = (text: string, answer: string): string => {
   const { eol, lines } = splitLines(text);
   const trimmed = answer.trim();
-  const body = trimmed === "" ? [] : trimmed.split(/\r?\n/).map((line) => line.trimEnd());
+  const body = trimmed === "" ? [] : trimmed.split(/\r?\n/).map((line) => escapeStructural(line.trimEnd()));
   const section = findSection(lines, "回答");
   if (section === undefined) {
     const base = text === "" || text.endsWith(eol) ? text : `${text}${eol}`;

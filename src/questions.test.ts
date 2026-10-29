@@ -102,8 +102,23 @@ describe("replaceAnswer", () => {
   it("閉じていないフェンスの回答を書いても、次の保存で後ろの節を残す", () => {
     const text = "## 回答\n\n(未回答)\n\n## メモ\n\n残す\n";
     const once = replaceAnswer(text, "```\nコード");
-    expect(once).toBe("## 回答\n\n```\nコード\n\n## メモ\n\n残す\n");
+    expect(once).toBe("## 回答\n\n\\```\nコード\n\n## メモ\n\n残す\n");
     expect(replaceAnswer(once, "B")).toBe(text.replace("(未回答)", "B"));
+  });
+
+  it("回答に書いたフェンスが後ろの節のフェンスと対にならず、次の保存で後ろの節を残す", () => {
+    const text = "## 回答\n\n(未回答)\n\n## メモ\n\n```\nコード\n```\n";
+    const once = replaceAnswer(text, "```");
+    expect(once).toBe("## 回答\n\n\\```\n\n## メモ\n\n```\nコード\n```\n");
+    expect(replaceAnswer(once, "A")).toBe(text.replace("(未回答)", "A"));
+    expect(replaceAnswer(text, "  ~~~~")).toContain("## 回答\n\n\\~~~~\n\n## メモ");
+  });
+
+  it("回答に書いた見出しの行は新しい節にせず、回答の中に残す", () => {
+    const written = replaceAnswer(task, "A\n## 理由\n# 大見出し\n### 小見出し");
+    expect(extractSection(written, "回答")).toBe("A\n\\## 理由\n\\# 大見出し\n### 小見出し");
+    expect(withoutAnswerBody(written)).toEqual(withoutAnswerBody(task));
+    expect(replaceAnswer(written, extractSection(written, "回答") ?? "")).toBe(written);
   });
 
   it("途中の節を書き換え、他の行は変えない", () => {
