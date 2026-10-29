@@ -5,6 +5,7 @@ import { loadDraft, nightDraftKeys, remainingAfterSave, removeDraft, saveDraft }
 import { describeFailure, type Failure } from "../failure";
 import { readFile, updateFile } from "../github";
 import { appendJournal, extractPosts, journalPath, type JournalPost } from "../journal";
+import { waitForPost } from "../PostField";
 import { isConfigured, type Settings } from "../settings";
 import { dailyPath, useDaily } from "../useDaily";
 import { UnconfiguredCard } from "./common";
@@ -39,6 +40,7 @@ const OFFLINE_FAILURE: Failure = {
 };
 
 // 今日の journal から投稿を読む。日記を保存したら reloadKey を変えて読み直す。
+// 「今日」で送った投稿がまだ送信中なら、終わってから読む。先に読むと一覧に出ない。
 const usePosts = (settings: Settings, date: string, reloadKey: number): PostsState => {
   const [posts, setPosts] = useState<PostsState>({ status: "loading" });
   useEffect(() => {
@@ -46,7 +48,8 @@ const usePosts = (settings: Settings, date: string, reloadKey: number): PostsSta
       return;
     }
     let isCancelled = false;
-    readFile(settings, journalPath(date))
+    waitForPost()
+      .then(() => readFile(settings, journalPath(date)))
       .then((file) => {
         if (!isCancelled) {
           setPosts({ status: "ready", posts: file.kind === "found" ? extractPosts(file.content) : [] });

@@ -30,6 +30,15 @@ type Outcome = { status: "sent"; time: string } | { status: "error"; failure: Fa
 // タブを切り替えると投稿欄はアンマウントされるが送信は続く。戻ったときに送信中を引き継いで二重送信させないよう、モジュールに持つ。
 let inFlight: Promise<Outcome> | undefined;
 
+/**
+ * 送信中の投稿が終わるのを待つ。夜の画面が一覧を読む前に使う。
+ *
+ * @returns 送信中でなければすぐに解決する。失敗しても reject しない。
+ */
+export const waitForPost = async (): Promise<void> => {
+  await inFlight;
+};
+
 const startSend = (settings: Settings, draftKey: string, sent: string): Promise<Outcome> => {
   // 開いたまま 4:00 をまたいでも、投稿した時刻と同じ日の journal に書く。
   const now = new Date();
