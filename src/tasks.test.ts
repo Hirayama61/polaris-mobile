@@ -74,6 +74,20 @@ describe("extractChecklist", () => {
       { line: 1, label: "済み", isChecked: true },
     ]);
   });
+
+  it("コードブロックの中の `#` 行で節を終わらせない", () => {
+    const text = "## あなたがやること\n\n- [x] 鍵を作る\n\n```sh\n# 公開鍵を登録する\n```\n\n- [ ] 登録を確かめる\n";
+    expect(extractChecklist(text)).toEqual([
+      { line: 2, label: "鍵を作る", isChecked: true },
+      { line: 8, label: "登録を確かめる", isChecked: false },
+    ]);
+  });
+
+  it("コードブロックの中の `- [ ]` は項目にせず、書き換えない", () => {
+    const text = "## あなたがやること\n\n~~~~\n- [ ] コードの行\n~~~\n~~~~\n- [ ] 本物\n";
+    expect(extractChecklist(text)).toEqual([{ line: 6, label: "本物", isChecked: false }]);
+    expect(setChecklistItem(text, 3, true)).toBe(text);
+  });
 });
 
 describe("setChecklistItem", () => {

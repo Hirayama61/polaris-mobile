@@ -25,6 +25,30 @@ export type ChecklistItem = {
 
 const CHECKLIST_TITLE = "あなたがやること";
 const CHECKBOX_PATTERN = /^(\s*[-*+]\s+\[)([ xX])(\](?:\s+(.*))?)$/;
+const FENCE_OPEN = /^(`{3,}|~{3,})/;
+
+// 閉じたフェンスの中の行に印を付ける。閉じは開きと同じ文字で同じ長さ以上の行だけ (CommonMark)。
+// 閉じていないフェンスは印を付けない。付けると後ろの見出しと項目が全部見えなくなる。
+const fencedLines = (lines: readonly string[]): boolean[] => {
+  const fenced = lines.map(() => false);
+  let open: { index: number; marker: string } | undefined;
+  for (const [index, raw] of lines.entries()) {
+    const line = raw.trim();
+    if (open === undefined) {
+      const marker = FENCE_OPEN.exec(line)?.[1];
+      if (marker !== undefined) {
+        open = { index, marker };
+      }
+      continue;
+    }
+    const char = open.marker[0] ?? "";
+    if (line.length >= open.marker.length && line === char.repeat(line.length)) {
+      fenced.fill(true, open.index, index + 1);
+      open = undefined;
+    }
+  }
+  return fenced;
+};
 
 const titleOf = (id: string, text: string): string => {
   const fromFrontmatter = readFrontmatterValue(text, "title");
@@ -102,6 +126,7 @@ export const loadHumanTasks = async (list: ListNames, read: ReadText): Promise<H
 
 /**
  * 「## あなたがやること」節のチェックリストを取り出す。節は次の `#` / `##` 見出しで終わる。
+ * コードブロックの中の行は見出しにもチェック項目にも数えない。
  *
  * @param text - `tasks/<id>.md` の全体。
  * @returns 項目の並び。節が無ければ空。
@@ -109,7 +134,12 @@ export const loadHumanTasks = async (list: ListNames, read: ReadText): Promise<H
 export const extractChecklist = (text: string): ChecklistItem[] => {
   const items: ChecklistItem[] = [];
   let isInSection = false;
-  text.split("\n").forEach((raw, line) => {
+  const lines = text.split("\n");
+  const fenced = fencedLines(lines);
+  lines.forEach((raw, line) => {
+    if (fenced[line]) {
+      return;
+    }
     const trimmed = raw.trimEnd();
     const heading = /^(#{1,6})\s+(.*)$/.exec(trimmed);
     if (heading !== null) {
