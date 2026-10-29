@@ -89,7 +89,7 @@ export const App = () => {
         <button
           type="button"
           className={hasFeedbackDraft ? "icon-button icon-button-dot" : "icon-button"}
-          aria-label={hasFeedbackDraft ? "要望を送る(書きかけあり)" : "要望を送る"}
+          aria-label={hasFeedbackDraft ? "思いつきを送る(書きかけあり)" : "思いつきを送る"}
           onClick={() => setIsFeedbackOpen(true)}
         >
           <MessageIcon />

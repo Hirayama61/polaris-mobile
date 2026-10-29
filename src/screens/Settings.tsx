@@ -1,5 +1,4 @@
 import { useState, type ChangeEvent } from "react";
-import { parseRepoSlug } from "../feedback";
 import type { Settings } from "../settings";
 
 type Props = {
@@ -15,7 +14,7 @@ const textInputProps = {
   spellCheck: false,
 } as const;
 
-const settingKeys = ["token", "owner", "repo", "branch", "issueRepo"] as const satisfies readonly (keyof Settings)[];
+const settingKeys = ["token", "owner", "repo", "branch"] as const satisfies readonly (keyof Settings)[];
 
 /**
  * GitHub の接続設定を入力して localStorage に保存する。
@@ -27,7 +26,6 @@ export const SettingsScreen = ({ settings, onSave }: Props) => {
   const update = (key: keyof Settings) => (event: ChangeEvent<HTMLInputElement>) =>
     setDraft({ ...draft, [key]: event.target.value });
 
-  const isIssueRepoValid = parseRepoSlug(draft.issueRepo) !== undefined;
   const isChanged = settingKeys.some(
     (key) => draft[key].trim() !== settings[key],
   );
@@ -36,7 +34,6 @@ export const SettingsScreen = ({ settings, onSave }: Props) => {
     draft.owner.trim() !== "" &&
     draft.repo.trim() !== "" &&
     draft.branch.trim() !== "" &&
-    isIssueRepoValid &&
     isChanged;
 
   // Enter で黙って送信しないよう、form の submit は使わない。
@@ -82,27 +79,6 @@ export const SettingsScreen = ({ settings, onSave }: Props) => {
           <label className="field">
             <span className="field-label">ブランチ</span>
             <input {...textInputProps} value={draft.branch} onChange={update("branch")} />
-          </label>
-        </div>
-      </section>
-
-      <section className="section">
-        <h2 className="section-title">要望の送り先</h2>
-        <div className="panel panel-form">
-          <label className="field">
-            <span className="field-label">Issue を作るリポジトリ</span>
-            <input
-              {...textInputProps}
-              value={draft.issueRepo}
-              placeholder="owner/repo"
-              aria-invalid={!isIssueRepoValid}
-              onChange={update("issueRepo")}
-            />
-            <span className={isIssueRepoValid ? "field-hint" : "field-hint field-hint-error"}>
-              {isIssueRepoValid
-                ? "トークンにこのリポジトリの Issues: Read and write が要ります。"
-                : "owner/repo の形で入れてください。"}
-            </span>
           </label>
         </div>
       </section>

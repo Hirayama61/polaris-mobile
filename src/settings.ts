@@ -6,11 +6,6 @@ export type Settings = {
   owner: string;
   repo: string;
   branch: string;
-
-  /**
-   * 要望を Issue として送るリポジトリ。`owner/repo` の形。
-   */
-  issueRepo: string;
 };
 
 const STORAGE_KEY = "polaris-mobile:settings";
@@ -23,7 +18,6 @@ export const defaultSettings: Settings = {
   owner: "Hirayama61",
   repo: "polaris-data",
   branch: "main",
-  issueRepo: "Hirayama61/polaris-mobile",
 };
 
 const readString = (source: Record<string, unknown>, key: keyof Settings): string => {
@@ -52,7 +46,6 @@ export const loadSettings = (): Settings => {
       owner: readString(source, "owner"),
       repo: readString(source, "repo"),
       branch: readString(source, "branch"),
-      issueRepo: readString(source, "issueRepo"),
     };
   } catch {
     return defaultSettings;
@@ -71,7 +64,6 @@ export const saveSettings = (settings: Settings): Settings => {
     owner: settings.owner.trim(),
     repo: settings.repo.trim(),
     branch: settings.branch.trim(),
-    issueRepo: settings.issueRepo.trim(),
   };
   localStorage.setItem(STORAGE_KEY, JSON.stringify(trimmed));
   return trimmed;
@@ -81,7 +73,7 @@ export const saveSettings = (settings: Settings): Settings => {
  * GitHub へアクセスできる設定かどうか。
  *
  * @param settings - 判定する設定。
- * @returns トークン・owner・repo・ブランチがすべて埋まっていれば true。`issueRepo` は見ない。
+ * @returns トークン・owner・repo・ブランチがすべて埋まっていれば true。
  */
 export const isConfigured = (settings: Settings): boolean =>
   settings.token !== "" &&
