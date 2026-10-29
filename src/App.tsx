@@ -3,6 +3,7 @@ import { formatDateLabel, polarisToday } from "./clock";
 import { loadDraft, saveDraft } from "./drafts";
 import type { FeedbackDraft } from "./feedback";
 import { FEEDBACK_DRAFT_KEYS, FeedbackSheet } from "./FeedbackSheet";
+import { QuestionSheet } from "./QuestionSheet";
 import { ProjectsSheet } from "./ProjectsSheet";
 import { NightScreen } from "./screens/Night";
 import { SettingsScreen } from "./screens/Settings";
@@ -67,6 +68,8 @@ export const App = () => {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(loadFeedbackDraft);
   const closeFeedback = useCallback(() => setIsFeedbackOpen(false), []);
+  const [isQuestionOpen, setIsQuestionOpen] = useState(false);
+  const closeQuestion = useCallback(() => setIsQuestionOpen(false), []);
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const closeProjects = useCallback(() => setIsProjectsOpen(false), []);
   const [isTasksOpen, setIsTasksOpen] = useState(false);
@@ -84,6 +87,7 @@ export const App = () => {
 
   const openSettings = (): void => {
     setIsFeedbackOpen(false);
+    setIsQuestionOpen(false);
     setIsProjectsOpen(false);
     setIsTasksOpen(false);
     setScreen("settings");
@@ -113,6 +117,13 @@ export const App = () => {
             isOnline={isOnline}
             onOpenSettings={openSettings}
           />
+        )}
+        {screen === "today" && isConfigured(settings) && (
+          <section className="section">
+            <button type="button" className="button button-block" onClick={() => setIsQuestionOpen(true)}>
+              質問に答える
+            </button>
+          </section>
         )}
         {screen === "night" && (
           <NightScreen
@@ -158,6 +169,14 @@ export const App = () => {
           draft={feedbackDraft}
           onDraftChange={setFeedbackDraft}
           onClose={closeFeedback}
+          onOpenSettings={openSettings}
+        />
+      )}
+      {isQuestionOpen && (
+        <QuestionSheet
+          settings={settings}
+          isOnline={isOnline}
+          onClose={closeQuestion}
           onOpenSettings={openSettings}
         />
       )}

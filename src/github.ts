@@ -307,3 +307,27 @@ export const listFileNames = async (settings: Settings, path: string): Promise<s
       : [],
   );
 };
+
+/**
+ * ファイルの本文だけを読む。sha は取らない。
+ *
+ * @param settings - 接続設定。
+ * @param path - リポジトリ内のパス。
+ * @returns 本文。無ければ undefined。
+ * @throws GitHubError 404 以外の失敗。
+ */
+export const readText = async (settings: Settings, path: string): Promise<string | undefined> => {
+  const url = `${contentsUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
+  const response = await request(url, {
+    headers: headers(settings, "application/vnd.github.raw+json"),
+    cache: "no-store",
+  });
+  if (response.status === 404) {
+    return undefined;
+  }
+  if (!response.ok) {
+    throw new GitHubError(response.status, await describeError(response));
+  }
+  return response.text();
+};
+

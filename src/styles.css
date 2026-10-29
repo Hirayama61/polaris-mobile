@@ -1016,6 +1016,70 @@ a {
   background: var(--surface);
 }
 
+/* ---------- 質問シート ---------- */
+.questions li + li .question-item {
+  border-top: 1px solid var(--border);
+}
+
+.question-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 60px;
+  padding: 12px 16px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.question-item:active {
+  background: var(--hover);
+}
+
+.question-chevron {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-right: 2px solid var(--text-3);
+  border-bottom: 2px solid var(--text-3);
+  transform: rotate(-45deg);
+}
+
+.question-back {
+  align-self: flex-start;
+}
+
+.question-heading {
+  margin: 0;
+}
+
+.question-text {
+  padding: 14px 16px;
+  font-size: 15px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.question-choices {
+  display: flex;
+  gap: 8px;
+}
+
+.question-choices .button {
+  min-width: 56px;
+}
+
+.question-choices .button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
 @keyframes fade {
   from {
     opacity: 0;
