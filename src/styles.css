@@ -436,6 +436,44 @@ a {
   overflow-wrap: anywhere;
 }
 
+/* 展開した tasks のチェックリスト。タップ対象は 44px 以上 */
+.subtasks {
+  margin: 4px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.subtask {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding: 6px 0;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.subtask-label {
+  flex: 1;
+  min-width: 0;
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.subtask-checked .subtask-label {
+  color: var(--text-3);
+  text-decoration: line-through;
+  text-decoration-color: var(--border-strong);
+}
+
+.subtasks-note {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.7;
+}
+
 .turn-status {
   flex: none;
   color: var(--text-3);

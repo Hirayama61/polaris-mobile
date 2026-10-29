@@ -6,7 +6,9 @@ import {
   loadHumanTasks,
   setChecklistItem,
   sortHumanTasks,
+  taskPathOf,
 } from "./tasks";
+import { splitTurnLabel } from "./display";
 
 const task = `---
 id: 20261025-oubf
@@ -42,6 +44,24 @@ const changedLines = (before: string, after: string): number[] => {
   expect(b.length).toBe(a.length);
   return a.flatMap((line, index) => (line === b[index] ? [] : [index]));
 };
+
+describe("taskPathOf", () => {
+  it("「あなたの番」の (task: ID) から tasks のパスを決める", () => {
+    const { taskId } = splitTurnLabel("Google アカウントを作る: 手順 (10 分) (task: 20261025-oubf)");
+    expect(taskPathOf(taskId)).toBe("tasks/20261025-oubf.md");
+    expect(taskPathOf(splitTurnLabel("Google アカウントを作る (task: 20261025-oubf)").taskId)).toBe(
+      "tasks/20261025-oubf.md",
+    );
+  });
+
+  it("ID が無いか、別のファイルを指せる ID は特定しない", () => {
+    expect(taskPathOf(splitTurnLabel("散歩: 近所を 1 周").taskId)).toBeUndefined();
+    expect(taskPathOf(undefined)).toBeUndefined();
+    expect(taskPathOf("../daily/2026-10-29")).toBeUndefined();
+    expect(taskPathOf("a/b")).toBeUndefined();
+    expect(taskPathOf("")).toBeUndefined();
+  });
+});
 
 describe("isHumanTodo", () => {
   it("assignee: human かつ status: todo だけを通す", () => {

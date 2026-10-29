@@ -7,6 +7,8 @@ import { writeKnownFile } from "../github";
 import { PostField } from "../PostField";
 import type { Settings } from "../settings";
 import { useProjectNames } from "../useProjectNames";
+import { TaskChecklist } from "../TaskChecklist";
+import { taskPathOf } from "../tasks";
 import { StateCard } from "../ui";
 import { dailyPath, useDaily } from "../useDaily";
 import { FailureAction, UnconfiguredCard } from "./common";
@@ -193,6 +195,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               const isWriting = write.status === "writing" && write.line === turn.line;
               const { title, steps, minutes, taskId } = splitTurnLabel(turn.label);
               const projectName = taskId === undefined ? undefined : projectNames.get(taskId);
+              const taskPath = taskPathOf(taskId);
               const project = projectName !== undefined && (
                 <span className="turn-project">{projectName}</span>
               );
@@ -207,7 +210,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               );
               const status = isWriting && <span className="turn-status">保存中</span>;
               const rowClass = isChecked ? "turn turn-checked" : "turn";
-              if (steps === undefined) {
+              if (steps === undefined && taskPath === undefined) {
                 return (
                   <li key={turn.line}>
                     <label className={rowClass}>
@@ -238,7 +241,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                       onClick={() => setOpenLine(isOpen ? undefined : turn.line)}
                     >
                       <span className="turn-text">
-                        <span className="turn-label turn-line">{title}</span>
+                        {/* 手順の無い行は詳細に本文が出ないので、タイトルを省略せず折り返す。 */}
+                        <span className={steps === undefined ? "turn-label" : "turn-label turn-line"}>{title}</span>
                         {project}
                       </span>
                       {minutes !== undefined && <span className="turn-minutes">{minutes}</span>}
@@ -248,7 +252,15 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                   </div>
                   {isOpen && (
                     <div id={detailId} className="turn-detail">
-                      <p className="turn-steps">{steps}</p>
+                      {steps !== undefined && <p className="turn-steps">{steps}</p>}
+                      {taskId !== undefined && taskPath !== undefined && (
+                        <TaskChecklist
+                          settings={settings}
+                          taskId={taskId}
+                          path={taskPath}
+                          onOpenSettings={onOpenSettings}
+                        />
+                      )}
                       {taskId !== undefined && <span className="turn-task">{taskId}</span>}
                     </div>
                   )}
