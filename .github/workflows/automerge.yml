@@ -72,6 +72,12 @@ jobs:
             echo "#$n: merged"
             merged=$((merged+1))
             gh api -X POST "repos/$REPO/issues/$n/comments" -f body="レビュー係の承認と CI が揃ったので自動でマージした (${sha:0:7})。" >/dev/null || echo "#$n: comment failed (ignored)"
+            # API 経由のマージでは本文の Closes #N が効かないことがあるので、参照している Issue をここで閉じる
+            for issue in $(jq -r '.body // ""' <<<"$pr" | grep -oiE '(close[sd]?|fix(e[sd])?|resolve[sd]?) #[0-9]+' | grep -oE '[0-9]+' | sort -u); do
+              if [ "$(gh api "repos/$REPO/issues/$issue" --jq .state)" = "open" ]; then
+                gh api -X PATCH "repos/$REPO/issues/$issue" -f state=closed -f state_reason=completed >/dev/null && echo "#$n: closed #$issue" || echo "#$n: could not close #$issue (ignored)"
+              fi
+            done
             # 1 回の実行で 1 件だけ。main が進むので、残りは次の回に新しい check で判定する
             break
           done
