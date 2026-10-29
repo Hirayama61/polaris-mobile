@@ -26,7 +26,9 @@ const splitLines = (text: string): Lines => {
 // 節は次の `#` か `##` の見出しで終わる。`###` 以下は節の中身として扱う。
 // 先頭 0〜3 個の空白がある見出しも見出し (CommonMark)。見落とすと後ろの節が回答として消える。
 const SECTION_END = /^ {0,3}#{1,2}(\s|$)/;
-const FENCE_OPEN = /^(`{3,}|~{3,})/;
+// 開きも閉じも先頭の空白は 0〜3 個まで。4 個以上は字下げコードで、フェンスとみなすと間の見出しを見落とす。
+const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/;
+const FENCE_CLOSE = /^ {0,3}(`{3,}|~{3,})$/;
 
 // 閉じたフェンスの中の行に印を付ける。閉じは開きと同じ文字で同じ長さ以上の行だけ (CommonMark)。
 // 閉じていないフェンスは印を付けない。付けると後ろの見出しが全部フェンスの中になり、書き換えで消える。
@@ -34,7 +36,7 @@ const fencedLines = (lines: readonly string[]): boolean[] => {
   const fenced = lines.map(() => false);
   let open: { index: number; marker: string } | undefined;
   for (const [index, raw] of lines.entries()) {
-    const line = raw.trim();
+    const line = raw.trimEnd();
     if (open === undefined) {
       const marker = FENCE_OPEN.exec(line)?.[1];
       if (marker !== undefined) {
@@ -42,8 +44,8 @@ const fencedLines = (lines: readonly string[]): boolean[] => {
       }
       continue;
     }
-    const char = open.marker[0] ?? "";
-    if (line.length >= open.marker.length && line === char.repeat(line.length)) {
+    const close = FENCE_CLOSE.exec(line)?.[1];
+    if (close !== undefined && close[0] === open.marker[0] && close.length >= open.marker.length) {
       fenced.fill(true, open.index, index + 1);
       open = undefined;
     }

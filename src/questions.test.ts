@@ -105,6 +105,13 @@ describe("replaceAnswer", () => {
     expect(extractSection("## 回答\n\nA\n    ## コード\n", "回答")).toBe("A\n    ## コード");
   });
 
+  it("空白 4 個以上のフェンス文字は開きにも閉じにもせず、後ろの節を残す", () => {
+    const text = "## 回答\n\nA\n\n    ```\n\n## メモ\n\n残す\n\n    ```\n";
+    expect(replaceAnswer(text, "B")).toBe("## 回答\n\nB\n\n## メモ\n\n残す\n\n    ```\n");
+    const closing = "## 回答\n\nA\n\n```\n    ```\n## 例\n   ```\n\n## メモ\n\n残す\n";
+    expect(replaceAnswer(closing, "B")).toBe("## 回答\n\nB\n\n## メモ\n\n残す\n");
+  });
+
   it("閉じていないフェンスの回答を書いても、次の保存で後ろの節を残す", () => {
     const text = "## 回答\n\n(未回答)\n\n## メモ\n\n残す\n";
     const once = replaceAnswer(text, "```\nコード");
