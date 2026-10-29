@@ -101,6 +101,9 @@ jobs:
             # PR 番号を指していることもあるので、Issue で open のものだけを閉じる
             info=$(gh api "repos/$REPO/issues/$issue" --jq '[.state, (has("pull_request")|tostring)] | join(",")' 2>/dev/null) || continue
             [ "$info" = "open,false" ] || continue
+            # 人が開き直した Issue は未完了の作業なので閉じない
+            reopened=$(gh api "repos/$REPO/issues/$issue/events?per_page=100" --jq '[.[] | select(.event=="reopened")] | length' 2>/dev/null) || continue
+            [ "$reopened" -eq 0 ] || { echo "skip #$issue (reopened)"; continue; }
             if gh api -X PATCH "repos/$REPO/issues/$issue" -f state=closed -f state_reason=completed >/dev/null; then
               echo "closed #$issue"
               closed=$((closed+1))
