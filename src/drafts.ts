@@ -63,6 +63,16 @@ export const nightDraftKeys = (date: string): { review: string; journal: string 
 });
 
 /**
+ * 今日の画面の投稿欄の書きかけの鍵を作る。
+ *
+ * 日付ごとに分けるので、送らずに 4:00 をまたいだ前日の書きかけは当日の投稿欄に出ず、当日の journal に混ざらない。
+ *
+ * @param date - `YYYY-MM-DD`。
+ * @returns 投稿欄の鍵。
+ */
+export const postDraftKey = (date: string): string => `post:${date}`;
+
+/**
  * 保存が済んだあとに入力欄に残す内容を決める。
  *
  * @param current - 保存が済んだ時点の入力。

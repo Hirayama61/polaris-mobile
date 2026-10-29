@@ -4,6 +4,7 @@ import { extractTurns, parseDaily, setTurnChecked, type TurnItem } from "../dail
 import { isNowInSlot, splitTaskRef, splitTurnLabel } from "../display";
 import { describeFailure, type Failure } from "../failure";
 import { writeKnownFile } from "../github";
+import { PostField } from "../PostField";
 import type { Settings } from "../settings";
 import { useProjectNames } from "../useProjectNames";
 import { StateCard } from "../ui";
@@ -77,36 +78,51 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
       </div>
     );
   }
+  const postField = (
+    <PostField
+      key={date}
+      settings={settings}
+      date={date}
+      isOnline={isOnline}
+      onOpenSettings={onOpenSettings}
+    />
+  );
   if (state.status === "error") {
     return (
-      <StateCard
-        title="今日の計画を読めませんでした"
-        tone="error"
-        action={
-          <FailureAction
-            failure={state.failure}
-            onRetry={daily.reload}
-            onOpenSettings={onOpenSettings}
-          />
-        }
-      >
-        <p>{state.failure.reason}</p>
-        <p className="muted">{state.failure.hint}</p>
-      </StateCard>
+      <>
+        <StateCard
+          title="今日の計画を読めませんでした"
+          tone="error"
+          action={
+            <FailureAction
+              failure={state.failure}
+              onRetry={daily.reload}
+              onOpenSettings={onOpenSettings}
+            />
+          }
+        >
+          <p>{state.failure.reason}</p>
+          <p className="muted">{state.failure.hint}</p>
+        </StateCard>
+        {postField}
+      </>
     );
   }
   if (state.status === "missing") {
     return (
-      <StateCard
-        title="今日の計画はまだありません"
-        action={
-          <button type="button" className="button" onClick={daily.reload}>
-            読み直す
-          </button>
-        }
-      >
-        <p className="muted">毎朝 6:00 に朝ジョブが作ります。夜の振り返りは今日も書けます。</p>
-      </StateCard>
+      <>
+        <StateCard
+          title="今日の計画はまだありません"
+          action={
+            <button type="button" className="button" onClick={daily.reload}>
+              読み直す
+            </button>
+          }
+        >
+          <p className="muted">毎朝 6:00 に朝ジョブが作ります。夜の振り返りは今日も書けます。</p>
+        </StateCard>
+        {postField}
+      </>
     );
   }
 
@@ -253,6 +269,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           </div>
         )}
       </section>
+
+      {postField}
 
       <section className="section" aria-labelledby="schedule-title">
         <div className="section-head">

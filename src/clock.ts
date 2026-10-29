@@ -68,3 +68,14 @@ export const tokyoMinutesOfDay = (now: Date): number => {
   const wallClock = toTokyoWallClock(now);
   return wallClock.getUTCHours() * 60 + wallClock.getUTCMinutes();
 };
+
+/**
+ * 東京の壁時計の時刻。
+ *
+ * @param now - 現在時刻。
+ * @returns 例: `22:15`。
+ */
+export const formatTokyoTime = (now: Date): string => {
+  const wallClock = toTokyoWallClock(now);
+  return `${pad(wallClock.getUTCHours())}:${pad(wallClock.getUTCMinutes())}`;
+};
