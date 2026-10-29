@@ -1,9 +1,9 @@
 import { isSafeId, readFrontmatterValue } from "./projects";
 
 /**
- * 「質問」タスク (`tasks/<id>.md`) の読み取りと「## 回答」節の書き換え。
+ * `tasks/<id>.md` の節の読み取りと、「## 回答」節の書き換え、「## 疑問点」節への 1 行の追加。
  *
- * 書き換えてよいのは「## 回答」節の中身だけ。frontmatter を含む他の行は 1 文字も変えない。
+ * 書き換えてよいのは「## 回答」節の中身と、「## 疑問点」節に足す行だけ。frontmatter を含む他の行は 1 文字も変えない。
  */
 
 const TITLE_PREFIX = "質問:";
@@ -163,6 +163,41 @@ export const replaceAnswer = (text: string, answer: string): string => {
     ...replaced,
     ...lines.slice(section.end),
   ].join(eol);
+};
+
+/**
+ * 「## 疑問点」節に `- <doubt>` を 1 行足す。
+ *
+ * 節があれば節の最後の空でない行の次に足す。無ければファイルの末尾に節を作る。どちらでも既存の行は変えない。
+ *
+ * @param text - タスクのファイル全体。
+ * @param doubt - 疑問点。改行は空白にし、前後の空白は落とす。
+ * @returns 書き換えたファイル全体。疑問点が空なら受け取った内容をそのまま返す。
+ */
+export const addDoubt = (text: string, doubt: string): string => {
+  const oneLine = doubt.replace(/\s+/g, " ").trim();
+  if (oneLine === "") {
+    return text;
+  }
+  const item = `- ${oneLine}`;
+  const { eol, lines } = splitLines(text);
+  const section = findSection(lines, "疑問点");
+  if (section === undefined) {
+    const base = text === "" || text.endsWith(eol) ? text : `${text}${eol}`;
+    const separator = base === "" || base.endsWith(`${eol}${eol}`) ? "" : eol;
+    return [`${base}${separator}## 疑問点`, "", item, ""].join(eol);
+  }
+  let last = section.end - 1;
+  while (last > section.start && (lines[last] ?? "").trim() === "") {
+    last -= 1;
+  }
+  if (last > section.start) {
+    return [...lines.slice(0, last + 1), item, ...lines.slice(last + 1)].join(eol);
+  }
+  // 中身の無い節は見出しの次に空行を挟んで足す。直後が見出しなら後ろにも空行を足す。
+  const next = lines[section.start + 1];
+  const added = next === undefined || next.trim() === "" ? ["", item] : ["", item, ""];
+  return [...lines.slice(0, section.start + 1), ...added, ...lines.slice(section.start + 1)].join(eol);
 };
 
 /**

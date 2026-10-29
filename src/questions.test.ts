@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  addDoubt,
   collectOpenQuestions,
   extractSection,
   openQuestionTitle,
@@ -211,5 +212,65 @@ describe("collectOpenQuestions", () => {
         throw new Error("offline");
       }),
     ).rejects.toThrow("offline");
+  });
+});
+
+describe("addDoubt", () => {
+  const base = [
+    "---",
+    "title: Google アカウントを作る",
+    "status: todo",
+    "---",
+    "",
+    "## 疑問点",
+    "- 名前は本名か",
+    "",
+    "## 調べたこと",
+    "本名でなくてよい。",
+    "",
+  ].join("\n");
+
+  // 既存の行は 1 つも変えず、足した行だけが増えていることを確かめる。
+  const removeAdded = (after: string, added: readonly number[]): string =>
+    after
+      .split("\n")
+      .filter((_, index) => !added.includes(index))
+      .join("\n");
+
+  it("節の最後の項目の次に 1 行だけ足す", () => {
+    const after = addDoubt(base, "電話番号は要るか");
+    expect(after.split("\n")[7]).toBe("- 電話番号は要るか");
+    expect(removeAdded(after, [7])).toBe(base);
+  });
+
+  it("節が無ければ末尾に作る", () => {
+    const text = "---\ntitle: a\n---\n\n本文\n";
+    expect(addDoubt(text, "なぜ")).toBe("---\ntitle: a\n---\n\n本文\n\n## 疑問点\n\n- なぜ\n");
+    expect(addDoubt("本文", "なぜ")).toBe("本文\n\n## 疑問点\n\n- なぜ\n");
+    expect(addDoubt("本文\n\n", "なぜ")).toBe("本文\n\n## 疑問点\n\n- なぜ\n");
+  });
+
+  it("中身の無い節は見出しの次に足し、後ろの見出しを離す", () => {
+    expect(addDoubt("## 疑問点\n## 調べたこと\nx\n", "a")).toBe("## 疑問点\n\n- a\n\n## 調べたこと\nx\n");
+    expect(addDoubt("## 疑問点\n\n## 調べたこと\n", "a")).toBe("## 疑問点\n\n- a\n\n## 調べたこと\n");
+    expect(addDoubt("## 疑問点", "a")).toBe("## 疑問点\n\n- a");
+  });
+
+  it("最後の節でも末尾の空行の前に足す", () => {
+    expect(addDoubt("## 疑問点\n- a\n\n\n", "b")).toBe("## 疑問点\n- a\n- b\n\n\n");
+  });
+
+  it("改行は空白にし、空なら何も変えない", () => {
+    expect(addDoubt(base, "  一行目\n二行目  ").split("\n")[7]).toBe("- 一行目 二行目");
+    expect(addDoubt(base, " \n ")).toBe(base);
+  });
+
+  it("コードブロックの中の見出しは節にしない", () => {
+    const text = "```\n## 疑問点\n```\n";
+    expect(addDoubt(text, "a")).toBe("```\n## 疑問点\n```\n\n## 疑問点\n\n- a\n");
+  });
+
+  it("CRLF の行末を揃える", () => {
+    expect(addDoubt("## 疑問点\r\n- a\r\n", "b")).toBe("## 疑問点\r\n- a\r\n- b\r\n");
   });
 });

@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { formatTokyoIso } from "./clock";
 import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, writeIfUnchanged } from "./github";
+import { addDoubt, extractSection } from "./questions";
 import type { Settings } from "./settings";
 import { completeTask, extractChecklist, loadHumanTasks, setChecklistItem, type HumanTask } from "./tasks";
 import { CloseIcon } from "./ui";
@@ -19,7 +20,7 @@ type FileState =
 
 type WriteState =
   | { status: "idle" }
-  | { status: "writing"; line: number | "complete" }
+  | { status: "writing"; line: number | "complete" | "doubt" }
   | { status: "conflict" }
   | { status: "error"; failure: Failure };
 
@@ -71,6 +72,7 @@ type DetailProps = {
 const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps) => {
   const [file, setFile] = useState<FileState>({ status: "loading" });
   const [write, setWrite] = useState<WriteState>({ status: "idle" });
+  const [doubt, setDoubt] = useState("");
 
   const fetchFile = useCallback(() => {
     setFile({ status: "loading" });
@@ -110,9 +112,11 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
   const items = extractChecklist(file.content);
   const isWriting = write.status === "writing";
   const canComplete = items.length > 0 && items.every((item) => item.isChecked);
+  const doubts = extractSection(file.content, "疑問点") ?? "";
+  const findings = extractSection(file.content, "調べたこと") ?? "";
 
   // 別の場所で変わっていたら上書きせず、読み直してもう一度操作してもらう。
-  const save = (line: number | "complete", next: string, message: string, onSaved: (sha: string) => void): void => {
+  const save = (line: number | "complete" | "doubt", next: string, message: string, onSaved: (sha: string) => void): void => {
     if (isWriting || next === file.content) {
       return;
     }
@@ -142,6 +146,15 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
   const handleComplete = (): void => {
     const next = completeTask(file.content, formatTokyoIso(new Date()));
     save("complete", next, `chore(mobile): ${task.id} を完了にする`, onCompleted);
+  };
+
+  const handleAddDoubt = (event: FormEvent<HTMLFormElement>): void => {
+    event.preventDefault();
+    const next = addDoubt(file.content, doubt);
+    save("doubt", next, `chore(mobile): ${task.id} に疑問点を足す`, (sha) => {
+      setFile({ status: "ready", content: next, sha });
+      setDoubt("");
+    });
   };
 
   return (
@@ -183,6 +196,33 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
           onRetry={() => setWrite({ status: "idle" })}
           onOpenSettings={onOpenSettings}
         />
+      )}
+      <section className="field">
+        <h3 id="task-doubt-title" className="field-label question-heading">
+          疑問点
+        </h3>
+        {doubts !== "" && <p className="panel question-text">{doubts}</p>}
+        <form className="input-with-action" onSubmit={handleAddDoubt}>
+          <input
+            type="text"
+            className="input"
+            aria-labelledby="task-doubt-title"
+            enterKeyHint="send"
+            readOnly={isWriting}
+            value={doubt}
+            placeholder="分からないことをひとこと"
+            onChange={(event) => setDoubt(event.target.value)}
+          />
+          <button type="submit" className="input-action" disabled={isWriting || doubt.trim() === ""}>
+            {write.status === "writing" && write.line === "doubt" ? "保存中" : "足す"}
+          </button>
+        </form>
+      </section>
+      {findings !== "" && (
+        <section className="field">
+          <h3 className="field-label question-heading">調べたこと</h3>
+          <p className="panel question-text">{findings}</p>
+        </section>
       )}
       {canComplete && (
         <button type="button" className="button button-primary button-block" disabled={isWriting} onClick={handleComplete}>
