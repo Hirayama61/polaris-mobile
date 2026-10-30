@@ -4,6 +4,7 @@
  * 朝ジョブと夜ジョブも同じファイルを書くため、ここで変更してよいのは
  * 「あなたの番」のチェック状態・「振り返り」の本文・frontmatter の `review_at` と `wake_at`・
  * 時間割の「実績」列のセルだけ。それ以外の行は 1 文字も変えない。
+ * `extractSection` `replaceSection` `setFrontmatterValue` はブログ (`src/blog.ts`) も使う。
  */
 
 /**
@@ -62,21 +63,43 @@ const frontmatterEnd = (lines: readonly string[]): number | undefined => {
   return closing === -1 ? undefined : closing;
 };
 
-// 見出しは括弧つきの揺れ(「あなたの番 (3 つまで)」)があるので先頭の語で判定する。
+const FENCE_PATTERN = /^\s*(```|~~~)/;
+
+// コードフェンスの中の行は見出しとみなさない。記事の本文に Markdown の例が入るため。
+const toHeadingFlags = (lines: readonly string[]): boolean[] => {
+  let isInFence = false;
+  return lines.map((line) => {
+    if (FENCE_PATTERN.test(line)) {
+      isInFence = !isInFence;
+      return false;
+    }
+    return !isInFence && line.startsWith(HEADING_PREFIX);
+  });
+};
+
+// 見出しは括弧つきの揺れ(「あなたの番 (3 つまで)」)があるので、名前の後ろは空白か括弧までを許す。
+// 「一言で伝えるコツ」のような別の見出しを「一言」とみなさないよう、名前の続きの文字は許さない。
+const isSectionTitle = (title: string, name: string): boolean => {
+  if (!title.startsWith(name)) {
+    return false;
+  }
+  const rest = title.slice(name.length);
+  return rest === "" || /^[\s(（]/.test(rest);
+};
+
 const findSection = (lines: readonly string[], name: string): SectionRange | undefined => {
   const bodyStart = (frontmatterEnd(lines) ?? -1) + 1;
+  const isHeading = toHeadingFlags(lines);
   const headingLine = lines.findIndex(
     (line, index) =>
       index >= bodyStart &&
-      line.startsWith(HEADING_PREFIX) &&
-      line.slice(HEADING_PREFIX.length).trimStart().startsWith(name),
+      isHeading[index] === true &&
+      isSectionTitle(line.slice(HEADING_PREFIX.length).trim(), name),
   );
   if (headingLine === -1) {
     return undefined;
   }
-  const nextHeading = lines.findIndex(
-    (line, index) => index > headingLine && line.startsWith(HEADING_PREFIX),
-  );
+  const nextHeading = isHeading.findIndex((flag, index) => index > headingLine && flag);
   return {
     headingLine,
     start: headingLine + 1,
@@ -226,8 +249,17 @@ export const extractTurns = (text: string): readonly TurnItem[] => {
  * @param text - daily ファイル全体。
  * @returns 前後の空行を除いた本文。節が無い、または空なら空文字列。
  */
-export const extractReview = (text: string): string =>
-  sectionLines(splitLines(text), "振り返り").join("\n").trim();
+export const extractReview = (text: string): string => extractSection(text, "振り返り");
+
+/**
+ * `## <name>` 節の本文を返す。見出しは先頭の語で判定する。
+ *
+ * @param text - Markdown ファイル全体。
+ * @param name - 見出しの先頭の語。
+ * @returns 前後の空行を除いた本文。節が無い、または空なら空文字列。
+ */
+export const extractSection = (text: string, name: string): string =>
+  sectionLines(splitLines(text), name).join("\n").trim();
 
 const extractFrontmatterValue = (text: string, key: string): string | undefined => {
   const lines = splitLines(text);
@@ -308,7 +340,15 @@ export const toggleTurn = (text: string, line: number): string => {
   return setTurnChecked(text, line, match[2] === " ");
 };
 
-const setFrontmatterValue = (text: string, key: string, value: string): string => {
+/**
+ * frontmatter の 1 つのキーを設定する。
+ *
+ * @param text - Markdown ファイル全体。
+ * @param key - キー名。
+ * @param value - 値。
+ * @returns そのキーの行だけを変えた全文。キーが無ければ frontmatter の末尾に追加する。frontmatter が無ければ元の全文。
+ */
+export const setFrontmatterValue = (text: string, key: string, value: string): string => {
   const lines = splitLines(text);
   const end = frontmatterEnd(lines);
   if (end === undefined) {
@@ -351,15 +391,25 @@ export const setWakeAt = (text: string, wakeAt: string): string =>
  * @param review - 新しい本文。前後の空白は取り除く。
  * @returns 節の本文だけを変えた全文。見出しと前後の節は変えない。節が無ければ末尾に追加する。
  */
-export const setReview = (text: string, review: string): string => {
+export const setReview = (text: string, review: string): string => replaceSection(text, "振り返り", review);
+
+/**
+ * `## <name>` 節の本文を置き換える。見出しは先頭の語で判定する。
+ *
+ * @param text - Markdown ファイル全体。
+ * @param name - 見出しの先頭の語。節が無いときはこれを見出しにする。
+ * @param body - 新しい本文。前後の空白は取り除く。
+ * @returns 節の本文だけを変えた全文。見出しと前後の節は変えない。節が無ければ末尾に追加する。
+ */
+export const replaceSection = (text: string, name: string, body: string): string => {
   const lines = splitLines(text);
-  const body = review.trim();
-  const bodyLines = body === "" ? [] : body.split("\n");
-  const range = findSection(lines, "振り返り");
+  const trimmed = body.trim();
+  const bodyLines = trimmed === "" ? [] : trimmed.split("\n");
+  const range = findSection(lines, name);
   if (range === undefined) {
     const base = text.trimEnd();
     const prefix = base === "" ? "" : `${base}\n\n`;
-    return `${prefix}## 振り返り\n\n${bodyLines.join("\n")}\n`;
+    return `${prefix}## ${name}\n\n${bodyLines.join("\n")}\n`;
   }
   // 見出しの直後と次の節の前に空行を 1 つずつ置く。最後の節ならファイル末尾は改行 1 つで終わる。
   const replacement = bodyLines.length === 0 ? [""] : ["", ...bodyLines, ""];
