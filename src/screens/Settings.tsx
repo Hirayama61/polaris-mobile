@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent } from "react";
+import { type ChangeEvent, useState } from "react";
 import { formatAppVersion } from "../changelog";
 import type { Settings } from "../settings";
 
@@ -30,9 +30,7 @@ export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenTasks, 
   const update = (key: keyof Settings) => (event: ChangeEvent<HTMLInputElement>) =>
     setDraft({ ...draft, [key]: event.target.value });
 
-  const isChanged = settingKeys.some(
-    (key) => draft[key].trim() !== settings[key],
-  );
+  const isChanged = settingKeys.some((key) => draft[key].trim() !== settings[key]);
   const canSave =
     draft.token.trim() !== "" &&
     draft.owner.trim() !== "" &&

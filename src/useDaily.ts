@@ -7,10 +7,7 @@ import { isConfigured, type Settings } from "./settings";
 /**
  * 表示中の daily がリモートの最新かどうか。
  */
-export type Freshness =
-  | { kind: "fresh" }
-  | { kind: "refreshing" }
-  | { kind: "stale"; failure: Failure };
+export type Freshness = { kind: "fresh" } | { kind: "refreshing" } | { kind: "stale"; failure: Failure };
 
 /**
  * 読み込んだ daily の状態。

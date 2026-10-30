@@ -4,10 +4,10 @@ import { createMinimalDaily, extractReview, extractReviewAt, setReview, setRevie
 import { loadDraft, nightDraftKeys, remainingAfterSave, removeDraft, saveDraft } from "../drafts";
 import { describeFailure, type Failure } from "../failure";
 import { readFile, updateFile } from "../github";
-import { appendJournal, extractPosts, journalPath, type JournalPost } from "../journal";
+import { appendJournal, extractPosts, type JournalPost, journalPath } from "../journal";
 import { waitForPost } from "../PostField";
 import { isConfigured, type Settings } from "../settings";
-import { dailyPath, useDaily } from "../useDaily";
+import { dailyPath, type useDaily } from "../useDaily";
 import { UnconfiguredCard } from "./common";
 
 type Props = {
@@ -28,10 +28,7 @@ type SaveState =
 const clockOf = (iso: string | undefined): string | undefined =>
   iso === undefined ? undefined : /T(\d{2}:\d{2})/.exec(iso)?.[1];
 
-type PostsState =
-  | { status: "loading" }
-  | { status: "ready"; posts: JournalPost[] }
-  | { status: "error" };
+type PostsState = { status: "loading" } | { status: "ready"; posts: JournalPost[] } | { status: "error" };
 
 const OFFLINE_FAILURE: Failure = {
   reason: "オフラインのため保存できません。",
@@ -98,8 +95,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
 
   const isReviewChanged = review.trim() !== existingReview.trim() && review.trim() !== "";
   const hasJournal = journal.trim() !== "";
-  const canSave =
-    (isReviewChanged || hasJournal) && save.status !== "saving" && state.status !== "loading";
+  const canSave = (isReviewChanged || hasJournal) && save.status !== "saving" && state.status !== "loading";
   const savedAt = state.status === "ready" ? clockOf(extractReviewAt(state.content)) : undefined;
 
   const handleSave = (): void => {
@@ -145,9 +141,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
       .filter((name) => name !== "")
       .join("と");
     run()
-      .then(() =>
-        setSave({ status: "saved", what }),
-      )
+      .then(() => setSave({ status: "saved", what }))
       .catch((error: unknown) =>
         setSave({ status: "error", failure: describeFailure(error), isReviewSaved }),
       );

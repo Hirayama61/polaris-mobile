@@ -31,11 +31,7 @@ export const loadCachedFile = (path: string): CachedFile | undefined => {
     }
     const source: Record<string, unknown> = { ...parsed };
     const { content, sha, fetchedAt } = source;
-    if (
-      typeof content !== "string" ||
-      typeof sha !== "string" ||
-      typeof fetchedAt !== "string"
-    ) {
+    if (typeof content !== "string" || typeof sha !== "string" || typeof fetchedAt !== "string") {
       return undefined;
     }
     return { content, sha, fetchedAt };

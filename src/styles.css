@@ -36,7 +36,9 @@
   --r-md: 12px;
   --r-lg: 16px;
 
-  --font: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+  --font:
+    -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP",
+    sans-serif;
   --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, monospace;
 
   --tab-height: 56px;
@@ -91,7 +93,7 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font: 16px/1.7 var(--font);
+  font: 16px / 1.7 var(--font);
   font-feature-settings: "palt";
   -webkit-font-smoothing: antialiased;
   -webkit-text-size-adjust: 100%;
@@ -220,8 +222,8 @@ a {
   width: 100%;
   max-width: 600px;
   margin: 0 auto;
-  padding: 20px calc(var(--gutter) + var(--safe-right))
-    calc(var(--tab-height) + var(--safe-bottom) + 32px) calc(var(--gutter) + var(--safe-left));
+  padding: 20px calc(var(--gutter) + var(--safe-right)) calc(var(--tab-height) + var(--safe-bottom) + 32px)
+    calc(var(--gutter) + var(--safe-left));
 }
 
 /* ---------- section ---------- */
@@ -332,12 +334,15 @@ a {
   appearance: none;
   -webkit-appearance: none;
   cursor: pointer;
-  transition: background 0.12s, border-color 0.12s;
+  transition:
+    background 0.12s,
+    border-color 0.12s;
 }
 
 .turn-box:checked {
   border-color: var(--running);
-  background: var(--running)
+  background:
+    var(--running)
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6 9 17l-5-5'/%3E%3C/svg%3E")
     center / 16px no-repeat;
 }
@@ -893,7 +898,9 @@ a {
   font-size: 16px;
   font-weight: 600;
   box-shadow: var(--shadow-sm);
-  transition: background 0.12s, transform 0.06s;
+  transition:
+    background 0.12s,
+    transform 0.06s;
 }
 
 .button:active:not(:disabled) {

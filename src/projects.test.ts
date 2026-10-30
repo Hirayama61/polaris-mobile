@@ -12,7 +12,8 @@ import {
 
 describe("readFrontmatterValue", () => {
   it("frontmatter のキーの値を返し、引用符を外す", () => {
-    const text = "---\ntitle: 請求書\nproject: polaris\nname: \"Polaris Mobile\"\n---\n\n# 本文\nproject: body\n";
+    const text =
+      '---\ntitle: 請求書\nproject: polaris\nname: "Polaris Mobile"\n---\n\n# 本文\nproject: body\n';
     expect(readFrontmatterValue(text, "project")).toBe("polaris");
     expect(readFrontmatterValue(text, "name")).toBe("Polaris Mobile");
   });
@@ -26,7 +27,7 @@ describe("readFrontmatterValue", () => {
     expect(readFrontmatterValue("---\nproject: a\n", "project")).toBeUndefined();
     expect(readFrontmatterValue("---\ntitle: a\n---\nproject: b\n", "project")).toBeUndefined();
     expect(readFrontmatterValue("---\nproject:   \n---\n", "project")).toBeUndefined();
-    expect(readFrontmatterValue("---\nproject: \"\"\n---\n", "project")).toBeUndefined();
+    expect(readFrontmatterValue('---\nproject: ""\n---\n', "project")).toBeUndefined();
   });
 
   it("前方一致の別キーは拾わない", () => {
@@ -100,7 +101,8 @@ describe("createProjectNameLoader", () => {
 
 describe("parseProject", () => {
   it("name、status、github と frontmatter を除いた本文を読む", () => {
-    const text = "---\nname: Polaris\nstatus: retired\ngithub: Hirayama61/polaris\n---\n\n## 目指すもの\n本文\n";
+    const text =
+      "---\nname: Polaris\nstatus: retired\ngithub: Hirayama61/polaris\n---\n\n## 目指すもの\n本文\n";
     expect(parseProject("polaris", text)).toEqual({
       slug: "polaris",
       name: "Polaris",
@@ -127,7 +129,13 @@ describe("stripFrontmatter", () => {
 
 describe("sortProjects", () => {
   it("retired を末尾に回し、それぞれ名前順に並べる", () => {
-    const make = (name: string, isRetired: boolean) => ({ slug: name, name, isRetired, github: undefined, body: "" });
+    const make = (name: string, isRetired: boolean) => ({
+      slug: name,
+      name,
+      isRetired,
+      github: undefined,
+      body: "",
+    });
     const sorted = sortProjects([make("c", true), make("b", false), make("a", true), make("a2", false)]);
     expect(sorted.map(({ name }) => name)).toEqual(["a2", "b", "a", "c"]);
   });
@@ -135,9 +143,7 @@ describe("sortProjects", () => {
 
 describe("linkifyIssueRefs", () => {
   it("#N を github の Issue に、(PR: URL) をその URL にする", () => {
-    expect(
-      linkifyIssueRefs("#12 一覧を作る (PR: https://github.com/o/r/pull/13)", "o/r"),
-    ).toEqual([
+    expect(linkifyIssueRefs("#12 一覧を作る (PR: https://github.com/o/r/pull/13)", "o/r")).toEqual([
       { kind: "link", text: "#12", href: "https://github.com/o/r/issues/12" },
       { kind: "text", text: " 一覧を作る (PR: " },
       { kind: "link", text: "https://github.com/o/r/pull/13", href: "https://github.com/o/r/pull/13" },
@@ -158,7 +164,8 @@ describe("linkifyIssueRefs", () => {
 
 describe("parseProjectBody", () => {
   it("「## Issue の状況」節の中だけをリンクにする", () => {
-    const body = "## 目指すもの\n#1 はリンクにしない\n\n## Issue の状況\n- #2 作る\n### 細目\n- #3 直す\n## メモ\n- #4\n";
+    const body =
+      "## 目指すもの\n#1 はリンクにしない\n\n## Issue の状況\n- #2 作る\n### 細目\n- #3 直す\n## メモ\n- #4\n";
     expect(parseProjectBody(body, "o/r")).toEqual([
       { kind: "heading", level: 2, segments: [{ kind: "text", text: "目指すもの" }] },
       { kind: "text", segments: [{ kind: "text", text: "#1 はリンクにしない" }] },

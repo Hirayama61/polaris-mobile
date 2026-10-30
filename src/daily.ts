@@ -58,17 +58,12 @@ const frontmatterEnd = (lines: readonly string[]): number | undefined => {
   if (lines[0] !== FRONTMATTER_DELIMITER) {
     return undefined;
   }
-  const closing = lines.findIndex(
-    (line, index) => index > 0 && line === FRONTMATTER_DELIMITER,
-  );
+  const closing = lines.findIndex((line, index) => index > 0 && line === FRONTMATTER_DELIMITER);
   return closing === -1 ? undefined : closing;
 };
 
 // 見出しは括弧つきの揺れ(「あなたの番 (3 つまで)」)があるので先頭の語で判定する。
-const findSection = (
-  lines: readonly string[],
-  name: string,
-): SectionRange | undefined => {
+const findSection = (lines: readonly string[], name: string): SectionRange | undefined => {
   const bodyStart = (frontmatterEnd(lines) ?? -1) + 1;
   const headingLine = lines.findIndex(
     (line, index) =>
@@ -89,10 +84,7 @@ const findSection = (
   };
 };
 
-const sectionLines = (
-  lines: readonly string[],
-  name: string,
-): readonly string[] => {
+const sectionLines = (lines: readonly string[], name: string): readonly string[] => {
   const range = findSection(lines, name);
   return range === undefined ? [] : lines.slice(range.start, range.end);
 };
@@ -109,8 +101,7 @@ const parseTableRow = (line: string): readonly string[] | undefined => {
     .map((cell) => cell.trim());
 };
 
-const isSeparatorRow = (cells: readonly string[]): boolean =>
-  cells.every((cell) => /^:?-+:?$/.test(cell));
+const isSeparatorRow = (cells: readonly string[]): boolean => cells.every((cell) => /^:?-+:?$/.test(cell));
 
 const ACTUAL_HEADER = "実績";
 
@@ -264,8 +255,7 @@ export const extractReviewAt = (text: string): string | undefined =>
  * @param text - daily ファイル全体。
  * @returns 値。キーが無い、または空なら undefined。
  */
-export const extractWakeAt = (text: string): string | undefined =>
-  extractFrontmatterValue(text, "wake_at");
+export const extractWakeAt = (text: string): string | undefined => extractFrontmatterValue(text, "wake_at");
 
 /**
  * 画面表示に必要な内容をまとめて取り出す。
@@ -289,11 +279,7 @@ export const parseDaily = (text: string): DailyView => ({
  * @param isChecked - true なら `[x]`、false なら `[ ]`。
  * @returns その行の `[ ]` / `[x]` だけを変えた全文。対象行がチェック項目でなければ元の全文。
  */
-export const setTurnChecked = (
-  text: string,
-  line: number,
-  isChecked: boolean,
-): string => {
+export const setTurnChecked = (text: string, line: number, isChecked: boolean): string => {
   const lines = splitLines(text);
   const target = lines[line];
   if (target === undefined) {
@@ -304,9 +290,7 @@ export const setTurnChecked = (
     return text;
   }
   const replaced = `${match[1] ?? ""}[${isChecked ? "x" : " "}] ${match[3] ?? ""}`;
-  return lines
-    .map((current, index) => (index === line ? replaced : current))
-    .join("\n");
+  return lines.map((current, index) => (index === line ? replaced : current)).join("\n");
 };
 
 /**
@@ -335,9 +319,7 @@ const setFrontmatterValue = (text: string, key: string, value: string): string =
     (candidate, index) => index > 0 && index < end && candidate.startsWith(`${key}:`),
   );
   if (existing !== -1) {
-    return lines
-      .map((current, index) => (index === existing ? line : current))
-      .join("\n");
+    return lines.map((current, index) => (index === existing ? line : current)).join("\n");
   }
   return [...lines.slice(0, end), line, ...lines.slice(end)].join("\n");
 };
@@ -381,11 +363,7 @@ export const setReview = (text: string, review: string): string => {
   }
   // 見出しの直後と次の節の前に空行を 1 つずつ置く。最後の節ならファイル末尾は改行 1 つで終わる。
   const replacement = bodyLines.length === 0 ? [""] : ["", ...bodyLines, ""];
-  return [
-    ...lines.slice(0, range.start),
-    ...replacement,
-    ...lines.slice(range.end),
-  ].join("\n");
+  return [...lines.slice(0, range.start), ...replacement, ...lines.slice(range.end)].join("\n");
 };
 
 /**
@@ -395,6 +373,4 @@ export const setReview = (text: string, review: string): string => {
  * @returns frontmatter と「振り返り」節だけの全文。
  */
 export const createMinimalDaily = (date: string): string =>
-  ["---", `date: ${date}`, "plan_at:", "review_at:", "---", "", "## 振り返り", "", ""].join(
-    "\n",
-  );
+  ["---", `date: ${date}`, "plan_at:", "review_at:", "---", "", "## 振り返り", "", ""].join("\n");

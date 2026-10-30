@@ -76,7 +76,4 @@ export const saveSettings = (settings: Settings): Settings => {
  * @returns トークン・owner・repo・ブランチがすべて埋まっていれば true。
  */
 export const isConfigured = (settings: Settings): boolean =>
-  settings.token !== "" &&
-  settings.owner !== "" &&
-  settings.repo !== "" &&
-  settings.branch !== "";
+  settings.token !== "" && settings.owner !== "" && settings.repo !== "" && settings.branch !== "";

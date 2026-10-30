@@ -24,9 +24,7 @@ describe("polarisToday", () => {
 
 describe("formatTokyoIso", () => {
   it("+09:00 つきの ISO 8601 を返す", () => {
-    expect(formatTokyoIso(new Date("2026-10-30T13:15:07Z"))).toBe(
-      "2026-10-30T22:15:07+09:00",
-    );
+    expect(formatTokyoIso(new Date("2026-10-30T13:15:07Z"))).toBe("2026-10-30T22:15:07+09:00");
   });
 });
 

@@ -1,13 +1,13 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { formatTokyoIso, tokyoMinutesOfDay } from "../clock";
 import {
   extractSchedule,
   extractTurns,
   parseDaily,
+  type ScheduleRow,
   setScheduleActual,
   setTurnChecked,
   setWakeAt,
-  type ScheduleRow,
   type TurnItem,
 } from "../daily";
 import { isNowInSlot, splitTaskRef, splitTurnLabel } from "../display";
@@ -15,11 +15,11 @@ import { describeFailure, type Failure } from "../failure";
 import { writeKnownFile } from "../github";
 import { PostField } from "../PostField";
 import type { Settings } from "../settings";
-import { useProjectNames } from "../useProjectNames";
 import { TaskChecklist } from "../TaskChecklist";
 import { taskPathOf } from "../tasks";
 import { StateCard } from "../ui";
-import { dailyPath, useDaily } from "../useDaily";
+import { dailyPath, type useDaily } from "../useDaily";
+import { useProjectNames } from "../useProjectNames";
 import { FailureAction, UnconfiguredCard } from "./common";
 
 type Props = {
@@ -139,11 +139,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           title="今日の計画を読めませんでした"
           tone="error"
           action={
-            <FailureAction
-              failure={state.failure}
-              onRetry={daily.reload}
-              onOpenSettings={onOpenSettings}
-            />
+            <FailureAction failure={state.failure} onRetry={daily.reload} onOpenSettings={onOpenSettings} />
           }
         >
           <p>{state.failure.reason}</p>
@@ -279,7 +275,12 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           {wakeClock === undefined ? (
             <>
               <span className="wake-text muted">起きたら押してください</span>
-              <button type="button" className="button button-small wake-action" disabled={isWriting} onClick={handleWake}>
+              <button
+                type="button"
+                className="button button-small wake-action"
+                disabled={isWriting}
+                onClick={handleWake}
+              >
                 {writingTarget?.kind === "wake" ? "保存中" : "起きた"}
               </button>
             </>
@@ -362,7 +363,9 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                     >
                       <span className="turn-text">
                         {/* 手順の無い行は詳細に本文が出ないので、タイトルを省略せず折り返す。 */}
-                        <span className={steps === undefined ? "turn-label" : "turn-label turn-line"}>{title}</span>
+                        <span className={steps === undefined ? "turn-label" : "turn-label turn-line"}>
+                          {title}
+                        </span>
                         {project}
                       </span>
                       {minutes !== undefined && <span className="turn-minutes">{minutes}</span>}

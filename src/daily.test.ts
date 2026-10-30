@@ -64,11 +64,7 @@ review_at:
 const lines = (text: string): readonly string[] => text.split("\n");
 
 // 指定した行以外が元の全文と一致することを確かめる。
-const expectOnlyLinesChanged = (
-  before: string,
-  after: string,
-  changedLines: readonly number[],
-): void => {
+const expectOnlyLinesChanged = (before: string, after: string, changedLines: readonly number[]): void => {
   const beforeLines = lines(before);
   const afterLines = lines(after);
   expect(afterLines.length).toBe(beforeLines.length);
@@ -126,9 +122,7 @@ describe("extractTurns", () => {
 describe("toggleTurn / setTurnChecked", () => {
   it("対象の行だけを [x] にし、他の行は 1 文字も変えない", () => {
     const after = toggleTurn(fixture, 13);
-    expect(lines(after)[13]).toBe(
-      "- [x] Google アカウントを作る (task: 20261025-oubf)",
-    );
+    expect(lines(after)[13]).toBe("- [x] Google アカウントを作る (task: 20261025-oubf)");
     expectOnlyLinesChanged(fixture, after, [13]);
   });
 
@@ -138,9 +132,7 @@ describe("toggleTurn / setTurnChecked", () => {
 
   it("setTurnChecked は同じ状態を指定しても全文を変えない", () => {
     expect(setTurnChecked(fixture, 13, false)).toBe(fixture);
-    expect(setTurnChecked(toggleTurn(fixture, 13), 13, true)).toBe(
-      toggleTurn(fixture, 13),
-    );
+    expect(setTurnChecked(toggleTurn(fixture, 13), 13, true)).toBe(toggleTurn(fixture, 13));
   });
 
   it("チェック項目でない行を指定しても全文を変えない", () => {
@@ -271,9 +263,7 @@ describe("setReview", () => {
 
   it("最後の節でもファイル末尾を改行 1 つで終える", () => {
     const text = "---\ndate: 2026-10-30\n---\n\n## 振り返り\n\n";
-    expect(setReview(text, "終わり")).toBe(
-      "---\ndate: 2026-10-30\n---\n\n## 振り返り\n\n終わり\n",
-    );
+    expect(setReview(text, "終わり")).toBe("---\ndate: 2026-10-30\n---\n\n## 振り返り\n\n終わり\n");
   });
 
   it("節が無ければ末尾に追加する", () => {
@@ -287,10 +277,7 @@ describe("setReview", () => {
 describe("createMinimalDaily", () => {
   it("振り返りと review_at を書ける最小の daily を作る", () => {
     const text = createMinimalDaily("2026-10-30");
-    const written = setReviewAt(
-      setReview(text, "朝ジョブが無かった日"),
-      "2026-10-30T22:00:00+09:00",
-    );
+    const written = setReviewAt(setReview(text, "朝ジョブが無かった日"), "2026-10-30T22:00:00+09:00");
     expect(written).toBe(
       "---\ndate: 2026-10-30\nplan_at:\nreview_at: 2026-10-30T22:00:00+09:00\n---\n\n## 振り返り\n\n朝ジョブが無かった日\n",
     );

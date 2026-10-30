@@ -70,7 +70,7 @@ export const createProjectNameLoader = (
     cache.set(path, pending);
     return pending;
   };
-  const valueOf = async (kind: string, id: string, key: string): Promise<string | undefined> => {
+  const frontmatterValueOf = async (kind: string, id: string, key: string): Promise<string | undefined> => {
     if (!isSafeId(id)) {
       return undefined;
     }
@@ -79,8 +79,8 @@ export const createProjectNameLoader = (
   };
   return async (taskId) => {
     try {
-      const slug = await valueOf("tasks", taskId, "project");
-      return slug === undefined ? undefined : await valueOf("projects", slug, "name");
+      const slug = await frontmatterValueOf("tasks", taskId, "project");
+      return slug === undefined ? undefined : await frontmatterValueOf("projects", slug, "name");
     } catch {
       return undefined;
     }
@@ -133,7 +133,10 @@ export const stripFrontmatter = (text: string): string => {
   if (end === -1) {
     return text;
   }
-  return lines.slice(end + 1).join("\n").replace(/^(\s*\r?\n)+/, "");
+  return lines
+    .slice(end + 1)
+    .join("\n")
+    .replace(/^(\s*\r?\n)+/, "");
 };
 
 /**
@@ -195,7 +198,11 @@ export const linkifyIssueRefs = (text: string, github: string | undefined): Segm
       pushText(")");
     } else if (issueNumber !== undefined && github !== undefined) {
       pushText(text.slice(rest, match.index));
-      segments.push({ kind: "link", text: whole, href: `https://github.com/${github}/issues/${issueNumber}` });
+      segments.push({
+        kind: "link",
+        text: whole,
+        href: `https://github.com/${github}/issues/${issueNumber}`,
+      });
     } else {
       continue;
     }

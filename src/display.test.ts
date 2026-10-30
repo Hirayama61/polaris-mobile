@@ -45,7 +45,9 @@ describe("isNowInSlot", () => {
 
 describe("splitTurnLabel", () => {
   it("タイトル・手順・目安時間・task を分ける", () => {
-    expect(splitTurnLabel("請求書を送る: freee で PDF を出してメールに添付 (15 分) (task: 20261029-abcd)")).toEqual({
+    expect(
+      splitTurnLabel("請求書を送る: freee で PDF を出してメールに添付 (15 分) (task: 20261029-abcd)"),
+    ).toEqual({
       title: "請求書を送る",
       steps: "freee で PDF を出してメールに添付 (15 分)",
       minutes: "15 分",
@@ -74,7 +76,11 @@ describe("splitTurnLabel", () => {
       taskId: "x",
       ...none,
     });
-    expect(splitTurnLabel("時刻 9:00 に電話")).toEqual({ title: "時刻 9:00 に電話", taskId: undefined, ...none });
+    expect(splitTurnLabel("時刻 9:00 に電話")).toEqual({
+      title: "時刻 9:00 に電話",
+      taskId: undefined,
+      ...none,
+    });
     expect(splitTurnLabel(": 手順だけ")).toEqual({ title: ": 手順だけ", taskId: undefined, ...none });
     expect(splitTurnLabel("タイトルだけ: ")).toEqual({ title: "タイトルだけ: ", taskId: undefined, ...none });
   });

@@ -16,9 +16,7 @@ export class GitHubError extends Error {
 /**
  * リポジトリから読んだファイル。
  */
-export type RemoteFile =
-  | { kind: "found"; content: string; sha: string }
-  | { kind: "missing" };
+export type RemoteFile = { kind: "found"; content: string; sha: string } | { kind: "missing" };
 
 type WriteOutcome = { sha: string };
 
@@ -87,10 +85,7 @@ const encodeBase64 = (text: string): string => {
  * @returns ファイルが無ければ `missing`。
  * @throws GitHubError 404 以外の失敗。
  */
-export const readFile = async (
-  settings: Settings,
-  path: string,
-): Promise<RemoteFile> => {
+export const readFile = async (settings: Settings, path: string): Promise<RemoteFile> => {
   const url = `${contentsUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
   const [rawResponse, jsonResponse] = await Promise.all([
     request(url, {
@@ -111,10 +106,7 @@ export const readFile = async (
   if (!jsonResponse.ok) {
     throw new GitHubError(jsonResponse.status, await describeError(jsonResponse));
   }
-  const [content, json] = await Promise.all([
-    rawResponse.text(),
-    jsonResponse.json() as Promise<unknown>,
-  ]);
+  const [content, json] = await Promise.all([rawResponse.text(), jsonResponse.json() as Promise<unknown>]);
   return { kind: "found", content, sha: readSha(json) };
 };
 
@@ -179,9 +171,7 @@ export const updateFile = async (
 ): Promise<{ content: string; sha: string }> => {
   const attempt = async (): Promise<{ content: string; sha: string }> => {
     const current = await readFile(settings, path);
-    const content = transform(
-      current.kind === "found" ? current.content : undefined,
-    );
+    const content = transform(current.kind === "found" ? current.content : undefined);
     const outcome = await putFile(
       settings,
       path,
@@ -229,9 +219,7 @@ export const writeKnownFile = async (
     if (!isConflict(error)) {
       throw error;
     }
-    return updateFile(settings, path, message, (current) =>
-      transform(current ?? known.content),
-    );
+    return updateFile(settings, path, message, (current) => transform(current ?? known.content));
   }
 };
 
@@ -330,4 +318,3 @@ export const readText = async (settings: Settings, path: string): Promise<string
   }
   return response.text();
 };
-

@@ -1,16 +1,16 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { ChangelogSheet } from "./ChangelogSheet";
 import { formatDateLabel, polarisToday } from "./clock";
 import { loadDraft, saveDraft } from "./drafts";
-import type { FeedbackDraft } from "./feedback";
 import { FEEDBACK_DRAFT_KEYS, FeedbackSheet } from "./FeedbackSheet";
-import { QuestionSheet } from "./QuestionSheet";
+import type { FeedbackDraft } from "./feedback";
 import { ProjectsSheet } from "./ProjectsSheet";
+import { QuestionSheet } from "./QuestionSheet";
 import { NightScreen } from "./screens/Night";
 import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
+import { isConfigured, loadSettings, type Settings, saveSettings } from "./settings";
 import { TasksSheet } from "./TasksSheet";
-import { isConfigured, loadSettings, saveSettings, type Settings } from "./settings";
 import { GearIcon, MessageIcon, MoonIcon, SunIcon } from "./ui";
 import { useDaily } from "./useDaily";
 import { useOnline } from "./useOnline";
@@ -60,9 +60,7 @@ const useToday = (): string => {
  */
 export const App = () => {
   const [settings, setSettings] = useState<Settings>(loadSettings);
-  const [screen, setScreen] = useState<Screen>(() =>
-    isConfigured(loadSettings()) ? "today" : "settings",
-  );
+  const [screen, setScreen] = useState<Screen>(() => (isConfigured(loadSettings()) ? "today" : "settings"));
   const today = useToday();
   const isOnline = useOnline();
   const daily = useDaily(settings, today);

@@ -73,7 +73,10 @@ type StateCardProps = {
  * 内容の代わりに出す状態の札。空の日・未設定・失敗で同じ形を使う。
  */
 export const StateCard = ({ title, tone = "plain", children, action }: StateCardProps) => (
-  <section className={tone === "error" ? "state state-error" : "state"} role={tone === "error" ? "alert" : undefined}>
+  <section
+    className={tone === "error" ? "state state-error" : "state"}
+    role={tone === "error" ? "alert" : undefined}
+  >
     <p className="state-title">{title}</p>
     {children !== undefined && <div className="state-body">{children}</div>}
     {action !== undefined && <div className="state-action">{action}</div>}

@@ -3,7 +3,7 @@
  *
  * 書き換えてよいのは、チェックリストの行の `[ ]` / `[x]` と、完了にするときの frontmatter の `status` と `updated` だけ。
  */
-import { readFrontmatterValue, SAFE_ID_PATTERN, type ListNames, type ReadText } from "./projects";
+import { type ListNames, type ReadText, readFrontmatterValue, SAFE_ID_PATTERN } from "./projects";
 
 /**
  * 一覧に出す 1 件のタスク。

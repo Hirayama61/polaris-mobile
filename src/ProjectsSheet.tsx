@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { describeFailure, type Failure } from "./failure";
 import { listFileNames, readFile } from "./github";
-import { loadProjects, parseProjectBody, type ProjectSummary, type Segment } from "./projects";
+import { loadProjects, type ProjectSummary, parseProjectBody, type Segment } from "./projects";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
 
@@ -118,8 +118,7 @@ export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
     };
   }, [onClose]);
 
-  const retiredStart =
-    load.status === "ready" ? load.projects.findIndex((project) => project.isRetired) : -1;
+  const retiredStart = load.status === "ready" ? load.projects.findIndex((project) => project.isRetired) : -1;
 
   return (
     <div className="sheet-backdrop" onClick={onClose}>

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { type Dispatch, type SetStateAction, useEffect, useRef, useState } from "react";
 import { formatTokyoIso } from "./clock";
-import { buildInboxNote, buildInboxPath, clearSentDraft, inboxSuffix, type FeedbackDraft } from "./feedback";
 import { describeFailure, type Failure } from "./failure";
+import { buildInboxNote, buildInboxPath, clearSentDraft, type FeedbackDraft, inboxSuffix } from "./feedback";
 import { createFile } from "./github";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
