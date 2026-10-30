@@ -302,10 +302,6 @@ a {
 }
 
 /* ---------- あなたの番 ---------- */
-.turns li + li .turn {
-  border-top: 1px solid var(--border);
-}
-
 .turn {
   display: flex;
   align-items: center;
@@ -509,6 +505,10 @@ a {
   animation: pulse 1.2s ease-in-out infinite;
 }
 
+.turns li + li .turn {
+  border-top: 1px solid var(--border);
+}
+
 @keyframes pulse {
   50% {
     opacity: 0.35;
@@ -516,10 +516,6 @@ a {
 }
 
 /* ---------- 今日の投稿 ---------- */
-.posts .post + .post {
-  border-top: 1px solid var(--border);
-}
-
 .post {
   display: grid;
   grid-template-columns: 3.4em minmax(0, 1fr);
@@ -540,11 +536,11 @@ a {
   overflow-wrap: anywhere;
 }
 
-/* ---------- 時間割 ---------- */
-.timeline .slot + .slot {
+.posts .post + .post {
   border-top: 1px solid var(--border);
 }
 
+/* ---------- 時間割 ---------- */
 .slot {
   position: relative;
   display: grid;
@@ -624,6 +620,10 @@ a {
   background: var(--accent-soft);
 }
 
+.timeline .slot + .slot {
+  border-top: 1px solid var(--border);
+}
+
 .tag {
   padding: 0 8px;
   border-radius: 999px;
@@ -681,10 +681,6 @@ a {
   margin-top: 12px;
 }
 
-.state-action .button {
-  min-width: 160px;
-}
-
 .banner {
   display: flex;
   align-items: center;
@@ -713,10 +709,6 @@ a {
   font-size: 14px;
   line-height: 1.6;
   overflow-wrap: anywhere;
-}
-
-.message .button {
-  margin-top: 8px;
 }
 
 .message-error {
@@ -939,6 +931,14 @@ a {
   width: 100%;
 }
 
+.state-action .button {
+  min-width: 160px;
+}
+
+.message .button {
+  margin-top: 8px;
+}
+
 /* 保存ボタンはタブバーのすぐ上に留める */
 .save-bar {
   position: sticky;
@@ -1103,10 +1103,6 @@ a {
 }
 
 /* ---------- 質問シート ---------- */
-.questions li + li .question-item {
-  border-top: 1px solid var(--border);
-}
-
 .question-item {
   display: flex;
   align-items: center;
@@ -1124,6 +1120,10 @@ a {
 
 .question-item:active {
   background: var(--hover);
+}
+
+.questions li + li .question-item {
+  border-top: 1px solid var(--border);
 }
 
 .question-answered {
@@ -1221,16 +1221,14 @@ a {
   *,
   *::before,
   *::after {
+    /* biome-ignore lint/complexity/noImportantStyles: 個々の要素の transition は詳細度が高く、!important でないと動きを止められない */
     animation: none !important;
+    /* biome-ignore lint/complexity/noImportantStyles: 同上 */
     transition: none !important;
   }
 }
 
 /* ---------- プロジェクト ---------- */
-.project-list li + li .project-row {
-  border-top: 1px solid var(--border);
-}
-
 .project-row {
   display: flex;
   align-items: center;
@@ -1248,6 +1246,10 @@ a {
 
 .project-row:active {
   background: var(--hover);
+}
+
+.project-list li + li .project-row {
+  border-top: 1px solid var(--border);
 }
 
 .project-retired {

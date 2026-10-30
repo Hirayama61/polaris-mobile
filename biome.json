@@ -40,13 +40,7 @@
   "linter": {
     "enabled": true,
     "rules": {
-      "preset": "recommended",
-      "style": {
-        "noDescendingSpecificity": "warn"
-      },
-      "complexity": {
-        "noImportantStyles": "warn"
-      }
+      "preset": "recommended"
     }
   }
 }
