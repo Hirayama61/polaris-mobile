@@ -50,7 +50,14 @@ const fencedLines = (lines: readonly string[]): boolean[] => {
   return fenced;
 };
 
-const titleOf = (id: string, text: string): string => {
+/**
+ * タスクの見出しに出すタイトルを決める。
+ *
+ * @param id - task ID。
+ * @param text - `tasks/<id>.md` の全体。
+ * @returns frontmatter の `title`、無ければ最初の `#` 見出し、それも無ければ ID。
+ */
+export const titleOf = (id: string, text: string): string => {
   const fromFrontmatter = readFrontmatterValue(text, "title");
   if (fromFrontmatter !== undefined) {
     return fromFrontmatter;
@@ -85,19 +92,28 @@ export const sortHumanTasks = (tasks: readonly HumanTask[]): HumanTask[] =>
   );
 
 /**
- * `tasks/*.md` から人の todo を読み、`projects/<slug>.md` の `name` を付けて返す。読むだけで書かない。
+ * `tasks/` 直下の task ID を並べる。path に埋め込めない ID は除く。
  *
  * @param list - ディレクトリのファイル名を返す関数。
- * @param read - ファイルを読む関数。
- * @returns 並べた一覧。tasks のファイルを読めなければ例外。project 名を読めなければ名前なしにする。
+ * @returns `.md` を外した ID。読めなければ例外。
  */
-export const loadHumanTasks = async (list: ListNames, read: ReadText): Promise<HumanTask[]> => {
-  const ids = (await list("tasks"))
+export const listTaskIds = async (list: ListNames): Promise<string[]> =>
+  (await list("tasks"))
     .filter((name) => name.endsWith(".md"))
     .map((name) => name.slice(0, -".md".length))
     .filter((id) => SAFE_ID_PATTERN.test(id));
+
+/**
+ * project の slug から `projects/<slug>.md` の `name` を引く関数を作る。同じ slug は 1 回だけ読む。
+ *
+ * @param read - ファイルを読む関数。
+ * @returns slug を受け取り、名前 (引けなければ undefined) を返す関数。例外は投げない。
+ */
+export const createProjectSlugNameReader = (
+  read: ReadText,
+): ((slug: string | undefined) => Promise<string | undefined>) => {
   const names = new Map<string, Promise<string | undefined>>();
-  const projectNameOf = (slug: string | undefined): Promise<string | undefined> => {
+  return (slug) => {
     if (slug === undefined || !SAFE_ID_PATTERN.test(slug)) {
       return Promise.resolve(undefined);
     }
@@ -111,6 +127,18 @@ export const loadHumanTasks = async (list: ListNames, read: ReadText): Promise<H
     names.set(slug, pending);
     return pending;
   };
+};
+
+/**
+ * `tasks/*.md` から人の todo を読み、`projects/<slug>.md` の `name` を付けて返す。読むだけで書かない。
+ *
+ * @param list - ディレクトリのファイル名を返す関数。
+ * @param read - ファイルを読む関数。
+ * @returns 並べた一覧。tasks のファイルを読めなければ例外。project 名を読めなければ名前なしにする。
+ */
+export const loadHumanTasks = async (list: ListNames, read: ReadText): Promise<HumanTask[]> => {
+  const ids = await listTaskIds(list);
+  const projectNameOf = createProjectSlugNameReader(read);
   const tasks = await Promise.all(
     ids.map(async (id): Promise<HumanTask | undefined> => {
       const text = await read(`tasks/${id}.md`);

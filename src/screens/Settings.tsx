@@ -6,7 +6,6 @@ type Props = {
   settings: Settings;
   onSave: (settings: Settings) => void;
   onOpenProjects: () => void;
-  onOpenTasks: () => void;
   onOpenChangelog: () => void;
 };
 
@@ -23,7 +22,7 @@ const settingKeys = ["token", "owner", "repo", "branch"] as const satisfies read
 /**
  * GitHub の接続設定を入力して localStorage に保存する。プロジェクトのシートもここから開く。
  */
-export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenTasks, onOpenChangelog }: Props) => {
+export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenChangelog }: Props) => {
   const [draft, setDraft] = useState<Settings>(settings);
   const [isTokenVisible, setIsTokenVisible] = useState(false);
 
@@ -96,9 +95,6 @@ export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenTasks, 
         </button>
         <button type="button" className="button button-block" onClick={onOpenProjects}>
           プロジェクトを見る
-        </button>
-        <button type="button" className="button button-block" onClick={onOpenTasks}>
-          タスクを見る
         </button>
         <button type="button" className="button button-block" onClick={onOpenChangelog}>
           更新履歴を見る

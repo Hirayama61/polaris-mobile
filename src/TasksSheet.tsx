@@ -27,6 +27,8 @@ type WriteState =
 
 type Props = {
   settings: Settings;
+  /** 受信箱でタップしたタスク。詳細から開く。 */
+  initialTask: HumanTask;
   onClose: () => void;
   onOpenSettings: () => void;
 };
@@ -272,9 +274,9 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
 /**
  * `tasks/*.md` の人の todo を一覧にし、タップで「## あなたがやること」をチェックできるシート。
  */
-export const TasksSheet = ({ settings, onClose, onOpenSettings }: Props) => {
+export const TasksSheet = ({ settings, initialTask, onClose, onOpenSettings }: Props) => {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
-  const [selected, setSelected] = useState<HumanTask | undefined>(undefined);
+  const [selected, setSelected] = useState<HumanTask | undefined>(initialTask);
 
   const fetchTasks = useCallback(() => {
     if (settings.token === "") {

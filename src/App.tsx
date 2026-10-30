@@ -1,27 +1,32 @@
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 import { ChangelogSheet } from "./ChangelogSheet";
-import { formatDateLabel, polarisToday } from "./clock";
+import { formatDateLabel, formatTokyoIso, polarisToday } from "./clock";
 import { loadDraft, saveDraft } from "./drafts";
 import { FEEDBACK_DRAFT_KEYS, FeedbackSheet } from "./FeedbackSheet";
 import type { FeedbackDraft } from "./feedback";
+import { hasUnansweredQuestion, type InboxItem } from "./inbox";
+import { loadInboxSeenAt, saveInboxSeenAt } from "./inboxSeen";
 import { ProjectsSheet } from "./ProjectsSheet";
 import { QuestionSheet } from "./QuestionSheet";
 import { BlogScreen } from "./screens/Blog";
+import { InboxScreen } from "./screens/Inbox";
 import { NightScreen } from "./screens/Night";
 import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "./settings";
 import { TasksSheet } from "./TasksSheet";
-import { GearIcon, MessageIcon, MoonIcon, PenIcon, SunIcon } from "./ui";
+import { GearIcon, InboxIcon, MessageIcon, MoonIcon, PenIcon, SunIcon } from "./ui";
 import { useDaily } from "./useDaily";
+import { useInbox } from "./useInbox";
 import { useOnline } from "./useOnline";
 
-const screens = ["today", "night", "blog", "settings"] as const;
+const screens = ["today", "inbox", "night", "blog", "settings"] as const;
 
 type Screen = (typeof screens)[number];
 
 const screenLabels = {
   today: "今日",
+  inbox: "受信箱",
   night: "夜",
   blog: "ブログ",
   settings: "設定",
@@ -29,6 +34,7 @@ const screenLabels = {
 
 const screenIcons = {
   today: <SunIcon />,
+  inbox: <InboxIcon />,
   night: <MoonIcon />,
   blog: <PenIcon />,
   settings: <GearIcon />,
@@ -59,7 +65,7 @@ const useToday = (): string => {
 };
 
 /**
- * 画面全体。ルーターは使わず、state で 4 画面を切り替える。
+ * 画面全体。ルーターは使わず、state で 5 画面を切り替える。
  */
 export const App = () => {
   const [settings, setSettings] = useState<Settings>(loadSettings);
@@ -70,12 +76,17 @@ export const App = () => {
   const [isFeedbackOpen, setIsFeedbackOpen] = useState(false);
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraft>(loadFeedbackDraft);
   const closeFeedback = useCallback(() => setIsFeedbackOpen(false), []);
-  const [isQuestionOpen, setIsQuestionOpen] = useState(false);
-  const closeQuestion = useCallback(() => setIsQuestionOpen(false), []);
+  const inbox = useInbox(settings);
+  const reloadInbox = inbox.reload;
+  // 受信箱に入る直前に残っていた時刻。入った時刻で上書きする前に取っておき、「新着」の基準にする。
+  const [inboxSeenAt, setInboxSeenAt] = useState<string | undefined>(undefined);
+  const [openedItem, setOpenedItem] = useState<InboxItem | undefined>(undefined);
+  const closeItem = useCallback(() => {
+    setOpenedItem(undefined);
+    reloadInbox();
+  }, [reloadInbox]);
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const closeProjects = useCallback(() => setIsProjectsOpen(false), []);
-  const [isTasksOpen, setIsTasksOpen] = useState(false);
-  const closeTasks = useCallback(() => setIsTasksOpen(false), []);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
   const closeChangelog = useCallback(() => setIsChangelogOpen(false), []);
   useEffect(() => {
@@ -91,12 +102,22 @@ export const App = () => {
 
   const openSettings = (): void => {
     setIsFeedbackOpen(false);
-    setIsQuestionOpen(false);
+    setOpenedItem(undefined);
     setIsProjectsOpen(false);
-    setIsTasksOpen(false);
     setIsChangelogOpen(false);
     setScreen("settings");
   };
+
+  const selectScreen = (next: Screen): void => {
+    if (next === "inbox" && screen !== "inbox") {
+      setInboxSeenAt(loadInboxSeenAt());
+      saveInboxSeenAt(formatTokyoIso(new Date()));
+      reloadInbox();
+    }
+    setScreen(next);
+  };
+
+  const hasInboxAlert = inbox.state.status === "ready" && hasUnansweredQuestion(inbox.state.items);
 
   return (
     <div className="app">
@@ -123,12 +144,14 @@ export const App = () => {
             onOpenSettings={openSettings}
           />
         )}
-        {screen === "today" && isConfigured(settings) && (
-          <section className="section">
-            <button type="button" className="button button-block" onClick={() => setIsQuestionOpen(true)}>
-              質問に答える
-            </button>
-          </section>
+        {screen === "inbox" && (
+          <InboxScreen
+            state={inbox.state}
+            seenAt={inboxSeenAt}
+            onOpenItem={setOpenedItem}
+            onRetry={reloadInbox}
+            onOpenSettings={openSettings}
+          />
         )}
         {screen === "night" && (
           <NightScreen
@@ -153,25 +176,33 @@ export const App = () => {
             settings={settings}
             onSave={handleSaveSettings}
             onOpenProjects={() => setIsProjectsOpen(true)}
-            onOpenTasks={() => setIsTasksOpen(true)}
             onOpenChangelog={() => setIsChangelogOpen(true)}
           />
         )}
       </main>
 
       <nav className="tab-bar" aria-label="画面">
-        {screens.map((candidate) => (
-          <button
-            key={candidate}
-            type="button"
-            className={candidate === screen ? "tab tab-active" : "tab"}
-            aria-current={candidate === screen ? "page" : undefined}
-            onClick={() => setScreen(candidate)}
-          >
-            {screenIcons[candidate]}
-            <span>{screenLabels[candidate]}</span>
-          </button>
-        ))}
+        {screens.map((candidate) => {
+          const isAlerted = candidate === "inbox" && hasInboxAlert;
+          return (
+            <button
+              key={candidate}
+              type="button"
+              className={candidate === screen ? "tab tab-active" : "tab"}
+              aria-current={candidate === screen ? "page" : undefined}
+              aria-label={isAlerted ? `${screenLabels[candidate]}(未回答の質問あり)` : undefined}
+              onClick={() => selectScreen(candidate)}
+            >
+              {screenIcons[candidate]}
+              <span>{screenLabels[candidate]}</span>
+              {isAlerted && (
+                <span className="tab-alert" aria-hidden="true">
+                  !
+                </span>
+              )}
+            </button>
+          );
+        })}
       </nav>
 
       {isFeedbackOpen && (
@@ -186,18 +217,26 @@ export const App = () => {
           onOpenSettings={openSettings}
         />
       )}
-      {isQuestionOpen && (
+      {openedItem?.kind === "question" && (
         <QuestionSheet
           settings={settings}
           isOnline={isOnline}
-          onClose={closeQuestion}
+          initialQuestion={openedItem}
+          onClose={closeItem}
           onOpenSettings={openSettings}
         />
       )}
       {isProjectsOpen && (
         <ProjectsSheet settings={settings} onClose={closeProjects} onOpenSettings={openSettings} />
       )}
-      {isTasksOpen && <TasksSheet settings={settings} onClose={closeTasks} onOpenSettings={openSettings} />}
+      {openedItem?.kind === "task" && (
+        <TasksSheet
+          settings={settings}
+          initialTask={openedItem}
+          onClose={closeItem}
+          onOpenSettings={openSettings}
+        />
+      )}
       {isChangelogOpen && <ChangelogSheet entries={__APP_CHANGELOG__} onClose={closeChangelog} />}
     </div>
   );
