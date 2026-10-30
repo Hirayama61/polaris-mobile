@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { ChangelogSheet } from "./ChangelogSheet";
 import { formatDateLabel, polarisToday } from "./clock";
 import { loadDraft, saveDraft } from "./drafts";
 import type { FeedbackDraft } from "./feedback";
@@ -74,6 +75,8 @@ export const App = () => {
   const closeProjects = useCallback(() => setIsProjectsOpen(false), []);
   const [isTasksOpen, setIsTasksOpen] = useState(false);
   const closeTasks = useCallback(() => setIsTasksOpen(false), []);
+  const [isChangelogOpen, setIsChangelogOpen] = useState(false);
+  const closeChangelog = useCallback(() => setIsChangelogOpen(false), []);
   useEffect(() => {
     saveDraft(FEEDBACK_DRAFT_KEYS.title, feedbackDraft.title);
     saveDraft(FEEDBACK_DRAFT_KEYS.body, feedbackDraft.body);
@@ -90,6 +93,7 @@ export const App = () => {
     setIsQuestionOpen(false);
     setIsProjectsOpen(false);
     setIsTasksOpen(false);
+    setIsChangelogOpen(false);
     setScreen("settings");
   };
 
@@ -141,6 +145,7 @@ export const App = () => {
             onSave={handleSaveSettings}
             onOpenProjects={() => setIsProjectsOpen(true)}
             onOpenTasks={() => setIsTasksOpen(true)}
+            onOpenChangelog={() => setIsChangelogOpen(true)}
           />
         )}
       </main>
@@ -184,6 +189,7 @@ export const App = () => {
         <ProjectsSheet settings={settings} onClose={closeProjects} onOpenSettings={openSettings} />
       )}
       {isTasksOpen && <TasksSheet settings={settings} onClose={closeTasks} onOpenSettings={openSettings} />}
+      {isChangelogOpen && <ChangelogSheet entries={__APP_CHANGELOG__} onClose={closeChangelog} />}
     </div>
   );
 };
