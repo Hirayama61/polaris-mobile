@@ -11,19 +11,20 @@ Polaris のループのスキル (`polaris-*`) と、そのサブエージェン
 
 | 用途                        | コマンド                                                                                                             |
 | --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| Issue 一覧                  | `gh api 'repos/Hirayama61/polaris-mobile/issues?state=open&labels=ready&per_page=50'` (`pull_request` キーを持つ要素は PR なので除く) |
+| Issue 一覧                  | `gh api --paginate 'repos/Hirayama61/polaris-mobile/issues?state=open&labels=ready&per_page=100'` (`pull_request` キーを持つ要素は PR なので除く) |
 | Issue 1 件                  | `gh api repos/Hirayama61/polaris-mobile/issues/N`                                                                                     |
 | ラベルで全件 (閉じたものも) | `gh api --paginate 'repos/Hirayama61/polaris-mobile/issues?state=all&labels=audit:uiux&per_page=100'`                                 |
-| PR 一覧                     | `gh api 'repos/Hirayama61/polaris-mobile/pulls?state=open&per_page=50'`、閉じたもの `state=closed`                                    |
+| PR 一覧                     | `gh api --paginate 'repos/Hirayama61/polaris-mobile/pulls?state=open&per_page=100'`、閉じたもの `state=closed`                                    |
 | PR 1 件                     | `gh api repos/Hirayama61/polaris-mobile/pulls/N` (`head.sha` `head.ref` `mergeable_state` `labels` `body`)                            |
-| 差分                        | `gh api repos/Hirayama61/polaris-mobile/pulls/N/files`                                                                                |
-| コメント                    | `gh api repos/Hirayama61/polaris-mobile/issues/N/comments`                                                                            |
-| 行コメント                  | `gh api repos/Hirayama61/polaris-mobile/pulls/N/comments`                                                                             |
-| レビュー                    | `gh api repos/Hirayama61/polaris-mobile/pulls/N/reviews`                                                                              |
-| check-runs                  | `gh api repos/Hirayama61/polaris-mobile/commits/<sha>/check-runs`                                                                     |
+| 差分                        | `gh api --paginate 'repos/Hirayama61/polaris-mobile/pulls/N/files?per_page=100'`                                                                                |
+| コメント                    | `gh api --paginate 'repos/Hirayama61/polaris-mobile/issues/N/comments?per_page=100'`                                                                            |
+| 行コメント                  | `gh api --paginate 'repos/Hirayama61/polaris-mobile/pulls/N/comments?per_page=100'`                                                                             |
+| レビュー                    | `gh api --paginate 'repos/Hirayama61/polaris-mobile/pulls/N/reviews?per_page=100'`                                                                              |
+| check-runs                  | `gh api --paginate 'repos/Hirayama61/polaris-mobile/commits/<sha>/check-runs?per_page=100' --jq '.check_runs[]'`                                                                     |
 | ブランチの有無              | `git ls-remote --heads origin`                                                                                       |
 | PR のブランチを取る         | `git fetch origin pull/N/head:pr-N && git switch pr-N`                                                               |
 
+一覧を取る GET は `--paginate` と `per_page=100` を付ける。既定の 30 件で切れると、古いコメントや目印を見落とす。
 `--jq` で必要なキーだけに絞ってから読む。本文を丸ごと出力しない。
 
 ## 書く
