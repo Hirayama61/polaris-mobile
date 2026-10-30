@@ -1,4 +1,5 @@
 import { type ChangeEvent, useState } from "react";
+import { formatAppVersion } from "../changelog";
 import type { Settings } from "../settings";
 
 type Props = {
@@ -6,6 +7,7 @@ type Props = {
   onSave: (settings: Settings) => void;
   onOpenProjects: () => void;
   onOpenTasks: () => void;
+  onOpenChangelog: () => void;
 };
 
 const textInputProps = {
@@ -21,7 +23,7 @@ const settingKeys = ["token", "owner", "repo", "branch"] as const satisfies read
 /**
  * GitHub の接続設定を入力して localStorage に保存する。プロジェクトのシートもここから開く。
  */
-export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenTasks }: Props) => {
+export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenTasks, onOpenChangelog }: Props) => {
   const [draft, setDraft] = useState<Settings>(settings);
   const [isTokenVisible, setIsTokenVisible] = useState(false);
 
@@ -98,7 +100,10 @@ export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenTasks }
         <button type="button" className="button button-block" onClick={onOpenTasks}>
           タスクを見る
         </button>
-        <p className="app-version">Polaris Mobile v{__APP_VERSION__}</p>
+        <button type="button" className="button button-block" onClick={onOpenChangelog}>
+          更新履歴を見る
+        </button>
+        <p className="app-version">Polaris Mobile {formatAppVersion(__APP_VERSION__, __APP_CHANGELOG__)}</p>
       </div>
     </>
   );

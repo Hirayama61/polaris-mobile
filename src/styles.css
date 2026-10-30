@@ -1061,6 +1061,29 @@ a {
   background: var(--surface);
 }
 
+/* ---------- 更新履歴シート ---------- */
+.changelog-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 16px;
+}
+
+.changelog-list li + li {
+  border-top: 1px solid var(--border);
+}
+
+.changelog-meta {
+  color: var(--text-3);
+  font-family: var(--mono);
+  font-size: 12px;
+}
+
+.changelog-subject {
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
 /* ---------- 質問シート ---------- */
 .questions li + li .question-item {
   border-top: 1px solid var(--border);
