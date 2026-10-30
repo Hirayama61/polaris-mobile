@@ -3,7 +3,7 @@ import { formatTokyoIso } from "./clock";
 import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, writeIfUnchanged } from "./github";
 import { toKeyedItems } from "./keys";
-import { addDoubt, extractSection, parseDoubts } from "./questions";
+import { addDoubt, type DoubtLine, extractSection, parseDoubts } from "./questions";
 import type { Settings } from "./settings";
 import { completeTask, extractChecklist, type HumanTask, loadHumanTasks, setChecklistItem } from "./tasks";
 import { CloseIcon } from "./ui";
@@ -32,6 +32,18 @@ type Props = {
 };
 
 const taskPath = (id: string): string => `tasks/${id}.md`;
+
+type DoubtView = {
+  rowClass: string;
+  badge: { className: string; label: string } | undefined;
+};
+
+/** `other` の行は状態が分からないので印を出さない。 */
+const DOUBT_VIEWS: Record<DoubtLine["status"], DoubtView> = {
+  open: { rowClass: "doubt-row", badge: { className: "doubt-status doubt-open", label: "未回答" } },
+  done: { rowClass: "doubt-row doubt-done", badge: { className: "doubt-status", label: "調べ済み" } },
+  other: { rowClass: "doubt-row", badge: undefined },
+};
 
 type FailureMessageProps = {
   failure: Failure;
@@ -209,16 +221,15 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
         </h3>
         {doubts.length > 0 && (
           <ul className="panel doubt-list">
-            {toKeyedItems(doubts, (doubt) => doubt.text).map(({ key, item }) => (
-              <li key={key} className={item.status === "done" ? "doubt-row doubt-done" : "doubt-row"}>
-                <span className="doubt-text">{item.text}</span>
-                {item.status !== "other" && (
-                  <span className={item.status === "done" ? "doubt-status" : "doubt-status doubt-open"}>
-                    {item.status === "done" ? "調べ済み" : "未回答"}
-                  </span>
-                )}
-              </li>
-            ))}
+            {toKeyedItems(doubts, (doubt) => doubt.text).map(({ key, item }) => {
+              const { rowClass, badge } = DOUBT_VIEWS[item.status];
+              return (
+                <li key={key} className={rowClass}>
+                  <span className="doubt-text">{item.text}</span>
+                  {badge && <span className={badge.className}>{badge.label}</span>}
+                </li>
+              );
+            })}
           </ul>
         )}
         <form className="input-with-action" onSubmit={handleAddDoubt}>
