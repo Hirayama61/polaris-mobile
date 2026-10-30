@@ -111,14 +111,9 @@ export const FeedbackSheet = ({
   };
 
   return (
-    <div className="sheet-backdrop" onClick={close}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="feedback-title"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="sheet-backdrop">
+      <button type="button" className="sheet-scrim" aria-hidden="true" tabIndex={-1} onClick={close} />
+      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
         <div className="sheet-head">
           <h2 id="feedback-title" className="sheet-title">
             思いつきを送る

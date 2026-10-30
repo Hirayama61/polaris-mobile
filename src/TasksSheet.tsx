@@ -320,14 +320,9 @@ export const TasksSheet = ({ settings, onClose, onOpenSettings }: Props) => {
   };
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="tasks-title"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="sheet-backdrop">
+      <button type="button" className="sheet-scrim" aria-hidden="true" tabIndex={-1} onClick={onClose} />
+      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="tasks-title">
         <div className="sheet-head">
           {selected !== undefined && (
             <button

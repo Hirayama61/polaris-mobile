@@ -1026,8 +1026,19 @@ a {
   animation: fade 0.16s ease-out;
 }
 
+/* 背景のタップで閉じる。閉じるボタンと Escape があるので、読み上げと Tab の対象から外す */
+.sheet-scrim {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
+
 /* 上から出す。下端に置くとキーボードに隠れるため */
 .sheet {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: 16px;

@@ -28,14 +28,9 @@ export const ChangelogSheet = ({ entries, onClose }: Props) => {
   }, [onClose]);
 
   return (
-    <div className="sheet-backdrop" onClick={onClose}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="changelog-title"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="sheet-backdrop">
+      <button type="button" className="sheet-scrim" aria-hidden="true" tabIndex={-1} onClick={onClose} />
+      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="changelog-title">
         <div className="sheet-head">
           <h2 id="changelog-title" className="sheet-title">
             更新履歴

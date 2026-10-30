@@ -50,8 +50,6 @@
       },
       "a11y": {
         "useAriaPropsSupportedByRole": "warn",
-        "noStaticElementInteractions": "warn",
-        "useKeyWithClickEvents": "warn",
         "noLabelWithoutControl": "warn",
         "noSvgWithoutTitle": "warn"
       },
