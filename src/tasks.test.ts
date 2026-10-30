@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { splitTurnLabel } from "./display";
 import {
   completeTask,
   extractChecklist,
@@ -8,7 +9,6 @@ import {
   sortHumanTasks,
   taskPathOf,
 } from "./tasks";
-import { splitTurnLabel } from "./display";
 
 const task = `---
 id: 20261025-oubf
@@ -96,7 +96,8 @@ describe("extractChecklist", () => {
   });
 
   it("コードブロックの中の `#` 行で節を終わらせない", () => {
-    const text = "## あなたがやること\n\n- [x] 鍵を作る\n\n```sh\n# 公開鍵を登録する\n```\n\n- [ ] 登録を確かめる\n";
+    const text =
+      "## あなたがやること\n\n- [x] 鍵を作る\n\n```sh\n# 公開鍵を登録する\n```\n\n- [ ] 登録を確かめる\n";
     expect(extractChecklist(text)).toEqual([
       { line: 2, label: "鍵を作る", isChecked: true },
       { line: 8, label: "登録を確かめる", isChecked: false },
@@ -160,12 +161,16 @@ describe("completeTask", () => {
 
   it("updated が無ければ status の次に足し、他の行は変えない", () => {
     const text = "---\ntitle: a\nstatus: todo\nproject: p\n---\n\n本文\n";
-    expect(completeTask(text, now)).toBe(`---\ntitle: a\nstatus: done\nupdated: ${now}\nproject: p\n---\n\n本文\n`);
+    expect(completeTask(text, now)).toBe(
+      `---\ntitle: a\nstatus: done\nupdated: ${now}\nproject: p\n---\n\n本文\n`,
+    );
   });
 
   it("本文の status: は変えない", () => {
     const text = "---\nstatus: todo\n---\nstatus: todo\nupdated: x\n";
-    expect(completeTask(text, now)).toBe(`---\nstatus: done\nupdated: ${now}\n---\nstatus: todo\nupdated: x\n`);
+    expect(completeTask(text, now)).toBe(
+      `---\nstatus: done\nupdated: ${now}\n---\nstatus: todo\nupdated: x\n`,
+    );
   });
 
   it("CRLF の行末を残す", () => {

@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useState, type FormEvent } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { formatTokyoIso } from "./clock";
 import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, writeIfUnchanged } from "./github";
 import { addDoubt, extractSection } from "./questions";
 import type { Settings } from "./settings";
-import { completeTask, extractChecklist, loadHumanTasks, setChecklistItem, type HumanTask } from "./tasks";
+import { completeTask, extractChecklist, type HumanTask, loadHumanTasks, setChecklistItem } from "./tasks";
 import { CloseIcon } from "./ui";
 
 type LoadState =
@@ -116,7 +116,12 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
   const findings = extractSection(file.content, "調べたこと") ?? "";
 
   // 別の場所で変わっていたら上書きせず、読み直してもう一度操作してもらう。
-  const save = (line: number | "complete" | "doubt", next: string, message: string, onSaved: (sha: string) => void): void => {
+  const save = (
+    line: number | "complete" | "doubt",
+    next: string,
+    message: string,
+    onSaved: (sha: string) => void,
+  ): void => {
     if (isWriting || next === file.content) {
       return;
     }
@@ -225,7 +230,12 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
         </section>
       )}
       {canComplete && (
-        <button type="button" className="button button-primary button-block" disabled={isWriting} onClick={handleComplete}>
+        <button
+          type="button"
+          className="button button-primary button-block"
+          disabled={isWriting}
+          onClick={handleComplete}
+        >
           {write.status === "writing" && write.line === "complete" ? "保存中" : "完了にする"}
         </button>
       )}
@@ -290,7 +300,9 @@ export const TasksSheet = ({ settings, onClose, onOpenSettings }: Props) => {
   const handleCompleted = (id: string): void => {
     setSelected(undefined);
     setLoad((current) =>
-      current.status === "ready" ? { status: "ready", tasks: current.tasks.filter((task) => task.id !== id) } : current,
+      current.status === "ready"
+        ? { status: "ready", tasks: current.tasks.filter((task) => task.id !== id) }
+        : current,
     );
   };
 
@@ -350,7 +362,9 @@ export const TasksSheet = ({ settings, onClose, onOpenSettings }: Props) => {
                 <button type="button" className="project-row" onClick={() => setSelected(task)}>
                   <span className="turn-text">
                     <span className="turn-line">{task.title}</span>
-                    {task.projectName !== undefined && <span className="turn-project">{task.projectName}</span>}
+                    {task.projectName !== undefined && (
+                      <span className="turn-project">{task.projectName}</span>
+                    )}
                   </span>
                   <span className="project-chevron" aria-hidden="true" />
                 </button>

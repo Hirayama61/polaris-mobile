@@ -2,6 +2,7 @@ name: automerge
 
 # レビュー係 (別セッションの Claude) が承認し、CI が通った claude/issue-* の PR をマージする。
 # 人が止めたいときは PR に hold を付ける。needs-fix が付いている間は触らない。
+# check は head に対する run でよい。bot の push では pull_request の run が立たないため。
 
 on:
   pull_request:
@@ -65,12 +66,18 @@ jobs:
             total=$(jq 'length' <<<"$runs")
             bad=$(jq '[.[] | select(.conclusion!="success")] | length' <<<"$runs")
             { [ "$total" -gt 0 ] && [ "$bad" -eq 0 ]; } || { echo "#$n: checks not green ($bad of $total)"; continue; }
-            # main と合わせた状態 (pull_request イベントの check) が、今の main の先頭より新しいこと。古ければ再実行して次の回に回す
-            fresh=$(jq --arg d "$main_date" '[.[] | select((.pull_requests|length) > 0) | select(.started_at > $d)] | length' <<<"$runs")
+            # head に対する check が、今の main の先頭より新しいこと。古ければ再実行して次の回に回す
+            # bot の push 後は workflow_dispatch の run しか無く、それは pull_requests を持たないので、pull_requests では絞らない
+            fresh=$(jq --arg d "$main_date" '[.[] | select(.started_at > $d)] | length' <<<"$runs")
             if [ "$fresh" -eq 0 ]; then
               run_id=$(jq -r '[.[] | select((.pull_requests|length) > 0)][0].html_url // empty' <<<"$runs" | sed -E 's#.*/actions/runs/([0-9]+).*#\1#')
-              [ -n "$run_id" ] && gh api -X POST "repos/$REPO/actions/runs/$run_id/rerun" >/dev/null 2>&1 || true
-              echo "#$n: merge-commit check is older than main; re-running check"
+              if [ -n "$run_id" ]; then
+                gh api -X POST "repos/$REPO/actions/runs/$run_id/rerun" >/dev/null 2>&1 || true
+              else
+                branch=$(jq -r .head.ref <<<"$pr")
+                gh workflow run check.yml --ref "$branch" --repo "$REPO" >/dev/null 2>&1 || true
+              fi
+              echo "#$n: check is older than main; re-running check"
               continue
             fi
             state=$(jq -r .mergeable_state <<<"$pr")

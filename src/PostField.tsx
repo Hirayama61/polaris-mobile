@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { type FormEvent, useEffect, useState } from "react";
 import { formatTokyoTime } from "./clock";
 import { loadDraft, postDraftKey, remainingAfterSave, removeDraft, saveDraft } from "./drafts";
 import { describeFailure, type Failure } from "./failure";

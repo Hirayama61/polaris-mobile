@@ -18,11 +18,7 @@ export const journalPath = (date: string): string => `journal/${date}.md`;
  * @param entry - 追記する本文。前後の空白は取り除く。
  * @returns 無ければ frontmatter つきで新規作成した全文、あれば末尾に空行を挟んで追記した全文。
  */
-export const appendJournal = (
-  existing: string | undefined,
-  date: string,
-  entry: string,
-): string => {
+export const appendJournal = (existing: string | undefined, date: string, entry: string): string => {
   const body = entry.trim();
   if (existing === undefined) {
     return `---\ndate: ${date}\n---\n\n${body}\n`;

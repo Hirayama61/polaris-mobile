@@ -53,11 +53,7 @@ export const buildInboxPath = (created: string, suffix: string): string =>
  * @param created - +09:00 つきの ISO 8601。frontmatter の `created` になる。
  * @returns frontmatter の後に、タイトル、本文、送信元の 1 行を空行で区切って並べた文字列。本文が空なら本文の段落を省く。
  */
-export const buildInboxNote = (
-  draft: FeedbackDraft,
-  context: FeedbackContext,
-  created: string,
-): string => {
+export const buildInboxNote = (draft: FeedbackDraft, context: FeedbackContext, created: string): string => {
   const footer = `送信元: ${context.screenLabel} / ${context.date} / v${context.version}`;
   const paragraphs = [draft.title.trim(), draft.body.trim(), footer].filter((part) => part !== "");
   return `---\ncreated: ${created}\n---\n\n${paragraphs.join("\n\n")}\n`;

@@ -60,9 +60,7 @@ const STRUCTURAL = /^(`{3,}|~{3,}|#{1,2}(\s|$))/;
 
 const escapeStructural = (line: string): string => {
   const indent = line.length - line.trimStart().length;
-  return STRUCTURAL.test(line.slice(indent))
-    ? `${line.slice(0, indent)}\\${line.slice(indent)}`
-    : line;
+  return STRUCTURAL.test(line.slice(indent)) ? `${line.slice(0, indent)}\\${line.slice(indent)}` : line;
 };
 
 // フェンスは節の始まりを探すときだけ見る。終わりはフェンスを見ず、最初の見出しらしい行で切る。
@@ -158,11 +156,7 @@ export const replaceAnswer = (text: string, answer: string): string => {
     return [`${base}${separator}## 回答`, "", ...body, ""].join(eol);
   }
   const replaced = body.length === 0 ? [""] : ["", ...body, ""];
-  return [
-    ...lines.slice(0, section.start + 1),
-    ...replaced,
-    ...lines.slice(section.end),
-  ].join(eol);
+  return [...lines.slice(0, section.start + 1), ...replaced, ...lines.slice(section.end)].join(eol);
 };
 
 /**

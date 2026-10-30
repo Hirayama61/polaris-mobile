@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, readText, writeIfUnchanged } from "./github";
-import { collectOpenQuestions, extractSection, replaceAnswer, type QuestionItem } from "./questions";
+import { collectOpenQuestions, extractSection, type QuestionItem, replaceAnswer } from "./questions";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
 
@@ -181,8 +181,7 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
     }
   };
 
-  const canSave =
-    selected !== undefined && detail.status === "ready" && answer.trim() !== "" && !isSaving;
+  const canSave = selected !== undefined && detail.status === "ready" && answer.trim() !== "" && !isSaving;
 
   const handleSave = (): void => {
     if (!canSave || selected === undefined || detail.status !== "ready") {
@@ -201,13 +200,21 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
     }
     setSave({ status: "saving" });
     const content = replaceAnswer(detail.content, answer);
-    writeIfUnchanged(settings, taskPath(selected.id), `chore(mobile): ${selected.id} に回答`, detail.sha, content)
+    writeIfUnchanged(
+      settings,
+      taskPath(selected.id),
+      `chore(mobile): ${selected.id} に回答`,
+      detail.sha,
+      content,
+    )
       .then(({ sha }) => {
         setDetail({ status: "ready", content, sha });
         setSave({ status: "saved" });
       })
       .catch((error: unknown) => {
-        setSave(isConflict(error) ? { status: "conflict" } : { status: "error", failure: describeFailure(error) });
+        setSave(
+          isConflict(error) ? { status: "conflict" } : { status: "error", failure: describeFailure(error) },
+        );
       });
   };
 
@@ -227,7 +234,13 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
           <h2 id="question-sheet-title" className="sheet-title">
             {selected === undefined ? "質問に答える" : selected.title}
           </h2>
-          <button type="button" className="icon-button" aria-label="閉じる" disabled={isSaving} onClick={close}>
+          <button
+            type="button"
+            className="icon-button"
+            aria-label="閉じる"
+            disabled={isSaving}
+            onClick={close}
+          >
             <CloseIcon />
           </button>
         </div>
@@ -264,7 +277,12 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
           </>
         ) : (
           <>
-            <button type="button" className="button button-small question-back" disabled={isSaving} onClick={back}>
+            <button
+              type="button"
+              className="button button-small question-back"
+              disabled={isSaving}
+              onClick={back}
+            >
               一覧に戻る
             </button>
 
@@ -285,7 +303,9 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
               <>
                 <section className="field">
                   <h3 className="field-label question-heading">質問</h3>
-                  <p className="panel question-text">{question === undefined || question === "" ? "(なし)" : question}</p>
+                  <p className="panel question-text">
+                    {question === undefined || question === "" ? "(なし)" : question}
+                  </p>
                 </section>
                 {choices !== undefined && choices !== "" && (
                   <section className="field">

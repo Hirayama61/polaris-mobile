@@ -5,8 +5,7 @@
 const TOKYO_OFFSET_MINUTES = 9 * 60;
 
 // 端末のタイムゾーンに依存しないよう、UTC に +09:00 を足して東京の壁時計を得る。
-const toTokyoWallClock = (now: Date): Date =>
-  new Date(now.getTime() + TOKYO_OFFSET_MINUTES * 60 * 1000);
+const toTokyoWallClock = (now: Date): Date => new Date(now.getTime() + TOKYO_OFFSET_MINUTES * 60 * 1000);
 
 const pad = (value: number): string => String(value).padStart(2, "0");
 
