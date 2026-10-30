@@ -14,7 +14,12 @@ const TITLE_PREFIX = "質問:";
 export type QuestionItem = {
   id: string;
   title: string;
+  /** 「## 回答」に書いてあり、整理ループの反映を待っている。 */
+  answered: boolean;
 };
+
+// 整理ループが質問を作るときに「## 回答」へ入れる文字。これだけなら未回答とみなす。
+const UNANSWERED_PLACEHOLDER = "(未回答)";
 
 type Lines = { eol: string; lines: string[] };
 
@@ -226,6 +231,17 @@ export const parseDoubts = (section: string): DoubtLine[] =>
     });
 
 /**
+ * 「## 回答」に回答が書いてあるか。
+ *
+ * @param text - タスクのファイル全体。
+ * @returns 節の中身が空でも `(未回答)` でもなければ true。
+ */
+export const hasAnswer = (text: string): boolean => {
+  const answer = extractSection(text, "回答");
+  return answer !== undefined && answer !== "" && answer !== UNANSWERED_PLACEHOLDER;
+};
+
+/**
  * `tasks/` のファイル名から未回答の質問を集める。
  *
  * 読み込みは `limit` 件ずつ並べる。1 件でも読めなければ例外を投げる。
@@ -233,7 +249,7 @@ export const parseDoubts = (section: string): DoubtLine[] =>
  * @param names - `tasks/` 直下のファイル名。
  * @param read - task ID からファイルを読む関数。無ければ undefined。
  * @param limit - 同時に読む数。
- * @returns ID 順の質問。
+ * @returns 回答の無いものを先に、それぞれ ID 順に並べた質問。
  */
 export const collectOpenQuestions = async (
   names: readonly string[],
@@ -248,11 +264,13 @@ export const collectOpenQuestions = async (
       next += 1;
       const text = await read(id);
       const title = text === undefined ? undefined : openQuestionTitle(text);
-      if (title !== undefined) {
-        found.push({ id, title });
+      if (text !== undefined && title !== undefined) {
+        found.push({ id, title, answered: hasAnswer(text) });
       }
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, ids.length) }, worker));
-  return found.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  return found.sort((a, b) =>
+    a.answered !== b.answered ? (a.answered ? 1 : -1) : a.id < b.id ? -1 : a.id > b.id ? 1 : 0,
+  );
 };

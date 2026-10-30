@@ -3,6 +3,7 @@ import {
   addDoubt,
   collectOpenQuestions,
   extractSection,
+  hasAnswer,
   openQuestionTitle,
   parseDoubts,
   replaceAnswer,
@@ -183,6 +184,15 @@ describe("replaceAnswer", () => {
   });
 });
 
+describe("hasAnswer", () => {
+  it("回答節が空か (未回答) なら未回答、文字があれば回答済み", () => {
+    expect(hasAnswer(task)).toBe(false);
+    expect(hasAnswer(task.replace("## 回答\n\n\n", "## 回答\n\n(未回答)\n"))).toBe(false);
+    expect(hasAnswer(task.replace("## 回答\n\n\n", "## 回答\n\nB にする\n"))).toBe(true);
+    expect(hasAnswer("---\ntitle: 質問: x\nstatus: todo\n---\n")).toBe(false);
+  });
+});
+
 describe("collectOpenQuestions", () => {
   it("未回答の質問だけを ID 順に集め、.md 以外は読まない", async () => {
     const files: Record<string, string> = {
@@ -201,10 +211,27 @@ describe("collectOpenQuestions", () => {
       2,
     );
     expect(items).toEqual([
-      { id: "a", title: "通知" },
-      { id: "b", title: "日記の置き場所" },
+      { id: "a", title: "通知", answered: false },
+      { id: "b", title: "日記の置き場所", answered: false },
     ]);
     expect(reads.sort()).toEqual(["a", "b", "c", "d", "e"]);
+  });
+
+  it("回答済みの質問は未回答の後ろに ID 順で並べる", async () => {
+    const answered = task.replace("## 回答\n\n\n", "## 回答\n\nA\n");
+    const files: Record<string, string> = {
+      a: answered,
+      b: task,
+      c: answered,
+      d: task.replace("## 回答\n\n\n", "## 回答\n\n(未回答)\n"),
+    };
+    const items = await collectOpenQuestions(["a.md", "b.md", "c.md", "d.md"], async (id) => files[id]);
+    expect(items.map((item) => [item.id, item.answered])).toEqual([
+      ["b", false],
+      ["d", false],
+      ["a", true],
+      ["c", true],
+    ]);
   });
 
   it("読めないファイルがあれば例外にする", async () => {

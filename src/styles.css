@@ -1115,6 +1115,10 @@ a {
   background: var(--hover);
 }
 
+.question-answered {
+  flex: none;
+}
+
 .question-chevron {
   flex: none;
   width: 8px;

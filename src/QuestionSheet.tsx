@@ -271,6 +271,7 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
                           <span className="turn-label">{item.title}</span>
                           <span className="turn-task">{item.id}</span>
                         </span>
+                        {item.answered && <span className="tag question-answered">回答済み</span>}
                         <span className="question-chevron" aria-hidden="true" />
                       </button>
                     </li>
