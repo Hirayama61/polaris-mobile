@@ -1126,6 +1126,40 @@ a {
   overflow-wrap: anywhere;
 }
 
+.doubt-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 12px 16px;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.doubt-row + .doubt-row {
+  border-top: 1px solid var(--border);
+}
+
+.doubt-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.doubt-done .doubt-text {
+  color: var(--text-2);
+}
+
+.doubt-status {
+  flex: none;
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.doubt-open {
+  color: var(--waiting);
+}
+
 .question-choices {
   display: flex;
   gap: 8px;

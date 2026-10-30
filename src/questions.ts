@@ -166,7 +166,7 @@ export const replaceAnswer = (text: string, answer: string): string => {
 };
 
 /**
- * 「## 疑問点」節に `- <doubt>` を 1 行足す。
+ * 「## 疑問点」節に `- [ ] <doubt>` を 1 行足す。
  *
  * 節があれば節の最後の空でない行の次に足す。無ければファイルの末尾に節を作る。どちらでも既存の行は変えない。
  *
@@ -179,7 +179,8 @@ export const addDoubt = (text: string, doubt: string): string => {
   if (oneLine === "") {
     return text;
   }
-  const item = `- ${oneLine}`;
+  // 整理ループは `- [ ]` の行だけを未回答として調べ、調べ終えると `- [x]` にする。
+  const item = `- [ ] ${oneLine}`;
   const { eol, lines } = splitLines(text);
   const section = findSection(lines, "疑問点");
   if (section === undefined) {
@@ -199,6 +200,36 @@ export const addDoubt = (text: string, doubt: string): string => {
   const added = next === undefined || next.trim() === "" ? ["", item] : ["", item, ""];
   return [...lines.slice(0, section.start + 1), ...added, ...lines.slice(section.start + 1)].join(eol);
 };
+
+/**
+ * 「## 疑問点」節の 1 行。
+ *
+ * `open` は `- [ ]` (未回答)、`done` は `- [x]` (調べ済み)、`other` はそれ以外の行。
+ */
+export type DoubtLine = {
+  status: "open" | "done" | "other";
+  text: string;
+};
+
+const DOUBT_ITEM = /^\s*[-*+]\s+\[([ xX])\]\s+(.*)$/;
+
+/**
+ * 「## 疑問点」節の中身を行ごとに分け、未回答と調べ済みを見分ける。
+ *
+ * @param section - `extractSection` で取り出した節の中身。
+ * @returns 空行を除いた行。チェックボックスの行は印を外した本文を返す。
+ */
+export const parseDoubts = (section: string): DoubtLine[] =>
+  section
+    .split("\n")
+    .filter((line) => line.trim() !== "")
+    .map((line): DoubtLine => {
+      const match = DOUBT_ITEM.exec(line);
+      if (match === null) {
+        return { status: "other", text: line.trim() };
+      }
+      return { status: match[1] === " " ? "open" : "done", text: (match[2] ?? "").trim() };
+    });
 
 /**
  * `tasks/` のファイル名から未回答の質問を集める。
