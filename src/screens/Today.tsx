@@ -115,7 +115,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   }
   if (state.status === "loading") {
     return (
-      <div className="skeleton" aria-busy="true" aria-label="読み込み中">
+      <div className="skeleton" role="status" aria-busy="true" aria-label="読み込み中">
         <div className="skeleton-line skeleton-title" />
         <div className="skeleton-line" />
         <div className="skeleton-line" />
@@ -320,8 +320,10 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               const project = projectName !== undefined && (
                 <span className="turn-project">{projectName}</span>
               );
+              const checkboxId = `turn-box-${turn.line}`;
               const checkbox = (
                 <input
+                  id={checkboxId}
                   type="checkbox"
                   className="turn-box"
                   checked={isChecked}
@@ -334,7 +336,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               if (steps === undefined && taskPath === undefined) {
                 return (
                   <li key={turn.line}>
-                    <label className={rowClass}>
+                    <label className={rowClass} htmlFor={checkboxId}>
                       {checkbox}
                       <span className="turn-text">
                         <span className="turn-label">{title}</span>
@@ -351,7 +353,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               return (
                 <li key={turn.line}>
                   <div className={`${rowClass} turn-split`}>
-                    <label className="turn-check" aria-label={title}>
+                    <label className="turn-check" htmlFor={checkboxId} aria-label={title}>
                       {checkbox}
                     </label>
                     <button
