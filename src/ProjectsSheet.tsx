@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { describeFailure, type Failure } from "./failure";
 import { listFileNames, readFile } from "./github";
-import { loadProjects, type ProjectSummary, parseProjectBody, type Segment } from "./projects";
+import { toKeyedItems } from "./keys";
+import {
+  loadProjects,
+  type ProjectLine,
+  type ProjectSummary,
+  parseProjectBody,
+  type Segment,
+} from "./projects";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
 
@@ -16,19 +23,88 @@ type Props = {
   onOpenSettings: () => void;
 };
 
+const toSegmentKey = (segment: Segment): string => {
+  const isLink = segment.kind === "link";
+  if (isLink) {
+    return `link:${segment.href}:${segment.text}`;
+  }
+  return `text:${segment.text}`;
+};
+
+const toLineKey = (line: ProjectLine): string => {
+  const isBlank = line.kind === "blank";
+  if (isBlank) {
+    return "blank";
+  }
+  const text = line.segments.map((segment) => segment.text).join("");
+  return `${line.kind}:${text}`;
+};
+
+/**
+ * 本文の行の一部を描画する。`link` は別のタブで開く。
+ *
+ * @remarks key は持たない。並べる側 (`SegmentsView`) が付ける。
+ */
+export const SegmentView = (props: { segment: Segment }) => {
+  const { segment } = props;
+  const isLink = segment.kind === "link";
+  if (isLink) {
+    return (
+      <a href={segment.href} target="_blank" rel="noreferrer">
+        {segment.text}
+      </a>
+    );
+  }
+  return <span>{segment.text}</span>;
+};
+
 const SegmentsView = ({ segments }: { segments: readonly Segment[] }) => (
   <>
-    {segments.map((segment, index) =>
-      segment.kind === "link" ? (
-        <a key={index} href={segment.href} target="_blank" rel="noreferrer">
-          {segment.text}
-        </a>
-      ) : (
-        <span key={index}>{segment.text}</span>
-      ),
-    )}
+    {toKeyedItems(segments, toSegmentKey).map(({ key, item }) => (
+      <SegmentView key={key} segment={item} />
+    ))}
   </>
 );
+
+/**
+ * プロジェクトの本文の 1 行を描画する。
+ *
+ * @remarks key は持たない。並べる側 (`ProjectBody`) が `toKeyedItems` で付ける。
+ */
+export const ProjectLineView = (props: { line: ProjectLine }) => {
+  const { line } = props;
+  switch (line.kind) {
+    case "heading": {
+      const isMajor = line.level <= 2;
+      if (isMajor) {
+        return (
+          <p className="project-heading">
+            <SegmentsView segments={line.segments} />
+          </p>
+        );
+      }
+      return (
+        <p className="project-subheading">
+          <SegmentsView segments={line.segments} />
+        </p>
+      );
+    }
+    case "item":
+      return (
+        <p className="project-item">
+          <SegmentsView segments={line.segments} />
+        </p>
+      );
+    case "text":
+      return (
+        <p>
+          <SegmentsView segments={line.segments} />
+        </p>
+      );
+    case "blank":
+      return <div className="project-gap" />;
+  }
+};
 
 const ProjectBody = ({ project }: { project: ProjectSummary }) => {
   const lines = parseProjectBody(project.body, project.github);
@@ -37,30 +113,9 @@ const ProjectBody = ({ project }: { project: ProjectSummary }) => {
   }
   return (
     <div className="project-body">
-      {lines.map((line, index) => {
-        switch (line.kind) {
-          case "heading":
-            return (
-              <p key={index} className={line.level <= 2 ? "project-heading" : "project-subheading"}>
-                <SegmentsView segments={line.segments} />
-              </p>
-            );
-          case "item":
-            return (
-              <p key={index} className="project-item">
-                <SegmentsView segments={line.segments} />
-              </p>
-            );
-          case "text":
-            return (
-              <p key={index}>
-                <SegmentsView segments={line.segments} />
-              </p>
-            );
-          case "blank":
-            return <div key={index} className="project-gap" />;
-        }
-      })}
+      {toKeyedItems(lines, toLineKey).map(({ key, item }) => (
+        <ProjectLineView key={key} line={item} />
+      ))}
     </div>
   );
 };

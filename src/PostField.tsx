@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { formatTokyoTime } from "./clock";
 import { loadDraft, postDraftKey, remainingAfterSave, removeDraft, saveDraft } from "./drafts";
 import { describeFailure, type Failure } from "./failure";
@@ -74,7 +74,8 @@ export const PostField = ({ settings, date, isOnline, onOpenSettings }: Props) =
   const isSending = send.status === "sending";
   const canSend = text.trim() !== "" && !isSending && inFlight === undefined;
 
-  const track = (flight: NonNullable<typeof inFlight>): (() => void) => {
+  // setText と setSend しか使わないので作り直さない。マウント時の effect がこれを依存に持つ。
+  const track = useCallback((flight: NonNullable<typeof inFlight>): (() => void) => {
     let isMounted = true;
     void flight.promise.then((outcome) => {
       if (isMounted) {
@@ -88,10 +89,17 @@ export const PostField = ({ settings, date, isOnline, onOpenSettings }: Props) =
     return () => {
       isMounted = false;
     };
-  };
+  }, []);
 
   // マウント時に前回の送信が続いていれば、その結果を待つ。
-  useEffect(() => (inFlight === undefined ? undefined : track(inFlight)), []);
+  useEffect(() => {
+    const flight = inFlight;
+    const isIdle = flight === undefined;
+    if (isIdle) {
+      return undefined;
+    }
+    return track(flight);
+  }, [track]);
 
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
