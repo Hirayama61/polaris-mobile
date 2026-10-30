@@ -48,11 +48,6 @@
         "useIterableCallbackReturn": "warn",
         "noArrayIndexKey": "warn"
       },
-      "a11y": {
-        "useAriaPropsSupportedByRole": "warn",
-        "noLabelWithoutControl": "warn",
-        "noSvgWithoutTitle": "warn"
-      },
       "style": {
         "noDescendingSpecificity": "warn"
       },

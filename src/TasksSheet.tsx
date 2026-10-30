@@ -55,7 +55,7 @@ const FailureMessage = ({ failure, onRetry, onOpenSettings }: FailureMessageProp
 );
 
 const Skeleton = () => (
-  <div className="skeleton" aria-busy="true" aria-label="読み込み中">
+  <div className="skeleton" role="status" aria-busy="true" aria-label="読み込み中">
     <div className="skeleton-line" />
     <div className="skeleton-line" />
     <div className="skeleton-line skeleton-short" />
