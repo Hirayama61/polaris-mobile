@@ -69,3 +69,24 @@ test("チェックを 1 つ付けると、その行の [ ] だけが [x] にな�
   expect(changed).toEqual([before.indexOf("- [ ] 散歩")]);
   expect(after[before.indexOf("- [ ] 散歩")]).toBe("- [x] 散歩");
 });
+
+test("4:00 をまたぐと、保存していない実績の入力を捨てる", async ({ page }) => {
+  const nextDate = "2026-11-01";
+  const nextDaily = daily.replaceAll(date, nextDate);
+  await configure(page);
+  const puts = await mockGitHub(
+    page,
+    new Map([
+      [`daily/${date}.md`, daily],
+      [`daily/${nextDate}.md`, nextDaily],
+    ]),
+  );
+  await page.goto("./");
+  await page.getByRole("textbox", { name: "09:00–18:00 の実績" }).fill("前日の実績");
+
+  await page.clock.setFixedTime(new Date(`${nextDate}T12:00:00+09:00`));
+  await page.evaluate(() => window.dispatchEvent(new Event("focus")));
+  await expect(page.getByRole("heading", { name: "11月1日(日)" })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "09:00–18:00 の実績" })).toHaveValue("");
+  expect(puts).toEqual([]);
+});

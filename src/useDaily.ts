@@ -51,6 +51,7 @@ export const useDaily = (
   const currentPath = useRef(path);
   currentPath.current = path;
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies(reloadCount): reload() で読み直すためのきっかけ。中では使わない。
   useEffect(() => {
     if (!isConfigured(settings)) {
       setState({ status: "unconfigured" });

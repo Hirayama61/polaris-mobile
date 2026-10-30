@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { describeFailure, type Failure } from "./failure";
 import { listFileNames, readFile } from "./github";
-import { loadProjects, type ProjectSummary, parseProjectBody, type Segment } from "./projects";
+import { toKeyedItems } from "./keys";
+import {
+  loadProjects,
+  type ProjectLine,
+  type ProjectSummary,
+  parseProjectBody,
+  type Segment,
+} from "./projects";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
 
@@ -16,19 +23,50 @@ type Props = {
   onOpenSettings: () => void;
 };
 
+const toSegmentKey = (segment: Segment): string =>
+  segment.kind === "link" ? `link:${segment.href}:${segment.text}` : `text:${segment.text}`;
+
+const toLineKey = (line: ProjectLine): string =>
+  line.kind === "blank" ? "blank" : `${line.kind}:${line.segments.map((segment) => segment.text).join("")}`;
+
 const SegmentsView = ({ segments }: { segments: readonly Segment[] }) => (
   <>
-    {segments.map((segment, index) =>
+    {toKeyedItems(segments, toSegmentKey).map(({ key, item: segment }) =>
       segment.kind === "link" ? (
-        <a key={index} href={segment.href} target="_blank" rel="noreferrer">
+        <a key={key} href={segment.href} target="_blank" rel="noreferrer">
           {segment.text}
         </a>
       ) : (
-        <span key={index}>{segment.text}</span>
+        <span key={key}>{segment.text}</span>
       ),
     )}
   </>
 );
+
+const ProjectLineView = ({ line }: { line: ProjectLine }) => {
+  switch (line.kind) {
+    case "heading":
+      return (
+        <p className={line.level <= 2 ? "project-heading" : "project-subheading"}>
+          <SegmentsView segments={line.segments} />
+        </p>
+      );
+    case "item":
+      return (
+        <p className="project-item">
+          <SegmentsView segments={line.segments} />
+        </p>
+      );
+    case "text":
+      return (
+        <p>
+          <SegmentsView segments={line.segments} />
+        </p>
+      );
+    case "blank":
+      return <div className="project-gap" />;
+  }
+};
 
 const ProjectBody = ({ project }: { project: ProjectSummary }) => {
   const lines = parseProjectBody(project.body, project.github);
@@ -37,30 +75,9 @@ const ProjectBody = ({ project }: { project: ProjectSummary }) => {
   }
   return (
     <div className="project-body">
-      {lines.map((line, index) => {
-        switch (line.kind) {
-          case "heading":
-            return (
-              <p key={index} className={line.level <= 2 ? "project-heading" : "project-subheading"}>
-                <SegmentsView segments={line.segments} />
-              </p>
-            );
-          case "item":
-            return (
-              <p key={index} className="project-item">
-                <SegmentsView segments={line.segments} />
-              </p>
-            );
-          case "text":
-            return (
-              <p key={index}>
-                <SegmentsView segments={line.segments} />
-              </p>
-            );
-          case "blank":
-            return <div key={index} className="project-gap" />;
-        }
-      })}
+      {toKeyedItems(lines, toLineKey).map(({ key, item }) => (
+        <ProjectLineView key={key} line={item} />
+      ))}
     </div>
   );
 };

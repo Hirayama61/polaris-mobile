@@ -41,13 +41,6 @@
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "correctness": {
-        "useExhaustiveDependencies": "warn"
-      },
-      "suspicious": {
-        "useIterableCallbackReturn": "warn",
-        "noArrayIndexKey": "warn"
-      },
       "style": {
         "noDescendingSpecificity": "warn"
       },

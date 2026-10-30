@@ -97,9 +97,12 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const projectNames = useProjectNames(settings, taskIds);
 
   // 4:00 をまたいだら、前日の時間割で持っている実績の入力を当日の daily に書かない。
-  useEffect(() => {
+  // effect で消すと、日付が変わった直後の 1 回の描画で前日の入力が残るので、描画中に捨てる。
+  const [draftsDate, setDraftsDate] = useState(date);
+  if (draftsDate !== date) {
+    setDraftsDate(date);
     setActualDrafts(new Map());
-  }, [date]);
+  }
 
   // オフラインで出した失敗は、つながったら消す。
   useEffect(() => {

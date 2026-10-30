@@ -2,6 +2,7 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { formatTokyoIso } from "./clock";
 import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, writeIfUnchanged } from "./github";
+import { toKeyedItems } from "./keys";
 import { addDoubt, extractSection, parseDoubts } from "./questions";
 import type { Settings } from "./settings";
 import { completeTask, extractChecklist, type HumanTask, loadHumanTasks, setChecklistItem } from "./tasks";
@@ -208,8 +209,8 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
         </h3>
         {doubts.length > 0 && (
           <ul className="panel doubt-list">
-            {doubts.map((item, index) => (
-              <li key={index} className={item.status === "done" ? "doubt-row doubt-done" : "doubt-row"}>
+            {toKeyedItems(doubts, (doubt) => doubt.text).map(({ key, item }) => (
+              <li key={key} className={item.status === "done" ? "doubt-row doubt-done" : "doubt-row"}>
                 <span className="doubt-text">{item.text}</span>
                 {item.status !== "other" && (
                   <span className={item.status === "done" ? "doubt-status" : "doubt-status doubt-open"}>

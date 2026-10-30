@@ -5,6 +5,7 @@ import { loadDraft, nightDraftKeys, remainingAfterSave, removeDraft, saveDraft }
 import { describeFailure, type Failure } from "../failure";
 import { readFile, updateFile } from "../github";
 import { appendJournal, extractPosts, type JournalPost, journalPath } from "../journal";
+import { toKeyedItems } from "../keys";
 import { waitForPost } from "../PostField";
 import { isConfigured, type Settings } from "../settings";
 import { dailyPath, type useDaily } from "../useDaily";
@@ -40,6 +41,7 @@ const OFFLINE_FAILURE: Failure = {
 // 「今日」で送った投稿がまだ送信中なら、終わってから読む。先に読むと一覧に出ない。
 const usePosts = (settings: Settings, date: string, reloadKey: number): PostsState => {
   const [posts, setPosts] = useState<PostsState>({ status: "loading" });
+  // biome-ignore lint/correctness/useExhaustiveDependencies(reloadKey): 日記を保存したら読み直すためのきっかけ。中では使わない。
   useEffect(() => {
     if (!isConfigured(settings)) {
       return;
@@ -171,8 +173,8 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             <p className="panel panel-empty muted">今日の投稿はまだありません。</p>
           ) : (
             <ol className="panel posts">
-              {posts.posts.map((post, index) => (
-                <li key={index} className="post">
+              {toKeyedItems(posts.posts, (post) => `${post.time} ${post.text}`).map(({ key, item: post }) => (
+                <li key={key} className="post">
                   <span className="post-time">{post.time}</span>
                   <span className="post-text">{post.text}</span>
                 </li>
