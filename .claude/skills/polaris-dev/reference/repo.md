@@ -11,6 +11,7 @@
 ## 検査
 
 - `bun run check` = lint (Biome) + test + 型検査 + build。クラウドでもブラウザ無しで通る。
+- `bun run check` は品質の土台の PR (#40) がマージされるまで main に無い。`package.json` に `check` が無ければ `bun run test && bunx tsc --noEmit && bun run build` で代える。
 - `check:e2e` と `check:vrt` は CI (check.yml の `e2e` `vrt` ジョブ) が回す。手元では回さなくてよい。
 
 ## VRT の基準画像 (開発係)
