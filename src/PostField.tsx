@@ -92,7 +92,14 @@ export const PostField = ({ settings, date, isOnline, onOpenSettings }: Props) =
   }, []);
 
   // マウント時に前回の送信が続いていれば、その結果を待つ。
-  useEffect(() => (inFlight === undefined ? undefined : track(inFlight)), [track]);
+  useEffect(() => {
+    const flight = inFlight;
+    const isIdle = flight === undefined;
+    if (isIdle) {
+      return undefined;
+    }
+    return track(flight);
+  }, [track]);
 
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
