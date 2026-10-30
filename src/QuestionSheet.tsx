@@ -19,7 +19,7 @@ type DetailState =
 type SaveState =
   | { status: "idle" }
   | { status: "saving" }
-  | { status: "saved" }
+  | { status: "saved"; path: string }
   | { status: "conflict" }
   | { status: "error"; failure: Failure };
 
@@ -62,6 +62,7 @@ const ErrorMessage = ({
  * 質問タスクの一覧と、「## 回答」を書くシート。
  *
  * 保存は読んだときの sha で書き、競合したら上書きせず読み直しを促す。
+ * 保存できたら一覧に戻して読み直す。失敗したときは書いた回答を残すため詳細に留める。
  * 保存中だけは閉じさせない。閉じると保存の結果を見ずに同じ回答を書き直せてしまうため。
  */
 export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: Props) => {
@@ -179,7 +180,7 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
 
   const updateAnswer = (next: string): void => {
     setAnswer(next);
-    if (save.status === "saved" || save.status === "error") {
+    if (save.status === "error") {
       setSave({ status: "idle" });
     }
   };
@@ -210,9 +211,10 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
       detail.sha,
       content,
     )
-      .then(({ sha }) => {
-        setDetail({ status: "ready", content, sha });
-        setSave({ status: "saved" });
+      .then(() => {
+        setSelected(undefined);
+        setSave({ status: "saved", path: taskPath(selected.id) });
+        loadList();
       })
       .catch((error: unknown) => {
         setSave(
@@ -245,6 +247,11 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
 
         {selected === undefined ? (
           <>
+            {save.status === "saved" && (
+              <p className="message message-ok" role="status">
+                {save.path} の「回答」に書きました。
+              </p>
+            )}
             {list.status === "loading" && (
               <div className="skeleton" role="status" aria-busy="true" aria-label="読み込み中">
                 <div className="skeleton-line" />
@@ -361,11 +368,6 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
                       </button>
                     )}
                   </div>
-                )}
-                {save.status === "saved" && (
-                  <p className="message message-ok" role="status">
-                    {taskPath(selected.id)} の「回答」に書きました。
-                  </p>
                 )}
 
                 <button
