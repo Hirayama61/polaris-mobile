@@ -70,6 +70,15 @@ test("チェックを 1 つ付けると、その行の [ ] だけが [x] にな�
   expect(after[before.indexOf("- [ ] 散歩")]).toBe("- [x] 散歩");
 });
 
+test("起床を記録した後は時刻だけを出し、直すボタンを出さない", async ({ page }) => {
+  await configure(page);
+  const woke = daily.replace("wake_at:\n", `wake_at: ${date}T06:40:00+09:00\n`);
+  await mockGitHub(page, new Map([[`daily/${date}.md`, woke]]));
+  await page.goto("./");
+  await expect(page.getByText("06:40 に起床")).toBeVisible();
+  await expect(page.getByRole("button", { name: "いまに直す" })).toHaveCount(0);
+});
+
 test("4:00 をまたぐと、保存していない実績の入力を捨てる", async ({ page }) => {
   const nextDate = "2026-11-01";
   const nextDaily = daily.replaceAll(date, nextDate);

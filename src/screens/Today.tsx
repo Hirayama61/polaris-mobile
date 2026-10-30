@@ -289,14 +289,9 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               </button>
             </>
           ) : (
-            <>
-              <span className="wake-text">
-                <span className="wake-time">{wakeClock}</span> に起床
-              </span>
-              <button type="button" className="button button-small" disabled={isWriting} onClick={handleWake}>
-                {writingTarget?.kind === "wake" ? "保存中" : "いまに直す"}
-              </button>
-            </>
+            <span className="wake-text">
+              <span className="wake-time">{wakeClock}</span> に起床
+            </span>
           )}
         </div>
         {errorIn("wake")}
