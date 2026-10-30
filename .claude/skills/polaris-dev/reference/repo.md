@@ -1,6 +1,12 @@
 # polaris-mobile 固有の手順
 
-`polaris-dev` と `polaris-review` が読む。雛形には無い、このリポジトリだけの決まり。
+`polaris-dev`、`polaris-review`、`uiux-auditor` が読む。雛形には無い、このリポジトリだけの決まり。
+
+## 主要な利用者と目的 (暫定)
+
+本人 1 人がスマホで、朝に開いて 3 秒で今日やることが分かり、夜に振り返りを残す。
+
+`uiux-auditor` はこれを判断の基準にする。
 
 ## 検査
 
