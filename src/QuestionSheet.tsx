@@ -225,14 +225,9 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
   const choices = detail.status === "ready" ? extractSection(detail.content, "選択肢") : undefined;
 
   return (
-    <div className="sheet-backdrop" onClick={close}>
-      <div
-        className="sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="question-sheet-title"
-        onClick={(event) => event.stopPropagation()}
-      >
+    <div className="sheet-backdrop">
+      <button type="button" className="sheet-scrim" aria-hidden="true" tabIndex={-1} onClick={close} />
+      <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="question-sheet-title">
         <div className="sheet-head">
           <h2 id="question-sheet-title" className="sheet-title">
             {selected === undefined ? "質問に答える" : selected.title}
