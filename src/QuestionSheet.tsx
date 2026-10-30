@@ -100,9 +100,10 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
     };
   }, [onClose]);
 
+  // 一覧が出ていれば、読み込み中に戻さず裏で更新する。更新に失敗しても出ている一覧を残す。
   const loadList = useCallback((): void => {
     const request = ++requestRef.current;
-    setList({ status: "loading" });
+    setList((current) => (current.status === "ready" ? current : { status: "loading" }));
     listFileNames(settings, "tasks")
       .then((names) => collectOpenQuestions(names, (id) => readText(settings, taskPath(id))))
       .then((items) => {
@@ -112,7 +113,9 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
       })
       .catch((error: unknown) => {
         if (request === requestRef.current) {
-          setList({ status: "error", failure: describeFailure(error) });
+          setList((current) =>
+            current.status === "ready" ? current : { status: "error", failure: describeFailure(error) },
+          );
         }
       });
   }, [settings]);
