@@ -10,7 +10,7 @@ import { type ListNames, type ReadText, readFrontmatterValue, SAFE_ID_PATTERN } 
 const BLOG_ROOT = "writing/blog";
 const COMMENT_SECTION = "一言";
 const MARKDOWN_EXTENSION = ".md";
-const FRONTMATTER_PATTERN = /^---\n[\s\S]*?\n---(\n|$)/;
+const FRONTMATTER_PATTERN = /^---\n(?:[\s\S]*?\n)?---(\n|$)/;
 const TITLE_HEADING_PATTERN = /^#\s+(.+)$/m;
 
 /**

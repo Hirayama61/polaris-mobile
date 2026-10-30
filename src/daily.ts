@@ -63,21 +63,34 @@ const frontmatterEnd = (lines: readonly string[]): number | undefined => {
   return closing === -1 ? undefined : closing;
 };
 
+const FENCE_PATTERN = /^\s*(```|~~~)/;
+
+// コードフェンスの中の行は見出しとみなさない。記事の本文に Markdown の例が入るため。
+const toHeadingFlags = (lines: readonly string[]): boolean[] => {
+  let isInFence = false;
+  return lines.map((line) => {
+    if (FENCE_PATTERN.test(line)) {
+      isInFence = !isInFence;
+      return false;
+    }
+    return !isInFence && line.startsWith(HEADING_PREFIX);
+  });
+};
+
 // 見出しは括弧つきの揺れ(「あなたの番 (3 つまで)」)があるので先頭の語で判定する。
 const findSection = (lines: readonly string[], name: string): SectionRange | undefined => {
   const bodyStart = (frontmatterEnd(lines) ?? -1) + 1;
+  const isHeading = toHeadingFlags(lines);
   const headingLine = lines.findIndex(
     (line, index) =>
       index >= bodyStart &&
-      line.startsWith(HEADING_PREFIX) &&
+      isHeading[index] === true &&
       line.slice(HEADING_PREFIX.length).trimStart().startsWith(name),
   );
   if (headingLine === -1) {
     return undefined;
   }
-  const nextHeading = lines.findIndex(
-    (line, index) => index > headingLine && line.startsWith(HEADING_PREFIX),
-  );
+  const nextHeading = isHeading.findIndex((flag, index) => index > headingLine && flag);
   return {
     headingLine,
     start: headingLine + 1,
