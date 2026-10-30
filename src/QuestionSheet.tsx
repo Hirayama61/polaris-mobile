@@ -26,6 +26,8 @@ type SaveState =
 type Props = {
   settings: Settings;
   isOnline: boolean;
+  /** 受信箱でタップした質問。詳細から開き、一覧は「一覧に戻る」で読む。 */
+  initialQuestion: QuestionItem;
   onClose: () => void;
   onOpenSettings: () => void;
 };
@@ -65,9 +67,9 @@ const ErrorMessage = ({
  * 保存できたら一覧に戻して読み直す。失敗したときは書いた回答を残すため詳細に留める。
  * 保存中だけは閉じさせない。閉じると保存の結果を見ずに同じ回答を書き直せてしまうため。
  */
-export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: Props) => {
+export const QuestionSheet = ({ settings, isOnline, initialQuestion, onClose, onOpenSettings }: Props) => {
   const [list, setList] = useState<ListState>({ status: "loading" });
-  const [selected, setSelected] = useState<QuestionItem | undefined>(undefined);
+  const [selected, setSelected] = useState<QuestionItem | undefined>(initialQuestion);
   const [detail, setDetail] = useState<DetailState>({ status: "loading" });
   const [answer, setAnswer] = useState("");
   const [save, setSave] = useState<SaveState>({ status: "idle" });
@@ -150,9 +152,10 @@ export const QuestionSheet = ({ settings, isOnline, onClose, onOpenSettings }: P
     [settings],
   );
 
+  // 一覧と詳細は同じ番号で前後を見るので、開いたときは詳細だけを読む。
   useEffect(() => {
-    loadList();
-  }, [loadList]);
+    loadDetail(initialQuestion, true);
+  }, [initialQuestion, loadDetail]);
 
   const open = (item: QuestionItem): void => {
     setSelected(item);

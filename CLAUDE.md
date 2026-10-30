@@ -5,7 +5,7 @@
 
 ## 守ること
 
-- 画面は「今日」「夜」「ブログ」「設定」の 4 つ。増やさない。機能は既存の画面か、要望シートのようなシートに収める。
+- 画面は「今日」「受信箱」「夜」「ブログ」「設定」の 5 つ。増やさない。機能は既存の画面か、要望シートのようなシートに収める。
 - daily で書き換えてよいのは「あなたの番」のチェック、「振り返り」、frontmatter の `review_at` と `wake_at`、時間割の「実績」列のセルだけ。他の行は 1 文字も変えない。「実績」列が無い daily に列を足さない。`src/daily.ts` のテストがこの契約。
 - `writing/blog/` で書き換えてよいのは outline と draft の「## 一言」節、draft の frontmatter の `status` と `url` だけ。`src/blog.ts` のテストがこの契約。
 - 通信先は api.github.com だけ。PAT を他に送らない、ログに出さない。
@@ -16,7 +16,7 @@
 
 ## 構成
 
-- `src/screens/`: Today, Night, Blog, Settings
+- `src/screens/`: Today, Inbox, Night, Blog, Settings
 - `src/blog.ts`: ブログの記事の束ね方、段階、「## 一言」と公開の書き換え (純粋関数)
 - `src/daily.ts`: daily の節の抽出と書き換え (純粋関数)
 - `src/github.ts`: Contents API と Issues API
