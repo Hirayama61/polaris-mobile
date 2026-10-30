@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { formatTokyoIso } from "./clock";
 import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, writeIfUnchanged } from "./github";
-import { addDoubt, extractSection } from "./questions";
+import { addDoubt, extractSection, parseDoubts } from "./questions";
 import type { Settings } from "./settings";
 import { completeTask, extractChecklist, loadHumanTasks, setChecklistItem, type HumanTask } from "./tasks";
 import { CloseIcon } from "./ui";
@@ -112,7 +112,7 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
   const items = extractChecklist(file.content);
   const isWriting = write.status === "writing";
   const canComplete = items.length > 0 && items.every((item) => item.isChecked);
-  const doubts = extractSection(file.content, "疑問点") ?? "";
+  const doubts = parseDoubts(extractSection(file.content, "疑問点") ?? "");
   const findings = extractSection(file.content, "調べたこと") ?? "";
 
   // 別の場所で変わっていたら上書きせず、読み直してもう一度操作してもらう。
@@ -201,7 +201,20 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
         <h3 id="task-doubt-title" className="field-label question-heading">
           疑問点
         </h3>
-        {doubts !== "" && <p className="panel question-text">{doubts}</p>}
+        {doubts.length > 0 && (
+          <ul className="panel doubt-list">
+            {doubts.map((item, index) => (
+              <li key={index} className={item.status === "done" ? "doubt-row doubt-done" : "doubt-row"}>
+                <span className="doubt-text">{item.text}</span>
+                {item.status !== "other" && (
+                  <span className={item.status === "done" ? "doubt-status" : "doubt-status doubt-open"}>
+                    {item.status === "done" ? "調べ済み" : "未回答"}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
         <form className="input-with-action" onSubmit={handleAddDoubt}>
           <input
             type="text"
