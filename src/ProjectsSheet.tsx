@@ -23,34 +23,64 @@ type Props = {
   onOpenSettings: () => void;
 };
 
-const toSegmentKey = (segment: Segment): string =>
-  segment.kind === "link" ? `link:${segment.href}:${segment.text}` : `text:${segment.text}`;
+const toSegmentKey = (segment: Segment): string => {
+  if (segment.kind === "link") {
+    return `link:${segment.href}:${segment.text}`;
+  }
+  return `text:${segment.text}`;
+};
 
-const toLineKey = (line: ProjectLine): string =>
-  line.kind === "blank" ? "blank" : `${line.kind}:${line.segments.map((segment) => segment.text).join("")}`;
+const toLineKey = (line: ProjectLine): string => {
+  if (line.kind === "blank") {
+    return "blank";
+  }
+  const text = line.segments.map((segment) => segment.text).join("");
+  return `${line.kind}:${text}`;
+};
+
+const SegmentView = (props: { segment: Segment }) => {
+  const { segment } = props;
+  if (segment.kind === "link") {
+    return (
+      <a href={segment.href} target="_blank" rel="noreferrer">
+        {segment.text}
+      </a>
+    );
+  }
+  return <span>{segment.text}</span>;
+};
 
 const SegmentsView = ({ segments }: { segments: readonly Segment[] }) => (
   <>
-    {toKeyedItems(segments, toSegmentKey).map(({ key, item: segment }) =>
-      segment.kind === "link" ? (
-        <a key={key} href={segment.href} target="_blank" rel="noreferrer">
-          {segment.text}
-        </a>
-      ) : (
-        <span key={key}>{segment.text}</span>
-      ),
-    )}
+    {toKeyedItems(segments, toSegmentKey).map(({ key, item }) => (
+      <SegmentView key={key} segment={item} />
+    ))}
   </>
 );
 
-const ProjectLineView = ({ line }: { line: ProjectLine }) => {
+/**
+ * プロジェクトの本文の 1 行を描画する。
+ *
+ * @remarks key は持たない。並べる側 (`ProjectBody`) が `toKeyedItems` で付ける。
+ */
+export const ProjectLineView = (props: { line: ProjectLine }) => {
+  const { line } = props;
   switch (line.kind) {
-    case "heading":
+    case "heading": {
+      const isMajor = line.level <= 2;
+      if (isMajor) {
+        return (
+          <p className="project-heading">
+            <SegmentsView segments={line.segments} />
+          </p>
+        );
+      }
       return (
-        <p className={line.level <= 2 ? "project-heading" : "project-subheading"}>
+        <p className="project-subheading">
           <SegmentsView segments={line.segments} />
         </p>
       );
+    }
     case "item":
       return (
         <p className="project-item">
