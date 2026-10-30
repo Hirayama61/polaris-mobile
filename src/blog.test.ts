@@ -75,6 +75,11 @@ describe("setComment", () => {
     expect(setComment(text, "短く")).toBe(`${text}\n短く\n`);
   });
 
+  it("名前が「一言」で始まる別の見出しは節とみなさず、本文を変えない", () => {
+    const text = "# 題\n\n## 一言で伝えるコツ\n\n本文\n\n## 一言\n";
+    expect(setComment(text, "短く")).toBe(`${text}\n短く\n`);
+  });
+
   it("節が無ければ末尾に追加する", () => {
     expect(setComment("# 題\n\n本文\n", "短く")).toBe("# 題\n\n本文\n\n## 一言\n\n短く\n");
   });

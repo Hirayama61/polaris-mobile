@@ -77,7 +77,16 @@ const toHeadingFlags = (lines: readonly string[]): boolean[] => {
   });
 };
 
-// 見出しは括弧つきの揺れ(「あなたの番 (3 つまで)」)があるので先頭の語で判定する。
+// 見出しは括弧つきの揺れ(「あなたの番 (3 つまで)」)があるので、名前の後ろは空白か括弧までを許す。
+// 「一言で伝えるコツ」のような別の見出しを「一言」とみなさないよう、名前の続きの文字は許さない。
+const isSectionTitle = (title: string, name: string): boolean => {
+  if (!title.startsWith(name)) {
+    return false;
+  }
+  const rest = title.slice(name.length);
+  return rest === "" || /^[\s(（]/.test(rest);
+};
+
 const findSection = (lines: readonly string[], name: string): SectionRange | undefined => {
   const bodyStart = (frontmatterEnd(lines) ?? -1) + 1;
   const isHeading = toHeadingFlags(lines);
@@ -85,7 +94,7 @@ const findSection = (lines: readonly string[], name: string): SectionRange | und
     (line, index) =>
       index >= bodyStart &&
       isHeading[index] === true &&
-      line.slice(HEADING_PREFIX.length).trimStart().startsWith(name),
+      isSectionTitle(line.slice(HEADING_PREFIX.length).trim(), name),
   );
   if (headingLine === -1) {
     return undefined;
