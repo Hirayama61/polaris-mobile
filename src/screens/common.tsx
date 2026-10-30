@@ -36,3 +36,36 @@ export const FailureAction = ({ failure, onRetry, onOpenSettings }: FailureActio
       読み直す
     </button>
   );
+
+/**
+ * オフラインで保存を押したときの失敗。
+ */
+export const OFFLINE_SAVE_FAILURE: Failure = {
+  reason: "オフラインのため保存できません。",
+  hint: "つながったら、もう一度保存してください。",
+  action: "retry",
+};
+
+type FailureMessageProps = {
+  failure: Failure;
+  onOpenSettings: () => void;
+};
+
+/**
+ * 保存の失敗を、理由と次の一手で示す。やり直しは元のボタンを押し直せばよいので、設定へ送るときだけボタンを出す。
+ */
+export const FailureMessage = (props: FailureMessageProps) => {
+  const { failure, onOpenSettings } = props;
+  const needsSettings = failure.action === "settings";
+  return (
+    <div className="message message-error" role="alert">
+      <p>{failure.reason}</p>
+      <p>{failure.hint}</p>
+      {needsSettings && (
+        <button type="button" className="button button-small" onClick={onOpenSettings}>
+          設定を開く
+        </button>
+      )}
+    </div>
+  );
+};

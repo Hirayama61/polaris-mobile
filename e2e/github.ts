@@ -11,6 +11,7 @@ const decodeBase64 = (encoded: string): string => Buffer.from(encoded, "base64")
 
 /**
  * api.github.com の Contents API をメモリ上のファイルで置き換える。登録の無いパスは 404。
+ * ファイルではなく、その下にファイルがあるパスはディレクトリとして直下のファイル名を返す。
  *
  * @param page - 対象のページ。
  * @param files - リポジトリ内のパスから本文への対応。PUT で書き換わる。
@@ -37,6 +38,13 @@ export const mockGitHub = async (page: Page, files: Map<string, string>): Promis
       return;
     }
     const content = files.get(path);
+    const names = [...files.keys()]
+      .filter((key) => key.startsWith(`${path}/`) && !key.slice(path.length + 1).includes("/"))
+      .map((key) => key.slice(path.length + 1));
+    if (content === undefined && names.length > 0) {
+      await route.fulfill({ json: names.map((name) => ({ type: "file", name })) });
+      return;
+    }
     if (content === undefined) {
       await route.fulfill({ status: 404, json: { message: "Not Found" } });
       return;

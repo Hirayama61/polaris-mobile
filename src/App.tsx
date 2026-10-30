@@ -6,28 +6,31 @@ import { FEEDBACK_DRAFT_KEYS, FeedbackSheet } from "./FeedbackSheet";
 import type { FeedbackDraft } from "./feedback";
 import { ProjectsSheet } from "./ProjectsSheet";
 import { QuestionSheet } from "./QuestionSheet";
+import { BlogScreen } from "./screens/Blog";
 import { NightScreen } from "./screens/Night";
 import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "./settings";
 import { TasksSheet } from "./TasksSheet";
-import { GearIcon, MessageIcon, MoonIcon, SunIcon } from "./ui";
+import { GearIcon, MessageIcon, MoonIcon, PenIcon, SunIcon } from "./ui";
 import { useDaily } from "./useDaily";
 import { useOnline } from "./useOnline";
 
-const screens = ["today", "night", "settings"] as const;
+const screens = ["today", "night", "blog", "settings"] as const;
 
 type Screen = (typeof screens)[number];
 
 const screenLabels = {
   today: "今日",
   night: "夜",
+  blog: "ブログ",
   settings: "設定",
 } satisfies Record<Screen, string>;
 
 const screenIcons = {
   today: <SunIcon />,
   night: <MoonIcon />,
+  blog: <PenIcon />,
   settings: <GearIcon />,
 } satisfies Record<Screen, ReactNode>;
 
@@ -56,7 +59,7 @@ const useToday = (): string => {
 };
 
 /**
- * 画面全体。ルーターは使わず、state で 3 画面を切り替える。
+ * 画面全体。ルーターは使わず、state で 4 画面を切り替える。
  */
 export const App = () => {
   const [settings, setSettings] = useState<Settings>(loadSettings);
@@ -135,6 +138,14 @@ export const App = () => {
             daily={daily}
             isOnline={isOnline}
             onOpenSettings={openSettings}
+          />
+        )}
+        {screen === "blog" && (
+          <BlogScreen
+            settings={settings}
+            isOnline={isOnline}
+            onOpenSettings={openSettings}
+            onOpenFeedback={() => setIsFeedbackOpen(true)}
           />
         )}
         {screen === "settings" && (

@@ -11,6 +11,7 @@
 | --- | --- |
 | 今日 | `daily/YYYY-MM-DD.md` の「あなたの番」と「今日の時間割」を表示する。チェックを切り替えると即座に commit する |
 | 夜 | 振り返りと日記を書く。保存で daily の「振り返り」節と frontmatter の `review_at` を更新し、`journal/YYYY-MM-DD.md` に追記する |
+| ブログ | `writing/blog/` の ideas・outline・draft・published を記事ごとに束ね、段階を出す。outline と draft の「## 一言」を書け、draft を公開済み (`status: done` と `url`) にできる |
 | 設定 | fine-grained PAT・owner/repo・ブランチを localStorage に保存する |
 
 ヘッダー右の吹き出しから、どの画面でも思いつきを送れる。

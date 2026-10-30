@@ -5,8 +5,9 @@
 
 ## 守ること
 
-- 画面は「今日」「夜」「設定」の 3 つ。増やさない。機能は既存の画面か、要望シートのようなシートに収める。
+- 画面は「今日」「夜」「ブログ」「設定」の 4 つ。増やさない。機能は既存の画面か、要望シートのようなシートに収める。
 - daily で書き換えてよいのは「あなたの番」のチェック、「振り返り」、frontmatter の `review_at` と `wake_at`、時間割の「実績」列のセルだけ。他の行は 1 文字も変えない。「実績」列が無い daily に列を足さない。`src/daily.ts` のテストがこの契約。
+- `writing/blog/` で書き換えてよいのは outline と draft の「## 一言」節、draft の frontmatter の `status` と `url` だけ。`src/blog.ts` のテストがこの契約。
 - 通信先は api.github.com だけ。PAT を他に送らない、ログに出さない。
 - ランタイムの依存を足さない (UI ライブラリ、ルーター、状態管理、octokit)。手書き CSS。開発用の依存 (検査、Storybook、テスト) は可。
 - `bun run check` (lint、test、tsc、build) が通らない変更は出さない。`bun run check:e2e` と `bun run check:vrt` はブラウザが要るので CI で回る。VRT の基準画像は Linux で作るので、手元では作らず `vrt-update.yml` を回す。
@@ -15,7 +16,8 @@
 
 ## 構成
 
-- `src/screens/`: Today, Night, Settings
+- `src/screens/`: Today, Night, Blog, Settings
+- `src/blog.ts`: ブログの記事の束ね方、段階、「## 一言」と公開の書き換え (純粋関数)
 - `src/daily.ts`: daily の節の抽出と書き換え (純粋関数)
 - `src/github.ts`: Contents API と Issues API
 - `src/FeedbackSheet.tsx`: 要望シート (Issue を作る)

@@ -1347,3 +1347,47 @@ a {
   max-width: 100%;
   vertical-align: middle;
 }
+
+/* ---------- ブログ ---------- */
+.blog-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.blog-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 18px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.blog-row-title {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.blog-stage {
+  flex: none;
+  background: var(--surface-2);
+  color: var(--text-2);
+}
+
+/* 人の手が要る段階だけを目立たせる。 */
+.blog-stage-needsComment {
+  background: var(--waiting-soft);
+  color: var(--waiting);
+}
+
+.blog-stage-drafting {
+  background: var(--accent-soft);
+  color: var(--accent-strong);
+}
+
+.blog-stage-published {
+  background: var(--running-soft);
+  color: var(--running);
+}
