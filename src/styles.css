@@ -1035,12 +1035,19 @@ a {
   max-width: 600px;
   max-height: calc(100dvh - 24px);
   overflow-y: auto;
+  /* iOS は body の overflow: hidden を無視するので、端まで来たスクロールを背面に渡さない */
+  overscroll-behavior: contain;
   padding: calc(var(--safe-top) + 8px) calc(var(--gutter) + var(--safe-right)) 20px
     calc(var(--gutter) + var(--safe-left));
   background: var(--bg);
   border-radius: 0 0 var(--r-lg) var(--r-lg);
   box-shadow: var(--shadow-lg);
   animation: drop 0.2s ease-out;
+}
+
+/* Safari はスクロールする flex 列の子を縮めて中身を切ることがある。縮ませずにシートをスクロールさせる */
+.sheet > * {
+  flex-shrink: 0;
 }
 
 .sheet-head {
