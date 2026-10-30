@@ -17,7 +17,8 @@ export const toKeyedItems = <T>(items: readonly T[], toBase: (item: T) => string
     const base = toBase(item);
     const count = (counts.get(base) ?? 0) + 1;
     counts.set(base, count);
-    if (count === 1) {
+    const isFirst = count === 1;
+    if (isFirst) {
       return { key: base, item };
     }
     return { key: `${base}#${count}`, item };

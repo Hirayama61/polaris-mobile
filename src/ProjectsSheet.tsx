@@ -24,23 +24,31 @@ type Props = {
 };
 
 const toSegmentKey = (segment: Segment): string => {
-  if (segment.kind === "link") {
+  const isLink = segment.kind === "link";
+  if (isLink) {
     return `link:${segment.href}:${segment.text}`;
   }
   return `text:${segment.text}`;
 };
 
 const toLineKey = (line: ProjectLine): string => {
-  if (line.kind === "blank") {
+  const isBlank = line.kind === "blank";
+  if (isBlank) {
     return "blank";
   }
   const text = line.segments.map((segment) => segment.text).join("");
   return `${line.kind}:${text}`;
 };
 
-const SegmentView = (props: { segment: Segment }) => {
+/**
+ * 本文の行の一部を描画する。`link` は別のタブで開く。
+ *
+ * @remarks key は持たない。並べる側 (`SegmentsView`) が付ける。
+ */
+export const SegmentView = (props: { segment: Segment }) => {
   const { segment } = props;
-  if (segment.kind === "link") {
+  const isLink = segment.kind === "link";
+  if (isLink) {
     return (
       <a href={segment.href} target="_blank" rel="noreferrer">
         {segment.text}
