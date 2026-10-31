@@ -1,7 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { removeDraft, saveDraft } from "../drafts";
 import { defaultSettings } from "../settings";
-import { BLOG_IDEA_DRAFT_KEY, BlogIdeaSheet } from "./BlogIdeaSheet";
+import { BlogIdeaSheet } from "./BlogIdeaSheet";
+import { BLOG_IDEA_DRAFT_KEY } from "./useBlogIdea";
 
 const meta = {
   title: "screens/BlogIdeaSheet",
