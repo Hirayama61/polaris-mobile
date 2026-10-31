@@ -42,6 +42,13 @@ type WriteTarget =
 // 時間割のコマを足すか直すシート。同時に開くのは 1 つだけ。
 type SlotSheet = { kind: "closed" } | { kind: "add" } | { kind: "change"; row: ScheduleRow };
 
+const changingRowOf = (sheet: SlotSheet): ScheduleRow | undefined => {
+  if (sheet.kind !== "change") {
+    return undefined;
+  }
+  return sheet.row;
+};
+
 // 失敗はその操作をした節の下に出す。起床の失敗は起床のコマの下に出す。
 type WriteArea = "turns" | "wake" | "schedule";
 
@@ -283,7 +290,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const { question } = slotTask;
   const hasQuestion = question !== undefined;
   const isAddSheetOpen = slotSheet.kind === "add";
-  const changingRow = slotSheet.kind === "change" ? slotSheet.row : undefined;
+  const changingRow = changingRowOf(slotSheet);
 
   const wakeDetail = (
     <div id={WAKE_DETAIL_ID} className="slot-detail">

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  countSameScheduleRows,
   createMinimalDaily,
   extractReview,
   extractReviewAt,
@@ -406,6 +407,15 @@ describe("insertScheduleRow", () => {
     const text = "## 今日の時間割\n\n## あなたの番\n";
     expect(insertScheduleRow(text, "08:00–08:30", "朝食")).toBe(text);
     expect(insertScheduleRow("## 振り返り\n", "08:00–08:30", "朝食")).toBe("## 振り返り\n");
+  });
+});
+
+describe("countSameScheduleRows", () => {
+  it("時刻とやることが同じ行を数え、足した後は 1 つ増える", () => {
+    expect(countSameScheduleRows(fixtureWithActual, "07:00–07:30", "散歩")).toBe(1);
+    expect(countSameScheduleRows(fixtureWithActual, "08:00–08:30", "朝食")).toBe(0);
+    const added = insertScheduleRow(fixtureWithActual, "08:00–08:30", "朝 | 食");
+    expect(countSameScheduleRows(added, "08:00–08:30", "朝 | 食")).toBe(1);
   });
 });
 

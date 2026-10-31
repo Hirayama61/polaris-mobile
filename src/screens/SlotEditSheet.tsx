@@ -1,5 +1,6 @@
 import { type FormEvent, type PropsWithChildren, useEffect, useRef, useState } from "react";
 import {
+  countSameScheduleRows,
   findSameScheduleRow,
   insertScheduleRow,
   removeScheduleRow,
@@ -12,7 +13,7 @@ import type { Settings } from "../settings";
 import { checkSlotInput, type SlotInputCheck } from "../slotInput";
 import { CloseIcon } from "../ui";
 import type { useDaily } from "../useDaily";
-import { SlotChangedError, type SlotSaveState, useSlotSave } from "./useSlotSave";
+import { SlotAlreadySavedError, SlotChangedError, type SlotSaveState, useSlotSave } from "./useSlotSave";
 
 type FrameProps = PropsWithChildren<{
   title: string;
@@ -190,6 +191,20 @@ const SlotMessage = (props: MessageProps) => {
 
 const NO_CHECK = null;
 
+const invalidFieldOf = (check: SlotInputCheck | null): "time" | "what" | null => {
+  if (check?.kind !== "invalid") {
+    return null;
+  }
+  return check.field;
+};
+
+const submitLabelOf = (isSaving: boolean, idleLabel: string): string => {
+  if (isSaving) {
+    return "保存中…";
+  }
+  return idleLabel;
+};
+
 // 入力欄の値と、最後に押したときの確かめた結果。
 const useSlotForm = (initialTime: string, initialWhat: string) => {
   const initial = splitScheduleTime(initialTime);
@@ -197,7 +212,7 @@ const useSlotForm = (initialTime: string, initialWhat: string) => {
   const [end, setEnd] = useState(initial.end);
   const [what, setWhat] = useState(initialWhat);
   const [check, setCheck] = useState<SlotInputCheck | null>(NO_CHECK);
-  const invalidField = check?.kind === "invalid" ? check.field : null;
+  const invalidField = invalidFieldOf(check);
   const submit = (): SlotInputCheck => {
     const next = checkSlotInput(start, end, what);
     setCheck(next);
@@ -225,18 +240,27 @@ export const AddSlotSheet = (props: AddProps) => {
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
     const check = form.submit();
-    if (check.kind !== "ok") {
+    const isInvalid = check.kind !== "ok";
+    if (isInvalid) {
       return;
     }
-    run("足す", (current) => {
+    run("足す", (current, base) => {
+      // 応答を受け取れずに押し直したとき、押す前より同じ行が増えていれば、前の 1 回が書けている。
+      const hasAdded =
+        countSameScheduleRows(current, check.time, check.what) >
+        countSameScheduleRows(base, check.time, check.what);
+      if (hasAdded) {
+        throw new SlotAlreadySavedError();
+      }
       const next = insertScheduleRow(current, check.time, check.what);
-      if (next === current) {
+      const hasNoTable = next === current;
+      if (hasNoTable) {
         throw new Error("今日の daily に時間割の表が無いため、足せませんでした。");
       }
       return next;
     });
   };
-  const submitLabel = isSaving ? "保存中…" : "足す";
+  const submitLabel = submitLabelOf(isSaving, "足す");
   return (
     <SlotSheetFrame title="コマを足す" isBusy={isSaving} onClose={onClose}>
       <form className="sheet-form" onSubmit={handleSubmit}>
@@ -276,7 +300,8 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
   };
   const sameRowLine = (current: string): number => {
     const same = findSameScheduleRow(current, row);
-    if (same === undefined) {
+    const isGone = same === undefined;
+    if (isGone) {
       throw new SlotChangedError();
     }
     return same.line;
@@ -284,7 +309,8 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
   const handleSubmit = (event: FormEvent): void => {
     event.preventDefault();
     const check = form.submit();
-    if (check.kind !== "ok") {
+    const isInvalid = check.kind !== "ok";
+    if (isInvalid) {
       return;
     }
     run("直す", (current) => setScheduleRow(current, sameRowLine(current), check.time, check.what));
@@ -292,7 +318,7 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
   const handleRemove = (): void => {
     run("消す", (current) => removeScheduleRow(current, sameRowLine(current)));
   };
-  const submitLabel = isSaving ? "保存中…" : "保存";
+  const submitLabel = submitLabelOf(isSaving, "保存");
   return (
     <SlotSheetFrame title="コマを直す" isBusy={isSaving} onClose={onClose}>
       <form className="sheet-form" onSubmit={handleSubmit}>

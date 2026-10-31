@@ -14,6 +14,15 @@ export class SlotChangedError extends Error {
 }
 
 /**
+ * 書こうとした変更が、もう daily に入っていたことを表す。応答を受け取れずに押し直したときに起きる。
+ */
+export class SlotAlreadySavedError extends Error {
+  constructor() {
+    super("このコマは、もう保存されていました。");
+  }
+}
+
+/**
  * 時間割のコマを書く状態。`stale` は行が変わっていて上書きしなかったとき。
  */
 export type SlotSaveState =
@@ -34,6 +43,8 @@ const OFFLINE_FAILURE: Failure = {
  * @remarks 何を書くかは持たない。呼び出し側が `src/daily.ts` の関数で `transform` を作る。
  * 手元の sha で書き、競合したら読み直して `transform` を当て直す。
  * 行が変わっていたら `transform` が `SlotChangedError` を投げ、上書きしない。
+ * もう入っていたら `transform` が `SlotAlreadySavedError` を投げ、書かずに読み直して `onSaved` を呼ぶ。
+ * `transform` の 2 つ目の引数は押したときの daily。再試行で当て直すときに、押した後に増えた分を見分けるのに使う。
  *
  * @param settings - 接続設定。
  * @param date - daily の日付。
@@ -51,7 +62,7 @@ export const useSlotSave = (
   const [save, setSave] = useState<SlotSaveState>({ status: "idle" });
   const isSaving = save.status === "saving";
 
-  const run = (what: string, transform: (current: string) => string): void => {
+  const run = (what: string, transform: (current: string, base: string) => string): void => {
     const { state } = daily;
     if (isSaving || state.status !== "ready") {
       return;
@@ -61,12 +72,13 @@ export const useSlotSave = (
       return;
     }
     setSave({ status: "saving" });
+    const base = state.content;
     writeKnownFile(
       settings,
       dailyPath(date),
       `chore(mobile): ${date} の時間割を${what}`,
-      { content: state.content, sha: state.sha },
-      transform,
+      { content: base, sha: state.sha },
+      (current) => transform(current, base),
     )
       .then((written) => {
         daily.replace(written.content, written.sha);
@@ -74,6 +86,12 @@ export const useSlotSave = (
         onSaved();
       })
       .catch((error: unknown) => {
+        if (error instanceof SlotAlreadySavedError) {
+          daily.reload();
+          setSave({ status: "idle" });
+          onSaved();
+          return;
+        }
         if (error instanceof SlotChangedError) {
           setSave({ status: "stale" });
           return;

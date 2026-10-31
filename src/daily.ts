@@ -193,8 +193,16 @@ const pipePositions = (line: string): readonly number[] => {
 // 改行と `|` は表を壊すので、空白と全角の `｜` に置き換える。
 const toCellValue = (value: string): string => value.replace(/\s+/g, " ").replace(/\|/g, "｜").trim();
 
-const toTableLine = (cells: readonly string[]): string =>
-  `|${cells.map((cell) => (cell === "" ? " " : ` ${cell} `)).join("|")}|`;
+const EMPTY_CELL = "";
+
+const toTableCell = (cell: string): string => {
+  if (cell === EMPTY_CELL) {
+    return " ";
+  }
+  return ` ${cell} `;
+};
+
+const toTableLine = (cells: readonly string[]): string => `|${cells.map(toTableCell).join("|")}|`;
 
 const SCHEDULE_TIME_PATTERN = /^\d{2}:[0-5]\d–\d{2}:[0-5]\d$/;
 
@@ -218,7 +226,10 @@ export const isScheduleTime = (time: string): boolean => SCHEDULE_TIME_PATTERN.t
  */
 export const toScheduleTime = (start: string, end: string): string | undefined => {
   const time = `${start.trim()}–${end.trim()}`;
-  return isScheduleTime(time) ? time : undefined;
+  if (!isScheduleTime(time)) {
+    return undefined;
+  }
+  return time;
 };
 
 const LOOSE_TIME_PATTERN = /^(\d{1,2}):(\d{2})\s*[–\-~〜]\s*(\d{1,2}):(\d{2})$/;
@@ -263,12 +274,19 @@ export const setScheduleRow = (text: string, line: number, time: string, what: s
   }
   // 先頭 3 列 (時刻・やること・誰) の後ろは、3 番目の `|` から後ろを 1 文字も変えずに残す。
   const pipes = pipePositions(target);
-  const restStart = pipes[3];
   const indent = target.slice(0, pipes[0] ?? 0);
   const head = toTableLine([time, toCellValue(what), SCHEDULE_WHO_MINE]);
-  const rest = restStart === undefined ? "" : target.slice(restStart + 1);
+  const rest = restOfRow(target, pipes[3]);
   const replaced = `${indent}${head}${rest}`;
   return lines.map((current, index) => (index === line ? replaced : current)).join("\n");
+};
+
+// 3 番目の `|` から後ろ。無ければ空。
+const restOfRow = (target: string, restStart: number | undefined): string => {
+  if (restStart === undefined) {
+    return "";
+  }
+  return target.slice(restStart + 1);
 };
 
 const isSameRow = (a: ScheduleRow, b: ScheduleRow): boolean =>
@@ -289,6 +307,19 @@ export const findSameScheduleRow = (text: string, row: ScheduleRow): ScheduleRow
 const startOf = (time: string): string => time.split("–")[0]?.trim() ?? "";
 
 /**
+ * 時刻とやることが同じ行の数を数える。足す操作の再試行で同じ行を二重に入れないために使う。
+ *
+ * @param text - daily ファイル全体。
+ * @param time - 時刻。
+ * @param what - やること。`insertScheduleRow` と同じく置き換えてから比べる。
+ * @returns 時間割の表で時刻とやることが一致する行の数。
+ */
+export const countSameScheduleRows = (text: string, time: string, what: string): number => {
+  const value = toCellValue(what);
+  return extractSchedule(text).filter((row) => row.time === time && row.what === value).length;
+};
+
+/**
  * 時間割に 1 行足す。「誰」は「あなた」、4 列目以降のセルは空にする。
  *
  * @param text - daily ファイル全体。
@@ -304,8 +335,8 @@ export const insertScheduleRow = (text: string, time: string, what: string): str
   }
   const start = startOf(time);
   const later = rows.find((row) => startOf(row.cells[0] ?? "") > start);
-  const insertAt = later === undefined ? lastLine + 1 : later.line;
-  const emptyCells = Array.from({ length: Math.max(columnCount - 3, 0) }, () => "");
+  const insertAt = later?.line ?? lastLine + 1;
+  const emptyCells = Array.from({ length: Math.max(columnCount - 3, 0) }, () => EMPTY_CELL);
   const added = toTableLine([time, toCellValue(what), SCHEDULE_WHO_MINE, ...emptyCells]);
   return [...lines.slice(0, insertAt), added, ...lines.slice(insertAt)].join("\n");
 };
