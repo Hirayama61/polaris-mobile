@@ -1,4 +1,4 @@
-import { type FormEvent, useEffect, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { formatTokyoIso, tokyoMinutesOfDay } from "../clock";
 import {
   extractSchedule,
@@ -18,10 +18,11 @@ import type { Settings } from "../settings";
 import { TaskChecklist } from "../TaskChecklist";
 import { taskPathOf } from "../tasks";
 import { buildTimetable } from "../timetable";
-import { StateCard } from "../ui";
+import { PenIcon, StateCard } from "../ui";
 import { dailyPath, type useDaily } from "../useDaily";
 import { useProjectNames } from "../useProjectNames";
 import { FailureAction, UnconfiguredCard } from "./common";
+import { AddSlotSheet, ChangeSlotSheet } from "./SlotEditSheet";
 import { SlotTaskDetail } from "./SlotTaskDetail";
 import { useSlotTask } from "./useSlotTask";
 
@@ -37,6 +38,9 @@ type WriteTarget =
   | { kind: "turn"; line: number; nextChecked: boolean }
   | { kind: "wake" }
   | { kind: "actual"; slot: string };
+
+// 時間割のコマを足すか直すシート。同時に開くのは 1 つだけ。
+type SlotSheet = { kind: "closed" } | { kind: "add" } | { kind: "change"; row: ScheduleRow };
 
 // 失敗はその操作をした節の下に出す。起床の失敗は起床のコマの下に出す。
 type WriteArea = "turns" | "wake" | "schedule";
@@ -98,6 +102,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const [actualDrafts, setActualDrafts] = useState<ReadonlyMap<string, string>>(new Map());
   const [openLine, setOpenLine] = useState<number | undefined>(undefined);
   const [isWakeOpen, setIsWakeOpen] = useState(false);
+  const [slotSheet, setSlotSheet] = useState<SlotSheet>({ kind: "closed" });
+  const closeSlotSheet = useCallback(() => setSlotSheet({ kind: "closed" }), []);
   const slotTask = useSlotTask(settings);
   const minutesOfDay = useMinutesOfDay();
   const { state } = daily;
@@ -115,6 +121,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     setDraftsDate(date);
     setActualDrafts(new Map());
     setIsWakeOpen(false);
+    setSlotSheet({ kind: "closed" });
     slotTask.close();
   }
 
@@ -275,6 +282,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const hasUnscheduledTurns = timetable.unscheduled.length > 0;
   const { question } = slotTask;
   const hasQuestion = question !== undefined;
+  const isAddSheetOpen = slotSheet.kind === "add";
+  const changingRow = slotSheet.kind === "change" ? slotSheet.row : undefined;
 
   const wakeDetail = (
     <div id={WAKE_DETAIL_ID} className="slot-detail">
@@ -333,6 +342,14 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           <h2 id="schedule-title" className="section-title">
             時間割
           </h2>
+          <button
+            type="button"
+            className="button button-small"
+            disabled={isWriting}
+            onClick={() => setSlotSheet({ kind: "add" })}
+          >
+            コマを足す
+          </button>
         </div>
         <ol className="panel timeline">
           {timetable.slots.map((slot) => {
@@ -418,6 +435,15 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                     </div>
                   )}
                   {isTurnWriting && <span className="turn-status">保存中</span>}
+                  <button
+                    type="button"
+                    className="icon-button slot-edit"
+                    aria-label={`${row.time} のコマを直す`}
+                    disabled={isWriting}
+                    onClick={() => setSlotSheet({ kind: "change", row })}
+                  >
+                    <PenIcon size={18} />
+                  </button>
                   {check}
                 </div>
                 {hasActualColumn && (
@@ -556,6 +582,28 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           </ul>
           {errorIn("turns")}
         </section>
+      )}
+
+      {isAddSheetOpen && (
+        <AddSlotSheet
+          settings={settings}
+          date={date}
+          isOnline={isOnline}
+          daily={daily}
+          onClose={closeSlotSheet}
+          onOpenSettings={onOpenSettings}
+        />
+      )}
+      {changingRow !== undefined && (
+        <ChangeSlotSheet
+          settings={settings}
+          date={date}
+          isOnline={isOnline}
+          daily={daily}
+          row={changingRow}
+          onClose={closeSlotSheet}
+          onOpenSettings={onOpenSettings}
+        />
       )}
 
       {hasQuestion && (

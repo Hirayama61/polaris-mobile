@@ -3,7 +3,8 @@
  *
  * 朝ジョブと夜ジョブも同じファイルを書くため、ここで変更してよいのは
  * 「あなたの番」のチェック状態・「振り返り」の本文・frontmatter の `review_at` と `wake_at`・
- * 時間割の「実績」列のセルだけ。それ以外の行は 1 文字も変えない。
+ * 時間割の「実績」列のセル・時間割の行の時刻とやること (変更、追加、削除) だけ。それ以外の行は 1 文字も変えない。
+ * 直した行と足した行の「誰」は「あなた」にする。「実績」列が無い表に列を足さない。
  * `extractSection` `replaceSection` `setFrontmatterValue` はブログ (`src/blog.ts`) も使う。
  */
 
@@ -132,12 +133,16 @@ type ScheduleTable = {
   rows: readonly { line: number; cells: readonly string[] }[];
   /** 「実績」列の位置。列が無ければ undefined。 */
   actualColumn: number | undefined;
+  /** ヘッダーの列の数。表が無ければ 0。 */
+  columnCount: number;
+  /** 表の最後の行(区切り行を含む)の行番号。表が無ければ undefined。 */
+  lastLine: number | undefined;
 };
 
 const findScheduleTable = (lines: readonly string[]): ScheduleTable => {
   const range = findSection(lines, "今日の時間割");
   if (range === undefined) {
-    return { rows: [], actualColumn: undefined };
+    return { rows: [], actualColumn: undefined, columnCount: 0, lastLine: undefined };
   }
   const tableRows: { line: number; cells: readonly string[] }[] = [];
   for (let index = range.start; index < range.end; index += 1) {
@@ -152,6 +157,8 @@ const findScheduleTable = (lines: readonly string[]): ScheduleTable => {
   return {
     rows: tableRows.slice(1).filter(({ cells }) => !isSeparatorRow(cells)),
     actualColumn: actualIndex === -1 ? undefined : actualIndex,
+    columnCount: header.length,
+    lastLine: tableRows.at(-1)?.line,
   };
 };
 
@@ -183,6 +190,143 @@ const pipePositions = (line: string): readonly number[] => {
   return positions;
 };
 
+// 改行と `|` は表を壊すので、空白と全角の `｜` に置き換える。
+const toCellValue = (value: string): string => value.replace(/\s+/g, " ").replace(/\|/g, "｜").trim();
+
+const toTableLine = (cells: readonly string[]): string =>
+  `|${cells.map((cell) => (cell === "" ? " " : ` ${cell} `)).join("|")}|`;
+
+const SCHEDULE_TIME_PATTERN = /^\d{2}:[0-5]\d–\d{2}:[0-5]\d$/;
+
+/** 直した行と足した行の「誰」。 */
+export const SCHEDULE_WHO_MINE = "あなた";
+
+/**
+ * 時間割の時刻として受け付ける形かを判定する。
+ *
+ * @param time - 時刻のセルに書く値。
+ * @returns `HH:MM–HH:MM` (区切りは en dash) なら true。
+ */
+export const isScheduleTime = (time: string): boolean => SCHEDULE_TIME_PATTERN.test(time);
+
+/**
+ * 開始と終了の時刻から、時間割の時刻のセルの値を作る。
+ *
+ * @param start - `HH:MM`。
+ * @param end - `HH:MM`。
+ * @returns `HH:MM–HH:MM`。形が違えば undefined。
+ */
+export const toScheduleTime = (start: string, end: string): string | undefined => {
+  const time = `${start.trim()}–${end.trim()}`;
+  return isScheduleTime(time) ? time : undefined;
+};
+
+const LOOSE_TIME_PATTERN = /^(\d{1,2}):(\d{2})\s*[–\-~〜]\s*(\d{1,2}):(\d{2})$/;
+
+/** 時刻のセルから開始と終了を読めなかったときの値。 */
+export const NO_CLOCK = "";
+
+/**
+ * 時間割の時刻のセルを開始と終了に分ける。直す欄の初期値に使う。
+ *
+ * @param time - 時刻のセル。区切りは en dash・ハイフン・波線を受け付ける。
+ * @returns 2 桁にそろえた `HH:MM` の組。読めなければ両方 `NO_CLOCK`。
+ */
+export const splitScheduleTime = (time: string): { start: string; end: string } => {
+  const match = LOOSE_TIME_PATTERN.exec(time.trim());
+  if (match === null) {
+    return { start: NO_CLOCK, end: NO_CLOCK };
+  }
+  const [, startHour = "", startMinute = "", endHour = "", endMinute = ""] = match;
+  return {
+    start: `${startHour.padStart(2, "0")}:${startMinute}`,
+    end: `${endHour.padStart(2, "0")}:${endMinute}`,
+  };
+};
+
+/**
+ * 時間割の 1 行の時刻とやることを書き換え、「誰」を「あなた」にする。
+ *
+ * @param text - daily ファイル全体。
+ * @param line - 対象の行番号(`ScheduleRow.line`)。
+ * @param time - 新しい時刻。`isScheduleTime` を満たすこと。
+ * @param what - 新しいやること。改行は空白に、`|` は全角の `｜` に置き換える。
+ * @returns その行だけを変えた全文。「実績」など 4 列目以降のセルはそのまま残す。対象行が表の行でなければ元の全文。
+ */
+export const setScheduleRow = (text: string, line: number, time: string, what: string): string => {
+  const lines = splitLines(text);
+  const { rows } = findScheduleTable(lines);
+  const target = lines[line];
+  const isRow = rows.some((candidate) => candidate.line === line);
+  if (!isRow || target === undefined) {
+    return text;
+  }
+  // 先頭 3 列 (時刻・やること・誰) の後ろは、3 番目の `|` から後ろを 1 文字も変えずに残す。
+  const pipes = pipePositions(target);
+  const restStart = pipes[3];
+  const indent = target.slice(0, pipes[0] ?? 0);
+  const head = toTableLine([time, toCellValue(what), SCHEDULE_WHO_MINE]);
+  const rest = restStart === undefined ? "" : target.slice(restStart + 1);
+  const replaced = `${indent}${head}${rest}`;
+  return lines.map((current, index) => (index === line ? replaced : current)).join("\n");
+};
+
+const isSameRow = (a: ScheduleRow, b: ScheduleRow): boolean =>
+  a.time === b.time && a.what === b.what && a.who === b.who && a.actual === b.actual;
+
+/**
+ * 開いたときと同じ中身の行を、いまの daily から探す。
+ *
+ * 行番号は起床の記録などでずれるので、時刻・やること・誰・実績がすべて同じ行を探す。
+ *
+ * @param text - いまの daily ファイル全体。
+ * @param row - 開いたときの行。
+ * @returns 同じ中身の最初の行。変わっていたか消えていれば undefined。
+ */
+export const findSameScheduleRow = (text: string, row: ScheduleRow): ScheduleRow | undefined =>
+  extractSchedule(text).find((candidate) => isSameRow(candidate, row));
+
+const startOf = (time: string): string => time.split("–")[0]?.trim() ?? "";
+
+/**
+ * 時間割に 1 行足す。「誰」は「あなた」、4 列目以降のセルは空にする。
+ *
+ * @param text - daily ファイル全体。
+ * @param time - 時刻。`isScheduleTime` を満たすこと。
+ * @param what - やること。改行は空白に、`|` は全角の `｜` に置き換える。
+ * @returns 開始時刻がより遅い最初の行の前 (無ければ表の末尾) に 1 行入れた全文。表が無ければ元の全文。
+ */
+export const insertScheduleRow = (text: string, time: string, what: string): string => {
+  const lines = splitLines(text);
+  const { rows, columnCount, lastLine } = findScheduleTable(lines);
+  if (lastLine === undefined) {
+    return text;
+  }
+  const start = startOf(time);
+  const later = rows.find((row) => startOf(row.cells[0] ?? "") > start);
+  const insertAt = later === undefined ? lastLine + 1 : later.line;
+  const emptyCells = Array.from({ length: Math.max(columnCount - 3, 0) }, () => "");
+  const added = toTableLine([time, toCellValue(what), SCHEDULE_WHO_MINE, ...emptyCells]);
+  return [...lines.slice(0, insertAt), added, ...lines.slice(insertAt)].join("\n");
+};
+
+/**
+ * 時間割の 1 行を消す。
+ *
+ * @param text - daily ファイル全体。
+ * @param line - 対象の行番号(`ScheduleRow.line`)。
+ * @returns その行だけを除いた全文。対象行が表の行でなければ元の全文。
+ */
+export const removeScheduleRow = (text: string, line: number): string => {
+  const lines = splitLines(text);
+  const { rows } = findScheduleTable(lines);
+  const isRow = rows.some((candidate) => candidate.line === line);
+  if (!isRow) {
+    return text;
+  }
+  return lines.filter((_, index) => index !== line).join("\n");
+};
+
 /**
  * 時間割の 1 行の「実績」セルを書き換える。
  *
@@ -206,7 +350,7 @@ export const setScheduleActual = (text: string, line: number, actual: string): s
   const pipes = pipePositions(target);
   const start = pipes[actualColumn] ?? 0;
   const end = pipes[actualColumn + 1];
-  const value = actual.replace(/\s+/g, " ").replace(/\|/g, "｜").trim();
+  const value = toCellValue(actual);
   const replaced =
     end === undefined
       ? `${target.slice(0, start + 1)}${value === "" ? " " : ` ${value}`}`

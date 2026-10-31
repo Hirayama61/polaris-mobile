@@ -182,3 +182,63 @@ test("4:00 をまたぐと、保存していない実績の入力を捨てる", 
   await expect(page.getByRole("textbox", { name: "09:00–18:00 の実績" })).toHaveValue("");
   expect(puts).toEqual([]);
 });
+
+test("コマを直すと、その行の時刻・やること・誰だけが変わって PUT される", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "09:00–18:00 のコマを直す" }).click();
+  const sheet = page.getByRole("dialog", { name: "コマを直す" });
+  await sheet.getByLabel("開始").fill("09:30");
+  await sheet.getByLabel("やること").fill("仕事 (在宅)");
+  await sheet.getByRole("button", { name: "保存" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  const line = daily.split("\n").indexOf("| 09:00–18:00 | 仕事 | | |");
+  expect(changedLines(daily, puts[0]?.content)).toEqual([line]);
+  expect(puts[0]?.content.split("\n")[line]).toBe("| 09:30–18:00 | 仕事 (在宅) | あなた | |");
+  await expect(sheet).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "09:30–18:00 の実績" })).toBeVisible();
+});
+
+test("時刻を空にして保存すると、その場で知らせて PUT しない", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "07:00–07:30 のコマを直す" }).click();
+  const sheet = page.getByRole("dialog", { name: "コマを直す" });
+  await sheet.getByLabel("終了").fill("");
+  await sheet.getByRole("button", { name: "保存" }).click();
+  await expect(sheet.getByRole("alert")).toContainText("開始と終了の時刻");
+  expect(puts).toEqual([]);
+});
+
+test("コマを足すと、時刻の順の位置に 1 行だけ入る", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "コマを足す" }).click();
+  const sheet = page.getByRole("dialog", { name: "コマを足す" });
+  await sheet.getByLabel("開始").fill("08:00");
+  await sheet.getByLabel("終了").fill("08:30");
+  await sheet.getByLabel("やること").fill("朝食");
+  await sheet.getByRole("button", { name: "足す" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  const before = daily.split("\n");
+  const at = before.indexOf("| 09:00–18:00 | 仕事 | | |");
+  const expected = [...before.slice(0, at), "| 08:00–08:30 | 朝食 | あなた | |", ...before.slice(at)];
+  expect(puts[0]?.content).toBe(expected.join("\n"));
+});
+
+test("コマを消すと、その行だけがなくなる", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "09:00–18:00 のコマを直す" }).click();
+  await page
+    .getByRole("dialog", { name: "コマを直す" })
+    .getByRole("button", { name: "このコマを消す" })
+    .click();
+  await expect.poll(() => puts.length).toBe(1);
+  const expected = daily.split("\n").filter((line) => line !== "| 09:00–18:00 | 仕事 | | |");
+  expect(puts[0]?.content).toBe(expected.join("\n"));
+});

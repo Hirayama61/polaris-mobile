@@ -1162,6 +1162,23 @@ a {
   background: var(--surface);
 }
 
+/* ---------- コマを直すシート ---------- */
+.sheet-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.button-danger {
+  color: var(--danger);
+}
+
+/* 時間割のコマの右端に置く「直す」。チェック欄と同じく 44px の的を、余白に食い込ませて取る */
+.slot-edit {
+  margin: -9px -9px -9px 0;
+  color: var(--text-3);
+}
+
 /* ---------- 更新履歴シート ---------- */
 .changelog-item {
   display: flex;
