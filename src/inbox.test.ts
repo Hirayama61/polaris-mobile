@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  getProjectItems,
   groupInboxByProject,
   hasUnansweredQuestion,
   type InboxItem,
@@ -8,19 +9,27 @@ import {
   toInboxItem,
 } from "./inbox";
 
-const question = (id: string, title: string, answered: boolean, projectName?: string): InboxItem => ({
+const question = (
+  id: string,
+  title: string,
+  answered: boolean,
+  projectName?: string,
+  projectSlug?: string,
+): InboxItem => ({
   kind: "question",
   id,
   title,
   answered,
+  projectSlug,
   projectName,
   created: undefined,
 });
 
-const task = (id: string, title: string, projectName?: string): InboxItem => ({
+const task = (id: string, title: string, projectName?: string, projectSlug?: string): InboxItem => ({
   kind: "task",
   id,
   title,
+  projectSlug,
   projectName,
   created: undefined,
 });
@@ -103,6 +112,23 @@ describe("hasUnansweredQuestion", () => {
   });
 });
 
+describe("getProjectItems", () => {
+  it("slug が一致するものだけを、未回答の質問、回答済みの質問、タスクの順に選ぶ", () => {
+    const items = [
+      task("t1", "タスク", "Polaris", "polaris"),
+      question("q1", "回答済み", true, "Polaris", "polaris"),
+      question("q2", "未回答", false, "Polaris", "polaris"),
+      task("t2", "別のプロジェクト", "Blog", "blog"),
+      task("t3", "プロジェクトなし"),
+    ];
+    expect(getProjectItems(items, "polaris").map((item) => item.id)).toEqual(["q2", "q1", "t1"]);
+  });
+
+  it("名前が同じでも slug が違えば選ばない", () => {
+    expect(getProjectItems([task("t1", "一", "Polaris", "polaris-old")], "polaris")).toEqual([]);
+  });
+});
+
 describe("loadInbox", () => {
   it("質問とタスクに project 名を付けて返し、project は 1 回だけ読む", async () => {
     const files: Record<string, string> = {
@@ -125,10 +151,18 @@ describe("loadInbox", () => {
         id: "q1",
         title: "一",
         answered: false,
+        projectSlug: "polaris",
         projectName: "Polaris",
         created: undefined,
       },
-      { kind: "task", id: "t1", title: "二", projectName: "Polaris", created: undefined },
+      {
+        kind: "task",
+        id: "t1",
+        title: "二",
+        projectSlug: "polaris",
+        projectName: "Polaris",
+        created: undefined,
+      },
     ]);
     expect(calls.filter((path) => path.startsWith("projects/"))).toEqual(["projects/polaris.md"]);
   });

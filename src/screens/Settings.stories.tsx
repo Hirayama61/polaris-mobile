@@ -8,7 +8,6 @@ const meta = {
   args: {
     settings: defaultSettings,
     onSave: () => {},
-    onOpenProjects: () => {},
     onOpenChangelog: () => {},
   },
   decorators: [

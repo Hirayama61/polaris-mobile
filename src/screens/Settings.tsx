@@ -5,7 +5,6 @@ import type { Settings } from "../settings";
 type Props = {
   settings: Settings;
   onSave: (settings: Settings) => void;
-  onOpenProjects: () => void;
   onOpenChangelog: () => void;
 };
 
@@ -20,9 +19,9 @@ const textInputProps = {
 const settingKeys = ["token", "owner", "repo", "branch"] as const satisfies readonly (keyof Settings)[];
 
 /**
- * GitHub の接続設定を入力して localStorage に保存する。プロジェクトのシートもここから開く。
+ * GitHub の接続設定を入力して localStorage に保存する。
  */
-export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenChangelog }: Props) => {
+export const SettingsScreen = ({ settings, onSave, onOpenChangelog }: Props) => {
   const [draft, setDraft] = useState<Settings>(settings);
   const [isTokenVisible, setIsTokenVisible] = useState(false);
 
@@ -92,9 +91,6 @@ export const SettingsScreen = ({ settings, onSave, onOpenProjects, onOpenChangel
           onClick={() => onSave(draft)}
         >
           保存
-        </button>
-        <button type="button" className="button button-block" onClick={onOpenProjects}>
-          プロジェクトを見る
         </button>
         <button type="button" className="button button-block" onClick={onOpenChangelog}>
           更新履歴を見る

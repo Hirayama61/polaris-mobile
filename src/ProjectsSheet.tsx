@@ -2,7 +2,10 @@ import { useCallback, useEffect, useState } from "react";
 import { DevPlanSection } from "./DevPlanSection";
 import { describeFailure, type Failure } from "./failure";
 import { listFileNames, readFile } from "./github";
+import { getProjectItems, type InboxItem } from "./inbox";
 import { toKeyedItems } from "./keys";
+import { ProjectItemsSection } from "./ProjectItemsSection";
+import { ProjectRoadmapSection } from "./ProjectRoadmapSection";
 import {
   loadProjects,
   type ProjectLine,
@@ -13,6 +16,7 @@ import {
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
 import { useDevPlan } from "./useDevPlan";
+import { type ProjectRoadmapState, useProjectRoadmap } from "./useProjectRoadmap";
 
 type LoadState =
   | { status: "loading" }
@@ -21,6 +25,8 @@ type LoadState =
 
 type Props = {
   settings: Settings;
+  /** 受信箱の全件。読み終えていなければ undefined。 */
+  inboxItems: InboxItem[] | undefined;
   onClose: () => void;
   onOpenSettings: () => void;
 };
@@ -130,14 +136,59 @@ const ProjectBody = ({ project }: { project: ProjectSummary }) => {
   );
 };
 
+const getSelectedItems = (
+  inboxItems: readonly InboxItem[] | undefined,
+  project: ProjectSummary,
+): InboxItem[] | undefined => {
+  if (inboxItems === undefined) {
+    return undefined;
+  }
+  return getProjectItems(inboxItems, project.slug);
+};
+
+// 連携プロジェクトは進み具合、どのプロジェクトもタスクと質問、最後に本文を並べる。
+const ProjectDetail = (props: {
+  project: ProjectSummary;
+  roadmap: ProjectRoadmapState;
+  inboxItems: InboxItem[] | undefined;
+}) => {
+  const { project, roadmap, inboxItems } = props;
+  const items = getSelectedItems(inboxItems, project);
+  return (
+    <>
+      <ProjectRoadmapSection roadmap={roadmap} />
+      <ProjectItemsSection items={items} />
+      <section className="section" aria-labelledby="project-body-title">
+        <div className="section-head">
+          <h3 id="project-body-title" className="section-title">
+            メモ
+          </h3>
+        </div>
+        <ProjectBody project={project} />
+      </section>
+    </>
+  );
+};
+
 /**
- * `projects/*.md` を一覧にして、タップで本文を読むシート。読むだけで書かない。
+ * `projects/*.md` を一覧にして、タップでそのプロジェクトの進み具合、タスクと質問、本文を見るシート。読むだけで書かない。
  */
-export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
+export const ProjectsSheet = ({ settings, inboxItems, onClose, onOpenSettings }: Props) => {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [selected, setSelected] = useState<ProjectSummary | undefined>(undefined);
   const devPlan = useDevPlan(settings, getLoadedProjects(load));
+  const roadmap = useProjectRoadmap();
   const isListing = selected === undefined;
+
+  const selectProject = (project: ProjectSummary): void => {
+    setSelected(project);
+    roadmap.load(settings, project);
+  };
+
+  const backToList = (): void => {
+    setSelected(undefined);
+    roadmap.reset();
+  };
 
   const fetchProjects = useCallback(() => {
     if (settings.token === "") {
@@ -197,7 +248,7 @@ export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
               type="button"
               className="icon-button sheet-back"
               aria-label="一覧に戻る"
-              onClick={() => setSelected(undefined)}
+              onClick={backToList}
             >
               <span className="back-chevron" aria-hidden="true" />
             </button>
@@ -213,7 +264,7 @@ export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
         {isListing && <DevPlanSection plan={devPlan} />}
 
         {selected !== undefined ? (
-          <ProjectBody project={selected} />
+          <ProjectDetail project={selected} roadmap={roadmap.state} inboxItems={inboxItems} />
         ) : settings.token === "" ? (
           <div className="message message-error" role="alert">
             <p>トークンが未設定です。</p>
@@ -251,7 +302,7 @@ export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
                 <button
                   type="button"
                   className={project.isRetired ? "project-row project-retired" : "project-row"}
-                  onClick={() => setSelected(project)}
+                  onClick={() => selectProject(project)}
                 >
                   <span className="turn-line">{project.name}</span>
                   <span className="project-chevron" aria-hidden="true" />

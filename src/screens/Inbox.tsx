@@ -3,12 +3,16 @@ import { StateCard } from "../ui";
 import type { InboxLoadState } from "../useInbox";
 import { FailureAction, UnconfiguredCard } from "./common";
 
-type Props = {
+type BodyProps = {
   state: InboxLoadState;
   seenAt: string | undefined;
   onOpenItem: (item: InboxItem) => void;
   onRetry: () => void;
   onOpenSettings: () => void;
+};
+
+type Props = BodyProps & {
+  onOpenProjects: () => void;
 };
 
 type RowProps = {
@@ -68,12 +72,7 @@ const InboxGroupSection = (props: GroupProps) => {
   );
 };
 
-/**
- * `tasks/` の todo のタスクと質問を project ごとに並べる。タップで回答かタスクのシートを開く。
- *
- * @remarks 読み込みと「前に開いた時刻」は App が持つ。タブの「!」と同じ一覧を使うため。
- */
-export const InboxScreen = (props: Props) => {
+const InboxBody = (props: BodyProps) => {
   const { state, seenAt, onOpenItem, onRetry, onOpenSettings } = props;
   if (state.status === "unconfigured") {
     return <UnconfiguredCard onOpenSettings={onOpenSettings} />;
@@ -114,6 +113,24 @@ export const InboxScreen = (props: Props) => {
           onOpenItem={onOpenItem}
         />
       ))}
+    </>
+  );
+};
+
+/**
+ * 先頭にプロジェクトのシートの入口を置き、`tasks/` の todo のタスクと質問を project ごとに並べる。
+ * タップで回答かタスクのシートを開く。
+ *
+ * @remarks 読み込みと「前に開いた時刻」は App が持つ。タブの「!」と同じ一覧を使うため。
+ */
+export const InboxScreen = (props: Props) => {
+  const { onOpenProjects, ...bodyProps } = props;
+  return (
+    <>
+      <button type="button" className="button button-block inbox-projects" onClick={onOpenProjects}>
+        プロジェクトを見る
+      </button>
+      <InboxBody {...bodyProps} />
     </>
   );
 };

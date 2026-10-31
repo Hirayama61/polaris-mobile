@@ -17,7 +17,7 @@ import { isConfigured, loadSettings, type Settings, saveSettings } from "./setti
 import { TasksSheet } from "./TasksSheet";
 import { GearIcon, InboxIcon, MessageIcon, MoonIcon, PenIcon, SunIcon } from "./ui";
 import { useDaily } from "./useDaily";
-import { useInbox } from "./useInbox";
+import { getInboxItems, useInbox } from "./useInbox";
 import { useOnline } from "./useOnline";
 
 const screens = ["today", "inbox", "night", "blog", "settings"] as const;
@@ -117,7 +117,8 @@ export const App = () => {
     setScreen(next);
   };
 
-  const hasInboxAlert = inbox.state.status === "ready" && hasUnansweredQuestion(inbox.state.items);
+  const inboxItems = getInboxItems(inbox.state);
+  const hasInboxAlert = inboxItems !== undefined && hasUnansweredQuestion(inboxItems);
 
   return (
     <div className="app">
@@ -149,6 +150,7 @@ export const App = () => {
             state={inbox.state}
             seenAt={inboxSeenAt}
             onOpenItem={setOpenedItem}
+            onOpenProjects={() => setIsProjectsOpen(true)}
             onRetry={reloadInbox}
             onOpenSettings={openSettings}
           />
@@ -175,7 +177,6 @@ export const App = () => {
           <SettingsScreen
             settings={settings}
             onSave={handleSaveSettings}
-            onOpenProjects={() => setIsProjectsOpen(true)}
             onOpenChangelog={() => setIsChangelogOpen(true)}
           />
         )}
@@ -227,7 +228,12 @@ export const App = () => {
         />
       )}
       {isProjectsOpen && (
-        <ProjectsSheet settings={settings} onClose={closeProjects} onOpenSettings={openSettings} />
+        <ProjectsSheet
+          settings={settings}
+          inboxItems={inboxItems}
+          onClose={closeProjects}
+          onOpenSettings={openSettings}
+        />
       )}
       {openedItem?.kind === "task" && (
         <TasksSheet

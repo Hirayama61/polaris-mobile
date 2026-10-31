@@ -1479,3 +1479,55 @@ a {
 .dev-error p {
   margin: 0;
 }
+
+/* ---------- プロジェクトの進み具合 ---------- */
+.inbox-projects {
+  margin-bottom: 16px;
+}
+
+.roadmap-row {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.roadmap-label {
+  flex: none;
+}
+
+/* リポジトリ名のすぐ下なので、区切り線を引かない。 */
+.roadmap-first-subhead {
+  border-top: 0;
+}
+
+.roadmap-chart {
+  padding: 8px 16px 12px;
+}
+
+.roadmap-chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.roadmap-bar {
+  fill: var(--accent);
+}
+
+.roadmap-bar-empty {
+  fill: var(--border-strong);
+}
+
+.roadmap-bar-count {
+  fill: var(--text-2);
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+.roadmap-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 4px;
+  color: var(--text-3);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
