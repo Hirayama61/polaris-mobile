@@ -1,5 +1,13 @@
-import { groupInboxByProject, type InboxGroup, type InboxItem, isNewSince, NO_PROJECT_LABEL } from "../inbox";
-import { StateCard } from "../ui";
+import type { CSSProperties } from "react";
+import {
+  getProjectColor,
+  groupInboxByProject,
+  type InboxGroup,
+  type InboxItem,
+  isNewSince,
+  NO_PROJECT_LABEL,
+} from "../inbox";
+import { type IconProps, StateCard, svgProps } from "../ui";
 import type { InboxLoadState } from "../useInbox";
 import { FailureAction, UnconfiguredCard } from "./common";
 
@@ -15,21 +23,75 @@ type Props = BodyProps & {
   onOpenProjects: () => void;
 };
 
+// 受信箱の行でしか使わないので、共有の ui.tsx には置かない。
+const QuestionIcon = (props: IconProps) => {
+  const { size = 22 } = props;
+  return (
+    <svg {...svgProps(size)} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+};
+
+const TaskIcon = (props: IconProps) => {
+  const { size = 22 } = props;
+  return (
+    <svg {...svgProps(size)} aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+};
+
+type KindMarkProps = {
+  kind: InboxItem["kind"];
+};
+
+const KindMark = (props: KindMarkProps) => {
+  const { kind } = props;
+  const isQuestion = kind === "question";
+  if (isQuestion) {
+    return (
+      <span className="inbox-kind inbox-kind-question" role="img" aria-label="質問">
+        <QuestionIcon size={18} />
+      </span>
+    );
+  }
+  return (
+    <span className="inbox-kind" role="img" aria-label="タスク">
+      <TaskIcon size={18} />
+    </span>
+  );
+};
+
 type RowProps = {
   title: string;
-  isQuestion: boolean;
+  kind: InboxItem["kind"];
+  projectLabel: string;
+  projectColor: string;
   isAnswered: boolean;
   isNew: boolean;
   onSelect: () => void;
 };
 
 const InboxRow = (props: RowProps) => {
-  const { title, isQuestion, isAnswered, isNew, onSelect } = props;
+  const { title, kind, projectLabel, projectColor, isAnswered, isNew, onSelect } = props;
+  const projectMarkLabel = `プロジェクト: ${projectLabel}`;
+  // 色は CSS 変数だけで渡し、塗りは class 側で読む。
+  const projectColorStyle = { "--project-color": projectColor } as CSSProperties;
   return (
-    <button type="button" className="project-row" onClick={onSelect}>
-      {isQuestion && <span className="tag inbox-question">質問</span>}
+    <button type="button" className="project-row inbox-row" onClick={onSelect}>
+      <span
+        className="inbox-project-mark"
+        role="img"
+        aria-label={projectMarkLabel}
+        style={projectColorStyle}
+      />
+      <KindMark kind={kind} />
       <span className="blog-row-title">{title}</span>
-      {isNew && <span className="tag tag-mine">新着</span>}
+      {isNew && <span className="inbox-new" role="img" aria-label="新着" />}
       {isAnswered && <span className="tag question-answered">回答済み</span>}
       <span className="project-chevron" aria-hidden="true" />
     </button>
@@ -53,13 +115,14 @@ const InboxGroupSection = (props: GroupProps) => {
       </div>
       <ul className="panel project-list">
         {group.items.map((item) => {
-          const isQuestion = item.kind === "question";
           const isAnswered = item.kind === "question" && item.answered;
           return (
             <li key={item.id}>
               <InboxRow
                 title={item.title}
-                isQuestion={isQuestion}
+                kind={item.kind}
+                projectLabel={heading}
+                projectColor={getProjectColor(item.projectSlug)}
                 isAnswered={isAnswered}
                 isNew={isNewSince(item.created, seenAt)}
                 onSelect={() => onOpenItem(item)}

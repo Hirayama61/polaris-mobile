@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 
-type IconProps = { size?: number };
+export type IconProps = { size?: number };
 
 // lucide の形を手で写した線画アイコン。ライブラリは入れない。
-const svgProps = (size: number) => ({
+export const svgProps = (size: number) => ({
   width: size,
   height: size,
   viewBox: "0 0 24 24",

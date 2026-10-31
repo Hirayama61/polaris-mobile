@@ -27,6 +27,16 @@
   --danger: #d93c41;
   --danger-soft: #ffeced;
 
+  /* 受信箱のプロジェクトの色。数は src/inbox.ts の PROJECT_COLOR_COUNT と揃える */
+  --project-0: #e5484d;
+  --project-1: #f76b15;
+  --project-2: #c99a00;
+  --project-3: #30a46c;
+  --project-4: #12a594;
+  --project-5: #0090ff;
+  --project-6: #6e56cf;
+  --project-7: #d6409f;
+
   --shadow-sm: 0 1px 2px rgb(20 40 70 / 0.05);
   --shadow-md: 0 1px 2px rgb(20 40 70 / 0.04), 0 6px 20px -6px rgb(20 40 70 / 0.12);
   --shadow-lg: 0 24px 60px -16px rgb(20 40 70 / 0.28);
@@ -74,6 +84,15 @@
     --waiting-soft: #2e2210;
     --danger: #ff7b7f;
     --danger-soft: #34181b;
+
+    --project-0: #ff6369;
+    --project-1: #ff8b3e;
+    --project-2: #f5d90a;
+    --project-3: #3dd68c;
+    --project-4: #0bd8b6;
+    --project-5: #52a9ff;
+    --project-6: #9e8cfc;
+    --project-7: #f76fbf;
 
     --shadow-sm: none;
     --shadow-md: none;
@@ -1502,6 +1521,39 @@ a {
 
 .inbox-question {
   flex: none;
+}
+
+/* 左端の帯は行の高さに沿わせ、行の余白とタップ範囲を変えない。 */
+.inbox-row {
+  position: relative;
+}
+
+.inbox-project-mark {
+  position: absolute;
+  top: 10px;
+  bottom: 10px;
+  left: 0;
+  width: 4px;
+  border-radius: 0 2px 2px 0;
+  background: var(--project-color);
+}
+
+.inbox-kind {
+  display: inline-flex;
+  flex: none;
+  color: var(--text-3);
+}
+
+.inbox-kind-question {
+  color: var(--waiting);
+}
+
+.inbox-new {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--accent);
 }
 
 .blog-row-title {

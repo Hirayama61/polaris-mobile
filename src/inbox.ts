@@ -101,6 +101,32 @@ export const groupInboxByProject = (items: readonly InboxItem[]): InboxGroup[] =
 export const getProjectItems = (items: readonly InboxItem[], slug: string): InboxItem[] =>
   items.filter((item) => item.projectSlug === slug).sort(compareItems);
 
+/** プロジェクトの色の数。`styles.css` の `--project-0` から `--project-7` と揃える。 */
+export const PROJECT_COLOR_COUNT = 8;
+
+/** project の無いものの色。プロジェクトの色と紛れない中立色にする。 */
+export const NO_PROJECT_COLOR = "var(--border-strong)";
+
+/**
+ * プロジェクトの色。slug だけから決まり、表示のたびに変わらない。
+ *
+ * @param slug - frontmatter の `project`。無ければ undefined。
+ * @returns CSS の色の値。`--project-<n>` か、project が無ければ `NO_PROJECT_COLOR`。
+ */
+export const getProjectColor = (slug: string | undefined): string => {
+  const hasNoProject = slug === undefined;
+  if (hasNoProject) {
+    return NO_PROJECT_COLOR;
+  }
+  // FNV-1a。slug が 1 文字違うだけでも別の色に散るようにする。
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < slug.length; i += 1) {
+    hash = Math.imul(hash ^ slug.charCodeAt(i), 0x01000193);
+  }
+  const index = (hash >>> 0) % PROJECT_COLOR_COUNT;
+  return `var(--project-${index})`;
+};
+
 /**
  * 前に受信箱を開いた時刻より後に作られたか。
  *
