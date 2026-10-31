@@ -22,7 +22,8 @@ import { StateCard } from "../ui";
 import { dailyPath, type useDaily } from "../useDaily";
 import { useProjectNames } from "../useProjectNames";
 import { FailureAction, UnconfiguredCard } from "./common";
-import { type SlotTaskState, useSlotTask } from "./useSlotTask";
+import { SlotTaskDetail } from "./SlotTaskDetail";
+import { useSlotTask } from "./useSlotTask";
 
 type Props = {
   settings: Settings;
@@ -83,50 +84,6 @@ const ErrorMessage = ({ failure, onOpenSettings }: { failure: Failure; onOpenSet
 );
 
 const WAKE_DETAIL_ID = "slot-detail-wake";
-
-type SlotTaskDetailProps = {
-  state: SlotTaskState;
-  settings: Settings;
-  onRetry: () => void;
-  onOpenSettings: () => void;
-};
-
-const SlotTaskDetail = (props: SlotTaskDetailProps) => {
-  const { state, settings, onRetry, onOpenSettings } = props;
-  if (state.status === "closed") {
-    return null;
-  }
-  if (state.status === "loading") {
-    return <p className="subtasks-note muted">読んでいます</p>;
-  }
-  if (state.status === "error") {
-    const isSettingsAction = state.failure.action === "settings";
-    return (
-      <div className="message message-error" role="alert">
-        <p>{state.failure.reason}</p>
-        <p>{state.failure.hint}</p>
-        {isSettingsAction && (
-          <button type="button" className="button button-small" onClick={onOpenSettings}>
-            設定を開く
-          </button>
-        )}
-        {!isSettingsAction && (
-          <button type="button" className="button button-small" onClick={onRetry}>
-            読み直す
-          </button>
-        )}
-      </div>
-    );
-  }
-  return (
-    <TaskChecklist
-      settings={settings}
-      taskId={state.taskId}
-      path={state.path}
-      onOpenSettings={onOpenSettings}
-    />
-  );
-};
 
 /**
  * 今日の時間割だけを出す。起床のコマで起床を、`(task: ID)` のコマでやることか質問を開く。
