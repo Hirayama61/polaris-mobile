@@ -42,6 +42,11 @@ export const Detail: Story = {
   beforeEach: () => mockGitHub({ [path]: { status: 200, content: task } }),
 };
 
+export const FromInbox: Story = {
+  args: { backTo: { label: "受信箱に戻る", onBack: () => {} } },
+  beforeEach: () => mockGitHub({ [path]: { status: 200, content: task } }),
+};
+
 export const Missing: Story = {
   beforeEach: () => mockGitHub({}),
 };

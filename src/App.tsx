@@ -15,7 +15,7 @@ import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "./settings";
 import { TasksSheet } from "./TasksSheet";
-import { GearIcon, InboxIcon, MessageIcon, MoonIcon, PenIcon, SunIcon } from "./ui";
+import { type BackTo, GearIcon, InboxIcon, MessageIcon, MoonIcon, PenIcon, SunIcon } from "./ui";
 import { useDaily } from "./useDaily";
 import { getInboxItems, useInbox } from "./useInbox";
 import { useOnline } from "./useOnline";
@@ -31,6 +31,9 @@ const screenLabels = {
   blog: "ブログ",
   settings: "設定",
 } satisfies Record<Screen, string>;
+
+/** 受信箱から開いたシートの戻るボタンの文言。押すとシートを閉じて受信箱に戻る。 */
+const INBOX_BACK_LABEL = `${screenLabels.inbox}に戻る`;
 
 const screenIcons = {
   today: <SunIcon />,
@@ -85,6 +88,7 @@ export const App = () => {
     setOpenedItem(undefined);
     reloadInbox();
   }, [reloadInbox]);
+  const inboxBackTo: BackTo = { label: INBOX_BACK_LABEL, onBack: closeItem };
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const closeProjects = useCallback(() => setIsProjectsOpen(false), []);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
@@ -223,6 +227,7 @@ export const App = () => {
           settings={settings}
           isOnline={isOnline}
           initialQuestion={openedItem}
+          backTo={inboxBackTo}
           onClose={closeItem}
           onOpenSettings={openSettings}
         />
@@ -239,6 +244,7 @@ export const App = () => {
         <TasksSheet
           settings={settings}
           initialTask={openedItem}
+          backTo={inboxBackTo}
           onClose={closeItem}
           onOpenSettings={openSettings}
         />
