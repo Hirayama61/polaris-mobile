@@ -1,18 +1,28 @@
 import { describe, expect, it } from "vitest";
 import {
+  countSameScheduleRow,
+  countSameScheduleRows,
   createMinimalDaily,
   extractReview,
   extractReviewAt,
   extractSchedule,
   extractTurns,
   extractWakeAt,
+  findSameScheduleRow,
+  hasChangedScheduleRow,
+  insertScheduleRow,
+  isScheduleTime,
   parseDaily,
+  removeScheduleRow,
   setReview,
   setReviewAt,
   setScheduleActual,
+  setScheduleRow,
   setTurnChecked,
   setWakeAt,
+  splitScheduleTime,
   toggleTurn,
+  toScheduleTime,
 } from "./daily";
 
 // 朝ジョブが生成する daily の契約。1 文字も変えずにフィクスチャとして使う。
@@ -292,5 +302,229 @@ describe("parseDaily", () => {
     expect(view.review).toBe("");
     expect(view.reviewAt).toBeUndefined();
     expect(view.wakeAt).toBeUndefined();
+  });
+});
+
+describe("isScheduleTime と toScheduleTime", () => {
+  it("HH:MM–HH:MM の形だけを受け付ける", () => {
+    expect(isScheduleTime("07:00–07:30")).toBe(true);
+    expect(isScheduleTime("23:30–00:30")).toBe(true);
+    expect(isScheduleTime("07:00-07:30")).toBe(false);
+    expect(isScheduleTime("7:00–7:30")).toBe(false);
+    expect(isScheduleTime("07:60–08:00")).toBe(false);
+    expect(isScheduleTime("07:00–")).toBe(false);
+    expect(isScheduleTime("")).toBe(false);
+  });
+
+  it("開始と終了を en dash でつなぎ、形が違えば undefined を返す", () => {
+    expect(toScheduleTime("07:00", "07:30")).toBe("07:00–07:30");
+    expect(toScheduleTime(" 07:00 ", "07:30")).toBe("07:00–07:30");
+    expect(toScheduleTime("", "07:30")).toBeUndefined();
+    expect(toScheduleTime("07:00", "")).toBeUndefined();
+    expect(toScheduleTime("7:00", "07:30")).toBeUndefined();
+  });
+});
+
+describe("splitScheduleTime", () => {
+  it("開始と終了を 2 桁の HH:MM に分ける", () => {
+    expect(splitScheduleTime("07:00–07:30")).toEqual({ start: "07:00", end: "07:30" });
+    expect(splitScheduleTime("7:00 - 8:30")).toEqual({ start: "07:00", end: "08:30" });
+  });
+
+  it("読めなければ両方を空にする", () => {
+    expect(splitScheduleTime("午前")).toEqual({ start: "", end: "" });
+  });
+});
+
+describe("setScheduleRow", () => {
+  it("対象の行の時刻とやることを書き、誰を「あなた」にし、実績のセルを残す", () => {
+    const after = setScheduleRow(fixtureWithActual, 11, "09:30–17:30", "仕事 (在宅)");
+    expect(lines(after)[11]).toBe("| 09:30–17:30 | 仕事 (在宅) | あなた | 10:00 から |");
+    expectOnlyLinesChanged(fixtureWithActual, after, [11]);
+  });
+
+  it("「実績」列が無い表では 3 列のまま書く", () => {
+    const after = setScheduleRow(fixture, 10, "18:00–19:00", "夕食");
+    expect(lines(after)[10]).toBe("| 18:00–19:00 | 夕食 | あなた |");
+    expectOnlyLinesChanged(fixture, after, [10]);
+  });
+
+  it("末尾の | が無い行でも 4 列目以降をそのまま残す", () => {
+    const text = fixtureWithActual.replace("| 仕事 | | 10:00 から |", "| 仕事 | | 10:00 から");
+    const after = setScheduleRow(text, 11, "09:00–18:00", "仕事");
+    expect(lines(after)[11]).toBe("| 09:00–18:00 | 仕事 | あなた | 10:00 から");
+    expectOnlyLinesChanged(text, after, [11]);
+  });
+
+  it("改行と | をセルを壊さない文字に置き換える", () => {
+    const after = setScheduleRow(fixtureWithActual, 10, "07:00–07:30", " 散歩 | 体操\n軽く ");
+    expect(lines(after)[10]).toBe("| 07:00–07:30 | 散歩 ｜ 体操 軽く | あなた | |");
+    expect(extractSchedule(after)).toHaveLength(2);
+  });
+
+  it("表の行でない行では全文を変えない", () => {
+    expect(setScheduleRow(fixtureWithActual, 8, "07:00–07:30", "x")).toBe(fixtureWithActual);
+    expect(setScheduleRow(fixtureWithActual, 9, "07:00–07:30", "x")).toBe(fixtureWithActual);
+    expect(setScheduleRow(fixtureWithActual, 14, "07:00–07:30", "x")).toBe(fixtureWithActual);
+    expect(setScheduleRow(fixtureWithActual, 999, "07:00–07:30", "x")).toBe(fixtureWithActual);
+  });
+});
+
+// 挿入した 1 行を除くと元の全文と一致することを確かめる。
+const expectOnlyLineInserted = (before: string, after: string, insertedLine: number): void => {
+  const afterLines = [...lines(after)];
+  afterLines.splice(insertedLine, 1);
+  expect(afterLines.join("\n")).toBe(before);
+};
+
+describe("insertScheduleRow", () => {
+  it("開始時刻の順の位置に 1 行入れ、実績のセルは空にする", () => {
+    const after = insertScheduleRow(fixtureWithActual, "08:00–08:30", "朝食");
+    expect(lines(after)[11]).toBe("| 08:00–08:30 | 朝食 | あなた | |");
+    expectOnlyLineInserted(fixtureWithActual, after, 11);
+  });
+
+  it("どの行より早ければ区切り行の直後に入れる", () => {
+    const after = insertScheduleRow(fixtureWithActual, "06:00–06:30", "起床");
+    expect(lines(after)[10]).toBe("| 06:00–06:30 | 起床 | あなた | |");
+    expectOnlyLineInserted(fixtureWithActual, after, 10);
+  });
+
+  it("どの行より遅いか同じ開始時刻なら、表の末尾か同じ時刻の行の後ろに入れる", () => {
+    const late = insertScheduleRow(fixtureWithActual, "21:00–22:00", "読書");
+    expect(lines(late)[12]).toBe("| 21:00–22:00 | 読書 | あなた | |");
+    expectOnlyLineInserted(fixtureWithActual, late, 12);
+    const same = insertScheduleRow(fixtureWithActual, "07:00–07:10", "水を飲む");
+    expect(lines(same)[11]).toBe("| 07:00–07:10 | 水を飲む | あなた | |");
+    expectOnlyLineInserted(fixtureWithActual, same, 11);
+  });
+
+  it("「実績」列が無い表には列を足さない", () => {
+    const after = insertScheduleRow(fixture, "08:00–08:30", "朝食");
+    expect(lines(after)[10]).toBe("| 08:00–08:30 | 朝食 | あなた |");
+    expectOnlyLineInserted(fixture, after, 10);
+  });
+
+  it("時間割の表が無ければ全文を変えない", () => {
+    const text = "## 今日の時間割\n\n## あなたの番\n";
+    expect(insertScheduleRow(text, "08:00–08:30", "朝食")).toBe(text);
+    expect(insertScheduleRow("## 振り返り\n", "08:00–08:30", "朝食")).toBe("## 振り返り\n");
+  });
+});
+
+describe("countSameScheduleRows", () => {
+  it("時刻とやることが同じ行を数え、足した後は 1 つ増える", () => {
+    expect(countSameScheduleRows(fixtureWithActual, "07:00–07:30", "散歩")).toBe(1);
+    expect(countSameScheduleRows(fixtureWithActual, "08:00–08:30", "朝食")).toBe(0);
+    const added = insertScheduleRow(fixtureWithActual, "08:00–08:30", "朝 | 食");
+    expect(countSameScheduleRows(added, "08:00–08:30", "朝 | 食")).toBe(1);
+  });
+});
+
+describe("countSameScheduleRow", () => {
+  it("中身が同じ行を数え、消すと 1 つ減る", () => {
+    const [walk] = extractSchedule(fixtureWithActual);
+    expect(walk).toBeDefined();
+    if (walk === undefined) {
+      return;
+    }
+    const twice = insertScheduleRow(fixtureWithActual, walk.time, walk.what);
+    expect(countSameScheduleRow(twice, walk)).toBe(2);
+    expect(countSameScheduleRow(removeScheduleRow(twice, walk.line), walk)).toBe(1);
+    expect(countSameScheduleRow(setScheduleActual(fixtureWithActual, walk.line, "した"), walk)).toBe(0);
+  });
+});
+
+describe("hasChangedScheduleRow", () => {
+  const [walk] = extractSchedule(fixtureWithActual);
+
+  it("元の行が減り、直した後の行が増えていれば true、他の更新で変わっただけなら false", () => {
+    expect(walk).toBeDefined();
+    if (walk === undefined) {
+      return;
+    }
+    const changed = setScheduleRow(fixtureWithActual, walk.line, "07:10–07:40", "散歩 | 長め");
+    expect(hasChangedScheduleRow(fixtureWithActual, changed, walk, "07:10–07:40", "散歩 | 長め")).toBe(true);
+    const otherActual = setScheduleActual(fixtureWithActual, walk.line, "した");
+    expect(hasChangedScheduleRow(fixtureWithActual, otherActual, walk, "07:10–07:40", "散歩")).toBe(false);
+    expect(hasChangedScheduleRow(fixtureWithActual, fixtureWithActual, walk, "07:10–07:40", "散歩")).toBe(
+      false,
+    );
+  });
+});
+
+describe("removeScheduleRow", () => {
+  it("対象の行だけを消す", () => {
+    const after = removeScheduleRow(fixtureWithActual, 10);
+    const expected = [...lines(fixtureWithActual)];
+    expected.splice(10, 1);
+    expect(after).toBe(expected.join("\n"));
+    expect(extractSchedule(after).map(({ what }) => what)).toEqual(["仕事"]);
+  });
+
+  it("ヘッダー、区切り行、表の外の行では全文を変えない", () => {
+    expect(removeScheduleRow(fixtureWithActual, 8)).toBe(fixtureWithActual);
+    expect(removeScheduleRow(fixtureWithActual, 9)).toBe(fixtureWithActual);
+    expect(removeScheduleRow(fixtureWithActual, 14)).toBe(fixtureWithActual);
+    expect(removeScheduleRow(fixtureWithActual, 999)).toBe(fixtureWithActual);
+  });
+});
+
+describe("findSameScheduleRow", () => {
+  const [walk] = extractSchedule(fixtureWithActual);
+  // 同じ中身の散歩が 10 行目と 11 行目に並ぶ daily。
+  const twice = insertScheduleRow(fixtureWithActual, "07:00–07:30", "散歩");
+  const [first, second] = extractSchedule(twice);
+
+  it("行番号がずれても、中身が同じ行を見つける", () => {
+    const shifted = fixtureWithActual.replace("wake_at:", "wake_at: 2026-10-31T06:40:00+09:00\nnote: x");
+    expect(walk).toBeDefined();
+    expect(walk && findSameScheduleRow(fixtureWithActual, shifted, walk)?.line).toBe(11);
+  });
+
+  it("同じ中身の行が並んでいれば、開いた行と同じ番目の行を返す", () => {
+    expect(first?.line).toBe(10);
+    expect(second?.line).toBe(11);
+    expect(second && findSameScheduleRow(twice, twice, second)?.line).toBe(11);
+    expect(first && findSameScheduleRow(twice, twice, first)?.line).toBe(10);
+  });
+
+  it("開いた後に表の前の行が増えても、開いた daily での番目で行を返す", () => {
+    expect(second).toBeDefined();
+    const shifted = twice.replace("wake_at:", "wake_at: 2026-10-31T06:40:00+09:00\nnote: x");
+    expect(second && findSameScheduleRow(twice, shifted, second)?.line).toBe(12);
+  });
+
+  it("時刻・やること・誰・実績のどれかが変わっていれば undefined を返す", () => {
+    expect(walk).toBeDefined();
+    if (walk === undefined) {
+      return;
+    }
+    expect(
+      findSameScheduleRow(fixtureWithActual, setScheduleActual(fixtureWithActual, 10, "した"), walk),
+    ).toBeUndefined();
+    expect(
+      findSameScheduleRow(
+        fixtureWithActual,
+        setScheduleRow(fixtureWithActual, 10, "07:00–07:40", "散歩"),
+        walk,
+      ),
+    ).toBeUndefined();
+    expect(
+      findSameScheduleRow(fixtureWithActual, removeScheduleRow(fixtureWithActual, 10), walk),
+    ).toBeUndefined();
+  });
+
+  it("同じ中身の行の数が押したときと違えば、どれか決められないので undefined を返す", () => {
+    expect(second).toBeDefined();
+    if (second === undefined) {
+      return;
+    }
+    expect(findSameScheduleRow(twice, removeScheduleRow(twice, 10), second)).toBeUndefined();
+    const removedThenAdded = insertScheduleRow(removeScheduleRow(twice, 10), "20:00–21:00", "読書");
+    expect(findSameScheduleRow(twice, removedThenAdded, second)).toBeUndefined();
+    expect(
+      findSameScheduleRow(twice, insertScheduleRow(twice, "07:00–07:30", "散歩"), second),
+    ).toBeUndefined();
   });
 });
