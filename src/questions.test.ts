@@ -3,6 +3,7 @@ import {
   addDoubt,
   collectOpenQuestions,
   extractSection,
+  getQuestionItem,
   hasAnswer,
   openQuestionTitle,
   parseDoubts,
@@ -59,6 +60,24 @@ describe("openQuestionTitle", () => {
     expect(openQuestionTitle(task.replace("title: 質問: 日記の置き場所", 'title: "質問: 日記"'))).toBe(
       "日記",
     );
+  });
+});
+
+describe("getQuestionItem", () => {
+  it("title が 質問: で始まれば、接頭辞を外したタイトルと回答の有無を返す", () => {
+    expect(getQuestionItem("20261029-abcd", task)).toEqual({
+      id: "20261029-abcd",
+      title: "日記の置き場所",
+      answered: false,
+    });
+  });
+
+  it("todo でなくても質問として返す", () => {
+    expect(getQuestionItem("x", task.replace("status: todo", "status: done"))).toMatchObject({ id: "x" });
+  });
+
+  it("質問でなければ undefined", () => {
+    expect(getQuestionItem("x", task.replace("title: 質問: ", "title: "))).toBeUndefined();
   });
 });
 

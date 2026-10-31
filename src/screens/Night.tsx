@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { formatTokyoIso } from "../clock";
 import { createMinimalDaily, extractReview, extractReviewAt, setReview, setReviewAt } from "../daily";
 import { loadDraft, nightDraftKeys, remainingAfterSave, removeDraft, saveDraft } from "../drafts";
@@ -6,7 +6,7 @@ import { describeFailure, type Failure } from "../failure";
 import { readFile, updateFile } from "../github";
 import { appendJournal, extractPosts, type JournalPost, journalPath } from "../journal";
 import { toKeyedItems } from "../keys";
-import { waitForPost } from "../PostField";
+import { PostField, waitForPost } from "../PostField";
 import { isConfigured, type Settings } from "../settings";
 import { dailyPath, type useDaily } from "../useDaily";
 import { UnconfiguredCard } from "./common";
@@ -37,8 +37,8 @@ const OFFLINE_FAILURE: Failure = {
   action: "retry",
 };
 
-// 今日の journal から投稿を読む。日記を保存したら reloadKey を変えて読み直す。
-// 「今日」で送った投稿がまだ送信中なら、終わってから読む。先に読むと一覧に出ない。
+// 今日の journal から投稿を読む。日記を保存したか投稿を送ったら reloadKey を変えて読み直す。
+// 送った投稿がまだ送信中なら、終わってから読む。先に読むと一覧に出ない。
 const usePosts = (settings: Settings, date: string, reloadKey: number): PostsState => {
   const [posts, setPosts] = useState<PostsState>({ status: "loading" });
   // biome-ignore lint/correctness/useExhaustiveDependencies(reloadKey): 日記を保存したら読み直すためのきっかけ。中では使わない。
@@ -78,7 +78,9 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const [journal, setJournal] = useState(() => loadDraft(journalKey) ?? "");
   const [save, setSave] = useState<SaveState>({ status: "idle" });
   const [journalSaveCount, setJournalSaveCount] = useState(0);
-  const posts = usePosts(settings, date, journalSaveCount);
+  const [sentPostCount, setSentPostCount] = useState(0);
+  const handlePostSent = useCallback(() => setSentPostCount((count) => count + 1), []);
+  const posts = usePosts(settings, date, journalSaveCount + sentPostCount);
   // 保存の完了時に、その時点の入力と保存した内容を比べるために使う。
   const latest = useRef({ review, journal });
   latest.current = { review, journal };
@@ -156,6 +158,14 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           今日の計画を読めませんでした。書いた内容は保存するときに読み直して書き込みます。
         </p>
       )}
+
+      <PostField
+        settings={settings}
+        date={date}
+        isOnline={isOnline}
+        onOpenSettings={onOpenSettings}
+        onSent={handlePostSent}
+      />
 
       {posts.status !== "loading" && (
         <section className="section" aria-labelledby="posts-title">

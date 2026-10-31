@@ -122,6 +122,32 @@ export const openQuestionTitle = (text: string): string | undefined => {
 };
 
 /**
+ * 質問タスクなら、回答のシートに渡す質問を作る。
+ *
+ * @param id - task ID。
+ * @param text - タスクのファイル全体。
+ * @returns `title` が `質問:` で始まれば status を問わず質問、それ以外は undefined。
+ */
+export const getQuestionItem = (id: string, text: string): QuestionItem | undefined => {
+  const title = readFrontmatterValue(text, "title");
+  const isMissingTitle = title === undefined;
+  if (isMissingTitle) {
+    return undefined;
+  }
+  const isQuestionTitle = title.startsWith(TITLE_PREFIX);
+  if (!isQuestionTitle) {
+    return undefined;
+  }
+  const rest = title.slice(TITLE_PREFIX.length).trim();
+  const answered = hasAnswer(text);
+  const isEmptyTitle = rest === "";
+  if (isEmptyTitle) {
+    return { id, title, answered };
+  }
+  return { id, title: rest, answered };
+};
+
+/**
  * `## <heading>` 節の中身を返す。
  *
  * @param text - タスクのファイル全体。
