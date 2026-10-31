@@ -6,13 +6,8 @@ import { getProjectItems, type InboxItem } from "./inbox";
 import { toKeyedItems } from "./keys";
 import { ProjectItemsSection } from "./ProjectItemsSection";
 import { ProjectRoadmapSection } from "./ProjectRoadmapSection";
-import {
-  loadProjects,
-  type ProjectLine,
-  type ProjectSummary,
-  parseProjectBody,
-  type Segment,
-} from "./projects";
+import { loadProjects, type ProjectLine, type ProjectSummary, parseProjectBody } from "./projects";
+import { SegmentsView } from "./SegmentView";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
 import { useDevPlan } from "./useDevPlan";
@@ -39,14 +34,6 @@ const getLoadedProjects = (load: LoadState): ProjectSummary[] | undefined => {
   return undefined;
 };
 
-const toSegmentKey = (segment: Segment): string => {
-  const isLink = segment.kind === "link";
-  if (isLink) {
-    return `link:${segment.href}:${segment.text}`;
-  }
-  return `text:${segment.text}`;
-};
-
 const toLineKey = (line: ProjectLine): string => {
   const isBlank = line.kind === "blank";
   if (isBlank) {
@@ -55,32 +42,6 @@ const toLineKey = (line: ProjectLine): string => {
   const text = line.segments.map((segment) => segment.text).join("");
   return `${line.kind}:${text}`;
 };
-
-/**
- * 本文の行の一部を描画する。`link` は別のタブで開く。
- *
- * @remarks key は持たない。並べる側 (`SegmentsView`) が付ける。
- */
-export const SegmentView = (props: { segment: Segment }) => {
-  const { segment } = props;
-  const isLink = segment.kind === "link";
-  if (isLink) {
-    return (
-      <a href={segment.href} target="_blank" rel="noreferrer">
-        {segment.text}
-      </a>
-    );
-  }
-  return <span>{segment.text}</span>;
-};
-
-const SegmentsView = ({ segments }: { segments: readonly Segment[] }) => (
-  <>
-    {toKeyedItems(segments, toSegmentKey).map(({ key, item }) => (
-      <SegmentView key={key} segment={item} />
-    ))}
-  </>
-);
 
 /**
  * プロジェクトの本文の 1 行を描画する。

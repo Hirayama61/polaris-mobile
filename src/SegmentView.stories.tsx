@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { SegmentView } from "./ProjectsSheet";
+import { SegmentView } from "./SegmentView";
 
 const meta = {
   title: "SegmentView",

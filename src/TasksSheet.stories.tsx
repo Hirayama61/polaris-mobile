@@ -54,3 +54,25 @@ export const Missing: Story = {
 export const Failed: Story = {
   beforeEach: () => mockGitHub({ [path]: { status: 500 } }),
 };
+
+const linkedTask = `---
+id: 20261029-t1
+title: Google アカウントを作る
+issue: https://github.com/Hirayama61/polaris-mobile/issues/73
+assignee: human
+status: todo
+---
+
+## あなたがやること
+- [ ] 電話番号で確認する
+
+## 疑問点
+- Hirayama61/polaris-mobile#73 の手順で足りるか
+
+## 調べたこと
+手順は https://support.google.com/accounts にある。
+`;
+
+export const WithLinks: Story = {
+  beforeEach: () => mockGitHub({ [path]: { status: 200, content: linkedTask } }),
+};
