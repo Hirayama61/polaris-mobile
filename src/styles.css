@@ -1414,3 +1414,68 @@ a {
   background: var(--running-soft);
   color: var(--running);
 }
+
+/* ---------- 今日の開発 ---------- */
+.dev-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dev-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding: 10px 16px;
+  font-size: 15px;
+}
+
+.dev-list .dev-row + .dev-row {
+  border-top: 1px solid var(--border);
+}
+
+.dev-when {
+  flex: none;
+  width: 5.5em;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.dev-when-muted {
+  color: var(--text-3);
+}
+
+.dev-issue {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dev-subhead {
+  margin: 0;
+  padding: 10px 16px 4px;
+  border-top: 1px solid var(--border);
+  color: var(--text-3);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.dev-empty {
+  margin: 0;
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+.dev-error {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 16px;
+  font-size: 14px;
+}
+
+.dev-error p {
+  margin: 0;
+}

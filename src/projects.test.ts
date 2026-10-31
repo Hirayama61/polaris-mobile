@@ -100,13 +100,15 @@ describe("createProjectNameLoader", () => {
 });
 
 describe("parseProject", () => {
-  it("name、status、github と frontmatter を除いた本文を読む", () => {
+  it("name、status、kind、github と frontmatter を除いた本文を読む", () => {
     const text =
-      "---\nname: Polaris\nstatus: retired\ngithub: Hirayama61/polaris\n---\n\n## 目指すもの\n本文\n";
+      "---\nname: Polaris\nstatus: retired\nkind: code\ngithub: Hirayama61/polaris\n---\n\n## 目指すもの\n本文\n";
     expect(parseProject("polaris", text)).toEqual({
       slug: "polaris",
       name: "Polaris",
       isRetired: true,
+      status: "retired",
+      kind: "code",
       github: "Hirayama61/polaris",
       body: "## 目指すもの\n本文\n",
     });
@@ -116,6 +118,8 @@ describe("parseProject", () => {
     const project = parseProject("x", "---\ngithub: javascript:alert(1)\n---\n本文");
     expect(project.name).toBe("x");
     expect(project.isRetired).toBe(false);
+    expect(project.status).toBeUndefined();
+    expect(project.kind).toBeUndefined();
     expect(project.github).toBeUndefined();
   });
 });
@@ -133,6 +137,8 @@ describe("sortProjects", () => {
       slug: name,
       name,
       isRetired,
+      status: undefined,
+      kind: undefined,
       github: undefined,
       body: "",
     });

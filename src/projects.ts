@@ -94,6 +94,8 @@ export type ProjectSummary = {
   slug: string;
   name: string;
   isRetired: boolean;
+  status: string | undefined;
+  kind: string | undefined;
   github: string | undefined;
   body: string;
 };
@@ -148,10 +150,13 @@ export const stripFrontmatter = (text: string): string => {
  */
 export const parseProject = (slug: string, text: string): ProjectSummary => {
   const github = readFrontmatterValue(text, "github");
+  const status = readFrontmatterValue(text, "status");
   return {
     slug,
     name: readFrontmatterValue(text, "name") ?? slug,
-    isRetired: readFrontmatterValue(text, "status") === "retired",
+    isRetired: status === "retired",
+    status,
+    kind: readFrontmatterValue(text, "kind"),
     github: github !== undefined && GITHUB_REPO_PATTERN.test(github) ? github : undefined,
     body: stripFrontmatter(text),
   };

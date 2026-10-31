@@ -318,3 +318,112 @@ export const readText = async (settings: Settings, path: string): Promise<string
   }
   return response.text();
 };
+
+/**
+ * 他のリポジトリの Issue の 1 件。PR は含めない。
+ */
+export type RepoIssue = { number: number; title: string; closedAt: string | undefined };
+
+const getRepoJson = async (settings: Settings, repo: string, pathAndQuery: string): Promise<unknown> => {
+  const encodedRepo = repo.split("/").map(encodeURIComponent).join("/");
+  const response = await request(`${API_BASE}/repos/${encodedRepo}/${pathAndQuery}`, {
+    headers: headers(settings, "application/vnd.github+json"),
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new GitHubError(response.status, await describeError(response));
+  }
+  return response.json();
+};
+
+type IssueEntry = { number: number; title: string; closed_at?: unknown };
+
+type PullEntry = { head: { ref: string } };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isIssueEntry = (entry: unknown): entry is IssueEntry => {
+  if (!isRecord(entry)) {
+    return false;
+  }
+  const isPull = "pull_request" in entry;
+  const hasNumber = typeof entry.number === "number";
+  const hasTitle = typeof entry.title === "string";
+  return !isPull && hasNumber && hasTitle;
+};
+
+const hasHeadRef = (entry: unknown): entry is PullEntry => {
+  if (!isRecord(entry) || !isRecord(entry.head)) {
+    return false;
+  }
+  const hasRef = typeof entry.head.ref === "string";
+  return hasRef;
+};
+
+const getClosedAt = (entry: IssueEntry): string | undefined => {
+  const { closed_at: closedAt } = entry;
+  const hasClosedAt = typeof closedAt === "string";
+  if (!hasClosedAt) {
+    return undefined;
+  }
+  return closedAt;
+};
+
+const toRepoIssue = (entry: IssueEntry): RepoIssue => ({
+  number: entry.number,
+  title: entry.title,
+  closedAt: getClosedAt(entry),
+});
+
+const toRepoIssues = (body: unknown): RepoIssue[] => {
+  if (!Array.isArray(body)) {
+    return [];
+  }
+  return body.filter(isIssueEntry).map(toRepoIssue);
+};
+
+/**
+ * open で `ready` の Issue を読む。100 件を超える分は読まない。
+ *
+ * @param settings - 接続設定。トークンだけを使う。
+ * @param repo - `owner/name`。
+ * @returns PR を除いた Issue。
+ * @throws GitHubError 読めなかったとき。
+ */
+export const listReadyIssues = async (settings: Settings, repo: string): Promise<RepoIssue[]> =>
+  toRepoIssues(await getRepoJson(settings, repo, "issues?state=open&labels=ready&per_page=100"));
+
+/**
+ * `since` 以降に更新された closed の Issue を読む。閉じた日時での絞り込みは呼ぶ側がする。
+ *
+ * @param settings - 接続設定。トークンだけを使う。
+ * @param repo - `owner/name`。
+ * @param since - ISO 8601 の日時。
+ * @returns PR を除いた Issue。
+ * @throws GitHubError 読めなかったとき。
+ */
+export const listIssuesClosedSince = async (
+  settings: Settings,
+  repo: string,
+  since: string,
+): Promise<RepoIssue[]> =>
+  toRepoIssues(
+    await getRepoJson(settings, repo, `issues?state=closed&since=${encodeURIComponent(since)}&per_page=100`),
+  );
+
+/**
+ * open の PR の head のブランチ名を読む。
+ *
+ * @param settings - 接続設定。トークンだけを使う。
+ * @param repo - `owner/name`。
+ * @returns ブランチ名。
+ * @throws GitHubError 読めなかったとき。
+ */
+export const listOpenPullHeadRefs = async (settings: Settings, repo: string): Promise<string[]> => {
+  const body = await getRepoJson(settings, repo, "pulls?state=open&per_page=100");
+  if (!Array.isArray(body)) {
+    return [];
+  }
+  return body.filter(hasHeadRef).map((entry) => entry.head.ref);
+};
