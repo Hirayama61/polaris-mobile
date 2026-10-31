@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { DevPlanSection } from "./DevPlanSection";
 import { describeFailure, type Failure } from "./failure";
 import { listFileNames, readFile } from "./github";
 import { toKeyedItems } from "./keys";
@@ -11,6 +12,7 @@ import {
 } from "./projects";
 import type { Settings } from "./settings";
 import { CloseIcon } from "./ui";
+import { useDevPlan } from "./useDevPlan";
 
 type LoadState =
   | { status: "loading" }
@@ -21,6 +23,14 @@ type Props = {
   settings: Settings;
   onClose: () => void;
   onOpenSettings: () => void;
+};
+
+const getLoadedProjects = (load: LoadState): ProjectSummary[] | undefined => {
+  const isReady = load.status === "ready";
+  if (isReady) {
+    return load.projects;
+  }
+  return undefined;
 };
 
 const toSegmentKey = (segment: Segment): string => {
@@ -126,6 +136,7 @@ const ProjectBody = ({ project }: { project: ProjectSummary }) => {
 export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [selected, setSelected] = useState<ProjectSummary | undefined>(undefined);
+  const devPlan = useDevPlan(settings, getLoadedProjects(load));
 
   const fetchProjects = useCallback(() => {
     if (settings.token === "") {
@@ -197,6 +208,8 @@ export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
             <CloseIcon />
           </button>
         </div>
+
+        {selected === undefined && <DevPlanSection plan={devPlan} />}
 
         {selected !== undefined ? (
           <ProjectBody project={selected} />
