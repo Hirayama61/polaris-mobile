@@ -26,10 +26,12 @@ const toIssueLink = (repo: string, issueNumber: string): LinkSegment => ({
 
 const appendText = (segments: Segment[], value: string): void => {
   const last = segments.at(-1);
-  if (value === "") {
+  const isEmpty = value === "";
+  if (isEmpty) {
     return;
   }
-  if (last?.kind === "text") {
+  const isLastText = last?.kind === "text";
+  if (isLastText) {
     last.text += value;
     return;
   }
@@ -49,11 +51,12 @@ export const linkifyText = (text: string): Segment[] => {
     const [whole, rawUrl, repo, issueNumber] = match;
     appendText(segments, text.slice(rest, match.index));
     const isUrl = rawUrl !== undefined;
+    const hasIssueRef = repo !== undefined && issueNumber !== undefined;
     if (isUrl) {
       const url = rawUrl.replace(URL_TRAILING_PUNCTUATION, "");
       segments.push({ kind: "link", text: url, href: url });
       appendText(segments, rawUrl.slice(url.length));
-    } else if (repo !== undefined && issueNumber !== undefined) {
+    } else if (hasIssueRef) {
       segments.push(toIssueLink(repo, issueNumber));
     }
     rest = match.index + whole.length;
@@ -69,13 +72,15 @@ export const linkifyText = (text: string): Segment[] => {
  * @returns 読めない形 (番号だけなど) や値が無いときは undefined。
  */
 export const getIssueLink = (value: string | undefined): LinkSegment | undefined => {
-  if (value === undefined) {
+  const hasValue = value !== undefined;
+  if (!hasValue) {
     return undefined;
   }
   const match = ISSUE_REF_PATTERN.exec(value) ?? ISSUE_URL_PATTERN.exec(value);
   const repo = match?.[1];
   const issueNumber = match?.[2];
-  if (repo === undefined || issueNumber === undefined) {
+  const hasIssueRef = repo !== undefined && issueNumber !== undefined;
+  if (!hasIssueRef) {
     return undefined;
   }
   return toIssueLink(repo, issueNumber);

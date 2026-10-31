@@ -251,6 +251,7 @@ export const QuestionSheet = ({
     detail.status === "ready" ? getIssueLink(readFrontmatterValue(detail.content, "issue")) : undefined;
   const hasQuestion = question !== undefined && question !== "";
   const hasChoices = choices !== undefined && choices !== "";
+  const hasIssueLink = issueLink !== undefined;
 
   return (
     <div className="sheet-backdrop">
@@ -333,7 +334,7 @@ export const QuestionSheet = ({
             )}
             {detail.status === "ready" && (
               <>
-                {issueLink !== undefined && <IssueLink href={issueLink.href} label={issueLink.text} />}
+                {hasIssueLink && <IssueLink href={issueLink.href} label={issueLink.text} />}
                 <section className="field">
                   <h3 className="field-label question-heading">質問</h3>
                   <p className="panel question-text">

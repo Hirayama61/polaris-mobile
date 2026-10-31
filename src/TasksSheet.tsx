@@ -136,6 +136,7 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
   const doubts = parseDoubts(extractSection(file.content, "疑問点") ?? "");
   const findings = extractSection(file.content, "調べたこと") ?? "";
   const issueLink = getIssueLink(readFrontmatterValue(file.content, "issue"));
+  const hasIssueLink = issueLink !== undefined;
 
   // 別の場所で変わっていたら上書きせず、読み直してもう一度操作してもらう。
   const save = (
@@ -186,7 +187,7 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
 
   return (
     <>
-      {issueLink !== undefined && <IssueLink href={issueLink.href} label={issueLink.text} />}
+      {hasIssueLink && <IssueLink href={issueLink.href} label={issueLink.text} />}
       {items.length === 0 ? (
         <p className="panel panel-empty muted">「あなたがやること」のチェックリストがありません。</p>
       ) : (
