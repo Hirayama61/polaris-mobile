@@ -4,7 +4,8 @@ import type { DevPlanState } from "./useDevPlan";
 
 const toIssueLine = (issue: RepoIssue): string => `#${issue.number} ${issue.title}`;
 
-const EntryRow = ({ entry }: { entry: DevPlanEntry }) => {
+const EntryRow = (props: { entry: DevPlanEntry }) => {
+  const { entry } = props;
   const label = getEntryLabel(entry);
   const issueLine = toIssueLine(entry.issue);
   const isSlot = entry.kind === "slot";
@@ -24,7 +25,8 @@ const EntryRow = ({ entry }: { entry: DevPlanEntry }) => {
   );
 };
 
-const RepoPlan = ({ plan }: { plan: DevRepoPlan }) => {
+const RepoPlan = (props: { plan: DevRepoPlan }) => {
+  const { plan } = props;
   if (plan.kind === "error") {
     return (
       <div className="panel dev-repo">
@@ -88,7 +90,8 @@ export const DevPlanSection = (props: { plan: DevPlanState }) => {
   );
 };
 
-const DevPlanBody = ({ plan }: { plan: Exclude<DevPlanState, { status: "idle" }> }) => {
+const DevPlanBody = (props: { plan: Exclude<DevPlanState, { status: "idle" }> }) => {
+  const { plan } = props;
   const isLoading = plan.status === "loading";
   if (isLoading) {
     return (

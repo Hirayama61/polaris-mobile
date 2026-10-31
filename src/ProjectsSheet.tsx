@@ -137,6 +137,7 @@ export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [selected, setSelected] = useState<ProjectSummary | undefined>(undefined);
   const devPlan = useDevPlan(settings, getLoadedProjects(load));
+  const isListing = selected === undefined;
 
   const fetchProjects = useCallback(() => {
     if (settings.token === "") {
@@ -209,7 +210,7 @@ export const ProjectsSheet = ({ settings, onClose, onOpenSettings }: Props) => {
           </button>
         </div>
 
-        {selected === undefined && <DevPlanSection plan={devPlan} />}
+        {isListing && <DevPlanSection plan={devPlan} />}
 
         {selected !== undefined ? (
           <ProjectBody project={selected} />

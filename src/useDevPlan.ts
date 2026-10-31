@@ -20,7 +20,16 @@ export type DevPlanState =
   | { status: "loading" }
   | { status: "ready"; repos: DevRepoPlan[] };
 
-const loadRepoPlan = async (settings: Settings, repo: string, now: Date): Promise<DevRepoPlan> => {
+/**
+ * 1 つのリポジトリの「今日の開発」を読む。
+ *
+ * @remarks 読めなかったときは例外にせず `error` を返す。他のリポジトリの表示を止めないため。
+ * @param settings - 接続設定。トークンだけを使う。
+ * @param repo - `owner/name`。
+ * @param now - 現在時刻。
+ * @returns そのリポジトリの予定と今日閉じた Issue、または読めなかった理由。
+ */
+export const loadRepoPlan = async (settings: Settings, repo: string, now: Date): Promise<DevRepoPlan> => {
   try {
     const [ready, headRefs, closed] = await Promise.all([
       listReadyIssues(settings, repo),
@@ -34,6 +43,20 @@ const loadRepoPlan = async (settings: Settings, repo: string, now: Date): Promis
     return { kind: "error", repo, failure: describeFailure(error) };
   }
 };
+
+/**
+ * 連携リポジトリごとの「今日の開発」をまとめて読む。
+ *
+ * @param settings - 接続設定。トークンだけを使う。
+ * @param repos - `owner/name` の一覧。
+ * @param now - 現在時刻。
+ * @returns リポジトリの順に並んだ結果。読めないリポジトリは `error` として入る。
+ */
+export const loadDevPlans = (
+  settings: Settings,
+  repos: readonly string[],
+  now: Date,
+): Promise<DevRepoPlan[]> => Promise.all(repos.map((repo) => loadRepoPlan(settings, repo, now)));
 
 /**
  * プロジェクトの一覧から連携リポジトリを選び、それぞれの「今日の開発」を GitHub から読む。
@@ -57,7 +80,7 @@ export const useDevPlan = (
     let isCancelled = false;
     const now = new Date();
     setState({ status: "loading" });
-    void Promise.all(getDevRepos(projects).map((repo) => loadRepoPlan(settings, repo, now))).then((repos) => {
+    void loadDevPlans(settings, getDevRepos(projects), now).then((repos) => {
       if (!isCancelled) {
         setState({ status: "ready", repos });
       }
