@@ -114,7 +114,8 @@ export const NO_PROJECT_COLOR = "var(--border-strong)";
  * @returns CSS の色の値。`--project-<n>` か、project が無ければ `NO_PROJECT_COLOR`。
  */
 export const getProjectColor = (slug: string | undefined): string => {
-  if (slug === undefined) {
+  const hasNoProject = slug === undefined;
+  if (hasNoProject) {
     return NO_PROJECT_COLOR;
   }
   // FNV-1a。slug が 1 文字違うだけでも別の色に散るようにする。
