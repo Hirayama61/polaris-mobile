@@ -7,7 +7,7 @@ import {
   isNewSince,
   NO_PROJECT_LABEL,
 } from "../inbox";
-import { QuestionIcon, StateCard, TaskIcon } from "../ui";
+import { type IconProps, StateCard, svgProps } from "../ui";
 import type { InboxLoadState } from "../useInbox";
 import { FailureAction, UnconfiguredCard } from "./common";
 
@@ -23,13 +23,36 @@ type Props = BodyProps & {
   onOpenProjects: () => void;
 };
 
+// 受信箱の行でしか使わないので、共有の ui.tsx には置かない。
+const QuestionIcon = (props: IconProps) => {
+  const { size = 22 } = props;
+  return (
+    <svg {...svgProps(size)} aria-hidden="true">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+};
+
+const TaskIcon = (props: IconProps) => {
+  const { size = 22 } = props;
+  return (
+    <svg {...svgProps(size)} aria-hidden="true">
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <path d="m9 12 2 2 4-4" />
+    </svg>
+  );
+};
+
 type KindMarkProps = {
   kind: InboxItem["kind"];
 };
 
 const KindMark = (props: KindMarkProps) => {
   const { kind } = props;
-  if (kind === "question") {
+  const isQuestion = kind === "question";
+  if (isQuestion) {
     return (
       <span className="inbox-kind inbox-kind-question" role="img" aria-label="質問">
         <QuestionIcon size={18} />
