@@ -452,6 +452,27 @@ export const setScheduleActual = (text: string, line: number, actual: string): s
 
 const CHECKBOX_PATTERN = /^(\s*[-*]\s+)\[( |x|X)\]\s+(.*)$/;
 
+const hasActual = (row: ScheduleRow): boolean => (row.actual ?? "").trim() !== "";
+
+/**
+ * 実績のセルに文字がある時間割の行だけを取り出す。夜の「今日やったこと」に並べる。
+ *
+ * @remarks 空白だけのセルは書いていないものとみなす。「実績」列が無い daily では空配列。
+ * @param text - daily ファイル全体。
+ * @returns 出現順の、実績を書いた行。
+ */
+export const getDoneScheduleRows = (text: string): readonly ScheduleRow[] =>
+  extractSchedule(text).filter((row) => hasActual(row));
+
+/**
+ * チェックを付けた「あなたの番」だけを取り出す。夜の「今日やったこと」に並べる。
+ *
+ * @param text - daily ファイル全体。
+ * @returns 出現順の、チェック済みの項目。
+ */
+export const getCheckedTurns = (text: string): readonly TurnItem[] =>
+  extractTurns(text).filter((turn) => turn.isChecked);
+
 /**
  * 「あなたの番」のチェック項目を取り出す。
  *
