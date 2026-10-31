@@ -34,7 +34,6 @@ const meta = {
     settings: { ...defaultSettings, token: "story-token" },
     isOnline: true,
     onOpenSettings: () => {},
-    onOpenFeedback: () => {},
   },
 } satisfies Meta<typeof BlogScreen>;
 

@@ -942,6 +942,11 @@ a {
   max-height: 40dvh;
 }
 
+.textarea-blog-idea {
+  min-height: calc(1.85em * 8 + 28px);
+  max-height: 50dvh;
+}
+
 .input-with-action {
   position: relative;
   display: block;

@@ -170,12 +170,7 @@ export const App = () => {
           />
         )}
         {screen === "blog" && (
-          <BlogScreen
-            settings={settings}
-            isOnline={isOnline}
-            onOpenSettings={openSettings}
-            onOpenFeedback={() => setIsFeedbackOpen(true)}
-          />
+          <BlogScreen settings={settings} isOnline={isOnline} onOpenSettings={openSettings} />
         )}
         {screen === "settings" && (
           <SettingsScreen

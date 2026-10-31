@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { BLOG_STAGE_LABELS, type BlogPost } from "../blog";
 import type { Settings } from "../settings";
 import { StateCard } from "../ui";
 import { useBlogPosts } from "../useBlogPosts";
+import { BlogIdeaSheet } from "./BlogIdeaSheet";
 import { BlogPostView } from "./BlogPostView";
 import { FailureAction, UnconfiguredCard } from "./common";
 
@@ -10,7 +11,6 @@ type Props = {
   settings: Settings;
   isOnline: boolean;
   onOpenSettings: () => void;
-  onOpenFeedback: () => void;
 };
 
 const BlogRow = (props: { post: BlogPost; onSelect: () => void }) => {
@@ -27,12 +27,16 @@ const BlogRow = (props: { post: BlogPost; onSelect: () => void }) => {
 /**
  * `writing/blog/` の記事を段階つきの一覧にし、タップで本文と一言・公開の欄を開く。
  *
- * @remarks 新しいアイデアは書かない。「思いつきを送る」へ案内する。
+ * 新しいアイデアは「アイデアを書く」のシートで ideas に書く。
+ *
+ * @remarks 思いつき (inbox) のシートは持たない。
  */
 export const BlogScreen = (props: Props) => {
-  const { settings, isOnline, onOpenSettings, onOpenFeedback } = props;
+  const { settings, isOnline, onOpenSettings } = props;
   const { state, reload } = useBlogPosts(settings);
   const [selectedId, setSelectedId] = useState<string | undefined>(undefined);
+  const [isIdeaOpen, setIsIdeaOpen] = useState(false);
+  const closeIdea = useCallback(() => setIsIdeaOpen(false), []);
 
   if (state.status === "unconfigured") {
     return <UnconfiguredCard onOpenSettings={onOpenSettings} />;
@@ -98,12 +102,22 @@ export const BlogScreen = (props: Props) => {
 
       <section className="section">
         <p className="field-hint">
-          新しいアイデアは「思いつきを送る」から。受信箱で整理され、ここに「構成待ち」で並びます。
+          新しいアイデアは「アイデアを書く」から。writing/blog/ideas に入り、ここに「構成待ち」で並びます。
         </p>
-        <button type="button" className="button button-block" onClick={onOpenFeedback}>
-          思いつきを送る
+        <button type="button" className="button button-block" onClick={() => setIsIdeaOpen(true)}>
+          アイデアを書く
         </button>
       </section>
+
+      {isIdeaOpen && (
+        <BlogIdeaSheet
+          settings={settings}
+          isOnline={isOnline}
+          onClose={closeIdea}
+          onSent={reload}
+          onOpenSettings={onOpenSettings}
+        />
+      )}
     </>
   );
 };
