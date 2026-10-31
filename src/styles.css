@@ -1310,6 +1310,28 @@ a {
   overflow-wrap: anywhere;
 }
 
+/* 本文中のリンクも 44px 四方のタップ範囲にする (.project-body a と同じ)。長い URL は折り返す */
+.question-text a,
+.doubt-text a {
+  display: inline-flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  max-width: 100%;
+  vertical-align: middle;
+  overflow-wrap: anywhere;
+}
+
+.issue-link {
+  display: inline-flex;
+  align-items: center;
+  align-self: flex-start;
+  min-height: 44px;
+  max-width: 100%;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+
 .doubt-row {
   display: flex;
   align-items: baseline;

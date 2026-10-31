@@ -61,3 +61,22 @@ export const FromInbox: Story = {
   args: { backTo: { label: "受信箱に戻る", onBack: () => {} } },
   beforeEach: () => mockGitHub({ [path]: { status: 200, content: question("(未回答)") } }),
 };
+
+const linkedQuestion = `---
+id: 20261030-q1
+title: "質問: どの PR を先に見る"
+issue: Hirayama61/shogi-atlas-app#68
+assignee: human
+status: todo
+---
+
+## 質問
+Hirayama61/shogi-atlas-app#70 と https://github.com/Hirayama61/polaris-mobile/pull/91 のどちらを先に見ますか。
+
+## 回答
+(未回答)
+`;
+
+export const WithLinks: Story = {
+  beforeEach: () => mockGitHub({ [path]: { status: 200, content: linkedQuestion } }),
+};

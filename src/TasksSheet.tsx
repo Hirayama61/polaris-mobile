@@ -2,8 +2,12 @@ import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { formatTokyoIso } from "./clock";
 import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, writeIfUnchanged } from "./github";
+import { IssueLink } from "./IssueLink";
 import { toKeyedItems } from "./keys";
+import { getIssueLink, linkifyText } from "./linkify";
+import { readFrontmatterValue } from "./projects";
 import { addDoubt, type DoubtLine, extractSection, parseDoubts } from "./questions";
+import { SegmentsView } from "./SegmentView";
 import type { Settings } from "./settings";
 import { completeTask, extractChecklist, type HumanTask, loadHumanTasks, setChecklistItem } from "./tasks";
 import { type BackTo, CloseIcon } from "./ui";
@@ -131,6 +135,7 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
   const canComplete = items.length > 0 && items.every((item) => item.isChecked);
   const doubts = parseDoubts(extractSection(file.content, "疑問点") ?? "");
   const findings = extractSection(file.content, "調べたこと") ?? "";
+  const issueLink = getIssueLink(readFrontmatterValue(file.content, "issue"));
 
   // 別の場所で変わっていたら上書きせず、読み直してもう一度操作してもらう。
   const save = (
@@ -181,6 +186,7 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
 
   return (
     <>
+      {issueLink !== undefined && <IssueLink href={issueLink.href} label={issueLink.text} />}
       {items.length === 0 ? (
         <p className="panel panel-empty muted">「あなたがやること」のチェックリストがありません。</p>
       ) : (
@@ -229,7 +235,9 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
               const { rowClass, badge } = DOUBT_VIEWS[item.status];
               return (
                 <li key={key} className={rowClass}>
-                  <span className="doubt-text">{item.text}</span>
+                  <span className="doubt-text">
+                    <SegmentsView segments={linkifyText(item.text)} />
+                  </span>
                   {badge && <span className={badge.className}>{badge.label}</span>}
                 </li>
               );
@@ -255,7 +263,9 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
       {findings !== "" && (
         <section className="field">
           <h3 className="field-label question-heading">調べたこと</h3>
-          <p className="panel question-text">{findings}</p>
+          <p className="panel question-text">
+            <SegmentsView segments={linkifyText(findings)} />
+          </p>
         </section>
       )}
       {canComplete && (

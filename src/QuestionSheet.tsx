@@ -1,7 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, readText, writeIfUnchanged } from "./github";
+import { IssueLink } from "./IssueLink";
+import { getIssueLink, linkifyText } from "./linkify";
+import { readFrontmatterValue } from "./projects";
 import { collectOpenQuestions, extractSection, type QuestionItem, replaceAnswer } from "./questions";
+import { SegmentsView } from "./SegmentView";
 import type { Settings } from "./settings";
 import { type BackTo, CloseIcon } from "./ui";
 
@@ -243,6 +247,10 @@ export const QuestionSheet = ({
 
   const question = detail.status === "ready" ? extractSection(detail.content, "質問") : undefined;
   const choices = detail.status === "ready" ? extractSection(detail.content, "選択肢") : undefined;
+  const issueLink =
+    detail.status === "ready" ? getIssueLink(readFrontmatterValue(detail.content, "issue")) : undefined;
+  const hasQuestion = question !== undefined && question !== "";
+  const hasChoices = choices !== undefined && choices !== "";
 
   return (
     <div className="sheet-backdrop">
@@ -325,16 +333,19 @@ export const QuestionSheet = ({
             )}
             {detail.status === "ready" && (
               <>
+                {issueLink !== undefined && <IssueLink href={issueLink.href} label={issueLink.text} />}
                 <section className="field">
                   <h3 className="field-label question-heading">質問</h3>
                   <p className="panel question-text">
-                    {question === undefined || question === "" ? "(なし)" : question}
+                    {hasQuestion ? <SegmentsView segments={linkifyText(question)} /> : "(なし)"}
                   </p>
                 </section>
-                {choices !== undefined && choices !== "" && (
+                {hasChoices && (
                   <section className="field">
                     <h3 className="field-label question-heading">選択肢</h3>
-                    <p className="panel question-text">{choices}</p>
+                    <p className="panel question-text">
+                      <SegmentsView segments={linkifyText(choices)} />
+                    </p>
                   </section>
                 )}
 
