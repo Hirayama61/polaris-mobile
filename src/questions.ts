@@ -130,12 +130,18 @@ export const openQuestionTitle = (text: string): string | undefined => {
  */
 export const getQuestionItem = (id: string, text: string): QuestionItem | undefined => {
   const title = readFrontmatterValue(text, "title");
-  if (title === undefined || !title.startsWith(TITLE_PREFIX)) {
+  const isMissingTitle = title === undefined;
+  if (isMissingTitle) {
+    return undefined;
+  }
+  const isQuestionTitle = title.startsWith(TITLE_PREFIX);
+  if (!isQuestionTitle) {
     return undefined;
   }
   const rest = title.slice(TITLE_PREFIX.length).trim();
   const answered = hasAnswer(text);
-  if (rest === "") {
+  const isEmptyTitle = rest === "";
+  if (isEmptyTitle) {
     return { id, title, answered };
   }
   return { id, title: rest, answered };
