@@ -40,7 +40,12 @@ export const useSlotTask = (settings: Settings) => {
         if (request !== requestRef.current) {
           return;
         }
-        const item = text === undefined ? undefined : getQuestionItem(taskId, text);
+        // ファイルが無いときは、チェックリストの側で「見つかりません」と出す。
+        if (text === undefined) {
+          setDetail({ status: "checklist", slot, taskId, path });
+          return;
+        }
+        const item = getQuestionItem(taskId, text);
         if (item === undefined) {
           setDetail({ status: "checklist", slot, taskId, path });
           return;

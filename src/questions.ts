@@ -134,7 +134,11 @@ export const getQuestionItem = (id: string, text: string): QuestionItem | undefi
     return undefined;
   }
   const rest = title.slice(TITLE_PREFIX.length).trim();
-  return { id, title: rest === "" ? title : rest, answered: hasAnswer(text) };
+  const answered = hasAnswer(text);
+  if (rest === "") {
+    return { id, title, answered };
+  }
+  return { id, title: rest, answered };
 };
 
 /**

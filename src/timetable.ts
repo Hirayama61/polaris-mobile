@@ -57,12 +57,30 @@ const getSlotOpens = (text: string, taskId: string | undefined): SlotOpens => {
   return { kind: "none" };
 };
 
-const toScheduleSlot = (row: ScheduleRow, turns: readonly TurnItem[]): TimetableSlot => {
+type ScheduleSlot = Extract<TimetableSlot, { source: "schedule" }>;
+
+const findTurn = (turns: readonly TurnItem[], taskId: string | undefined): TurnItem | undefined => {
+  if (taskId === undefined) {
+    return undefined;
+  }
+  return turns.find((candidate) => turnTaskIdOf(candidate) === taskId);
+};
+
+const toScheduleSlot = (row: ScheduleRow, turns: readonly TurnItem[]): ScheduleSlot => {
   const { text, taskId } = splitTaskRef(row.what);
-  const turn =
-    taskId === undefined ? undefined : turns.find((candidate) => turnTaskIdOf(candidate) === taskId);
+  const turn = findTurn(turns, taskId);
   return { source: "schedule", row, text, taskId, opens: getSlotOpens(text, taskId), turn };
 };
+
+const withWakeSlot = (slots: readonly ScheduleSlot[]): TimetableSlot[] => {
+  const hasWake = slots.some((slot) => slot.opens.kind === "wake");
+  if (hasWake) {
+    return [...slots];
+  }
+  return [{ source: "added-wake" }, ...slots];
+};
+
+const hasTurn = (slot: ScheduleSlot): slot is ScheduleSlot & { turn: TurnItem } => slot.turn !== undefined;
 
 /**
  * 時間割のコマを並べ、「あなたの番」の項目を同じ task id のコマに結び付ける。
@@ -73,14 +91,8 @@ const toScheduleSlot = (row: ScheduleRow, turns: readonly TurnItem[]): Timetable
  */
 export const buildTimetable = (schedule: readonly ScheduleRow[], turns: readonly TurnItem[]): Timetable => {
   const scheduleSlots = schedule.map((row) => toScheduleSlot(row, turns));
-  const hasWake = scheduleSlots.some((slot) => slot.source === "schedule" && slot.opens.kind === "wake");
-  const addedWake: TimetableSlot[] = hasWake ? [] : [{ source: "added-wake" }];
   // 同じ task id の項目が複数あってもコマに出すのは最初の 1 件なので、結び付けた行だけを除く。
-  const linkedLines = new Set(
-    scheduleSlots.flatMap((slot) =>
-      slot.source === "schedule" && slot.turn !== undefined ? [slot.turn.line] : [],
-    ),
-  );
+  const linkedLines = new Set(scheduleSlots.filter(hasTurn).map((slot) => slot.turn.line));
   const unscheduled = turns.filter((turn) => !linkedLines.has(turn.line));
-  return { slots: [...addedWake, ...scheduleSlots], unscheduled };
+  return { slots: withWakeSlot(scheduleSlots), unscheduled };
 };

@@ -357,7 +357,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             const detailId = `slot-detail-${row.line}`;
             const isTurnWriting =
               turn !== undefined && writingTarget?.kind === "turn" && writingTarget.line === turn.line;
-            const turnParts = turn === undefined ? undefined : splitTurnLabel(turn.label);
+            const turnParts = turn && splitTurnLabel(turn.label);
             const checkboxId = `slot-box-${row.line}`;
             const check = turn !== undefined && (
               <label className="slot-check" htmlFor={checkboxId} aria-label={turnParts?.title}>
