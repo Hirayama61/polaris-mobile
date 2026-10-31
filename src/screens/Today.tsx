@@ -68,6 +68,9 @@ const isMine = (who: string): boolean => who === "あなた";
 const clockOf = (iso: string | undefined): string | undefined =>
   iso === undefined ? undefined : /T(\d{2}:\d{2})/.exec(iso)?.[1];
 
+const joinClassNames = (names: readonly (string | false)[]): string =>
+  names.filter((name): name is string => name !== false).join(" ");
+
 // 起床の記録などで frontmatter の行が増えると表の行番号がずれるので、時間枠は時刻とやることで見分ける。
 const slotKey = (row: ScheduleRow): string => `${row.time}\u0000${row.what}`;
 
@@ -265,9 +268,17 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     slotTask.open(slot, taskId);
   };
 
+  const hasWoken = wakeClock !== undefined;
+  const isWakeWriting = writingTarget?.kind === "wake";
+  const wakeActionLabel = isWakeWriting ? "保存中" : "起きた";
+  const wakeTimeLabel = wakeClock ?? "";
+  const hasUnscheduledTurns = timetable.unscheduled.length > 0;
+  const { question } = slotTask;
+  const hasQuestion = question !== undefined;
+
   const wakeDetail = (
     <div id={WAKE_DETAIL_ID} className="slot-detail">
-      {wakeClock === undefined ? (
+      {!hasWoken && (
         <div className="wake">
           <span className="wake-text muted">起きたら押してください</span>
           <button
@@ -276,10 +287,11 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             disabled={isWriting}
             onClick={handleWake}
           >
-            {writingTarget?.kind === "wake" ? "保存中" : "起きた"}
+            {wakeActionLabel}
           </button>
         </div>
-      ) : (
+      )}
+      {hasWoken && (
         <p className="wake-text">
           <span className="wake-time">{wakeClock}</span> に起床
         </p>
@@ -328,7 +340,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             if (isAddedWake) {
               return (
                 <li key="added-wake" className="slot slot-mine">
-                  <div className="slot-head">{wakeToggle(wakeClock ?? "", "起床")}</div>
+                  <div className="slot-head">{wakeToggle(wakeTimeLabel, "起床")}</div>
                   {isWakeOpen && wakeDetail}
                 </li>
               );
@@ -336,16 +348,16 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             const { row, text, taskId, opens, turn } = slot;
             const key = slotKey(row);
             const isNow = isNowInSlot(row.time, minutesOfDay);
-            const classes = ["slot", isMine(row.who) ? "slot-mine" : "", isNow ? "slot-now" : ""]
-              .filter((name) => name !== "")
-              .join(" ");
+            const isMineSlot = isMine(row.who);
+            const hasWho = row.who !== "";
+            const hasTaskId = taskId !== undefined;
+            const classes = joinClassNames(["slot", isMineSlot && "slot-mine", isNow && "slot-now"]);
+            const whoClass = joinClassNames(["tag", isMineSlot && "tag-mine"]);
             const meta = (
               <span className="slot-meta">
                 {isNow && <span className="tag tag-now">いま</span>}
-                {row.who !== "" && (
-                  <span className={isMine(row.who) ? "tag tag-mine" : "tag"}>{row.who}</span>
-                )}
-                {taskId !== undefined && <span className="slot-task">{taskId}</span>}
+                {hasWho && <span className={whoClass}>{row.who}</span>}
+                {hasTaskId && <span className="slot-task">{taskId}</span>}
               </span>
             );
             const body = (
@@ -359,11 +371,18 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             const isPlainSlot = opens.kind === "none";
             const isTaskOpen = slotTask.detail.status !== "closed" && slotTask.detail.slot === key;
             const detailId = `slot-detail-${row.line}`;
+            const hasTurn = turn !== undefined;
             const isTurnWriting =
-              turn !== undefined && writingTarget?.kind === "turn" && writingTarget.line === turn.line;
+              hasTurn && writingTarget?.kind === "turn" && writingTarget.line === turn.line;
             const turnParts = turn && splitTurnLabel(turn.label);
             const checkboxId = `slot-box-${row.line}`;
-            const check = turn !== undefined && (
+            const turnSteps = turnParts?.steps;
+            const hasTurnSteps = turnSteps !== undefined;
+            const { actual } = row;
+            const hasActualColumn = actual !== undefined;
+            const actualValue = actualDrafts.get(key) ?? actual;
+            const isActualWriting = writingTarget?.kind === "actual" && writingTarget.slot === key;
+            const check = hasTurn && (
               <label className="slot-check" htmlFor={checkboxId} aria-label={turnParts?.title}>
                 <input
                   id={checkboxId}
@@ -401,7 +420,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                   {isTurnWriting && <span className="turn-status">保存中</span>}
                   {check}
                 </div>
-                {row.actual !== undefined && (
+                {hasActualColumn && (
                   <form
                     className="slot-actual"
                     onSubmit={(event: FormEvent) => {
@@ -416,22 +435,20 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                       enterKeyHint="done"
                       placeholder="実績"
                       readOnly={isWriting}
-                      value={actualDrafts.get(key) ?? row.actual}
+                      value={actualValue}
                       onChange={(event) => {
                         const value = event.target.value;
                         setActualDrafts((drafts) => new Map(drafts).set(key, value));
                       }}
                       onBlur={() => saveActual(row)}
                     />
-                    {writingTarget?.kind === "actual" && writingTarget.slot === key && (
-                      <span className="slot-actual-status">保存中</span>
-                    )}
+                    {isActualWriting && <span className="slot-actual-status">保存中</span>}
                   </form>
                 )}
                 {isWakeSlot && isWakeOpen && wakeDetail}
                 {isTaskSlot && isTaskOpen && (
                   <div id={detailId} className="slot-detail">
-                    {turnParts?.steps !== undefined && <p className="turn-steps">{turnParts.steps}</p>}
+                    {hasTurnSteps && <p className="turn-steps">{turnSteps}</p>}
                     <SlotTaskDetail
                       state={slotTask.detail}
                       settings={settings}
@@ -447,7 +464,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         {errorIn("schedule")}
       </section>
 
-      {timetable.unscheduled.length > 0 && (
+      {hasUnscheduledTurns && (
         <section className="section" aria-labelledby="unscheduled-title">
           <div className="section-head">
             <h2 id="unscheduled-title" className="section-title">
@@ -541,11 +558,11 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         </section>
       )}
 
-      {slotTask.question !== undefined && (
+      {hasQuestion && (
         <QuestionSheet
           settings={settings}
           isOnline={isOnline}
-          initialQuestion={slotTask.question}
+          initialQuestion={question}
           onClose={slotTask.closeQuestion}
           onOpenSettings={onOpenSettings}
         />
