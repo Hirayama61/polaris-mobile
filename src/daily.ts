@@ -298,17 +298,34 @@ const restOfRow = (target: string, restStart: number | undefined): string => {
 const isSameRow = (a: ScheduleRow, b: ScheduleRow): boolean =>
   a.time === b.time && a.what === b.what && a.who === b.who && a.actual === b.actual;
 
+const NOT_FOUND = -1;
+
 /**
- * 開いたときと同じ中身の行を、いまの daily から探す。
+ * 開いた行を、いまの daily から探す。
  *
- * 行番号は起床の記録などでずれるので、時刻・やること・誰・実績がすべて同じ行を探す。
+ * 行番号は起床の記録などでずれるので、時刻・やること・誰・実績がすべて同じ行のうち、押したときと同じ番目の行を探す。
+ * 同じ中身の行の数が押したときと違えば、どれが開いた行か決められないので探さない。
  *
- * @param text - いまの daily ファイル全体。
- * @param row - 開いたときの行。
- * @returns 同じ中身の最初の行。変わっていたか消えていれば undefined。
+ * @param base - 押したときの daily。`row` はこの中の行。
+ * @param current - いまの daily。
+ * @param row - 開いた行。
+ * @returns いまの daily での開いた行。変わっていたか消えていたか、決められなければ undefined。
  */
-export const findSameScheduleRow = (text: string, row: ScheduleRow): ScheduleRow | undefined =>
-  extractSchedule(text).find((candidate) => isSameRow(candidate, row));
+export const findSameScheduleRow = (
+  base: string,
+  current: string,
+  row: ScheduleRow,
+): ScheduleRow | undefined => {
+  const baseSame = extractSchedule(base).filter((candidate) => isSameRow(candidate, row));
+  const currentSame = extractSchedule(current).filter((candidate) => isSameRow(candidate, row));
+  const nth = baseSame.findIndex((candidate) => candidate.line === row.line);
+  const isNotInBase = nth === NOT_FOUND;
+  const hasCountChanged = currentSame.length !== baseSame.length;
+  if (isNotInBase || hasCountChanged) {
+    return undefined;
+  }
+  return currentSame[nth];
+};
 
 /**
  * 中身 (時刻・やること・誰・実績) が同じ行の数を数える。直すと消すの再試行で、別の同じ行に当て直さないために使う。
@@ -320,17 +337,8 @@ export const findSameScheduleRow = (text: string, row: ScheduleRow): ScheduleRow
 export const countSameScheduleRow = (text: string, row: ScheduleRow): number =>
   extractSchedule(text).filter((candidate) => isSameRow(candidate, row)).length;
 
-/**
- * 開いた行と同じ中身の行が、押したときより減っているかを判定する。
- *
- * 減っていれば、前の 1 回が書けたか、他の更新で変わったか消えた。どちらか見分けられないので、残った同じ中身の行に当て直さない。
- *
- * @param base - 押したときの daily。
- * @param current - いまの daily。
- * @param row - 開いたときの行。
- * @returns 減っていれば true。
- */
-export const hasLostSameScheduleRow = (base: string, current: string, row: ScheduleRow): boolean =>
+// 開いた行と同じ中身の行が、押したときより減っているか。
+const hasLostSameScheduleRow = (base: string, current: string, row: ScheduleRow): boolean =>
   countSameScheduleRow(current, row) < countSameScheduleRow(base, row);
 
 /**

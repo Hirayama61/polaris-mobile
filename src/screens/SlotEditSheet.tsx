@@ -3,7 +3,6 @@ import {
   countSameScheduleRows,
   findSameScheduleRow,
   hasChangedScheduleRow,
-  hasLostSameScheduleRow,
   insertScheduleRow,
   removeScheduleRow,
   type ScheduleRow,
@@ -302,8 +301,9 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
     daily.reload();
     onClose();
   };
-  const sameRowLine = (current: string): number => {
-    const same = findSameScheduleRow(current, row);
+  // 同じ中身の行の数が変わっていれば、前の 1 回で書けたのか他の更新で変わったのか見分けられないので、読み直してもらう。
+  const sameRowLine = (current: string, base: string): number => {
+    const same = findSameScheduleRow(base, current, row);
     const isGone = same === undefined;
     if (isGone) {
       throw new SlotChangedError();
@@ -323,22 +323,11 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
       if (hasChanged) {
         throw new SlotAlreadySavedError();
       }
-      const hasLost = hasLostSameScheduleRow(base, current, row);
-      if (hasLost) {
-        throw new SlotChangedError();
-      }
-      return setScheduleRow(current, sameRowLine(current), check.time, check.what);
+      return setScheduleRow(current, sameRowLine(current, base), check.time, check.what);
     });
   };
   const handleRemove = (): void => {
-    run("消す", (current, base) => {
-      // 前の 1 回で消えたのか、他の更新で変わったのかは見分けられないので、読み直してもらう。
-      const hasLost = hasLostSameScheduleRow(base, current, row);
-      if (hasLost) {
-        throw new SlotChangedError();
-      }
-      return removeScheduleRow(current, sameRowLine(current));
-    });
+    run("消す", (current, base) => removeScheduleRow(current, sameRowLine(current, base)));
   };
   const submitLabel = submitLabelOf(isSaving, "保存");
   return (

@@ -10,7 +10,6 @@ import {
   extractWakeAt,
   findSameScheduleRow,
   hasChangedScheduleRow,
-  hasLostSameScheduleRow,
   insertScheduleRow,
   isScheduleTime,
   parseDaily,
@@ -436,25 +435,10 @@ describe("countSameScheduleRow", () => {
   });
 });
 
-describe("hasLostSameScheduleRow と hasChangedScheduleRow", () => {
+describe("hasChangedScheduleRow", () => {
   const [walk] = extractSchedule(fixtureWithActual);
 
-  it("同じ中身の行が減っていれば、消えたか変わったかによらず hasLostSameScheduleRow が true", () => {
-    expect(walk).toBeDefined();
-    if (walk === undefined) {
-      return;
-    }
-    const removed = removeScheduleRow(fixtureWithActual, walk.line);
-    expect(hasLostSameScheduleRow(fixtureWithActual, removed, walk)).toBe(true);
-    const otherActual = setScheduleActual(fixtureWithActual, walk.line, "した");
-    expect(hasLostSameScheduleRow(fixtureWithActual, otherActual, walk)).toBe(true);
-    // 消した後に別のコマが足されても、減ったことは見分けられる。
-    const removedThenAdded = insertScheduleRow(removed, "20:00–21:00", "読書");
-    expect(hasLostSameScheduleRow(fixtureWithActual, removedThenAdded, walk)).toBe(true);
-    expect(hasLostSameScheduleRow(fixtureWithActual, fixtureWithActual, walk)).toBe(false);
-  });
-
-  it("直した後の行が増えていれば hasChangedScheduleRow が true、他の更新で変わっただけなら false", () => {
+  it("元の行が減り、直した後の行が増えていれば true、他の更新で変わっただけなら false", () => {
     expect(walk).toBeDefined();
     if (walk === undefined) {
       return;
@@ -488,11 +472,21 @@ describe("removeScheduleRow", () => {
 
 describe("findSameScheduleRow", () => {
   const [walk] = extractSchedule(fixtureWithActual);
+  // 同じ中身の散歩が 10 行目と 11 行目に並ぶ daily。
+  const twice = insertScheduleRow(fixtureWithActual, "07:00–07:30", "散歩");
+  const [first, second] = extractSchedule(twice);
 
   it("行番号がずれても、中身が同じ行を見つける", () => {
     const shifted = fixtureWithActual.replace("wake_at:", "wake_at: 2026-10-31T06:40:00+09:00\nnote: x");
     expect(walk).toBeDefined();
-    expect(walk && findSameScheduleRow(shifted, walk)?.line).toBe(11);
+    expect(walk && findSameScheduleRow(fixtureWithActual, shifted, walk)?.line).toBe(11);
+  });
+
+  it("同じ中身の行が並んでいれば、開いた行と同じ番目の行を返す", () => {
+    expect(first?.line).toBe(10);
+    expect(second?.line).toBe(11);
+    expect(second && findSameScheduleRow(twice, twice, second)?.line).toBe(11);
+    expect(first && findSameScheduleRow(twice, twice, first)?.line).toBe(10);
   });
 
   it("時刻・やること・誰・実績のどれかが変わっていれば undefined を返す", () => {
@@ -500,10 +494,31 @@ describe("findSameScheduleRow", () => {
     if (walk === undefined) {
       return;
     }
-    expect(findSameScheduleRow(setScheduleActual(fixtureWithActual, 10, "した"), walk)).toBeUndefined();
     expect(
-      findSameScheduleRow(setScheduleRow(fixtureWithActual, 10, "07:00–07:40", "散歩"), walk),
+      findSameScheduleRow(fixtureWithActual, setScheduleActual(fixtureWithActual, 10, "した"), walk),
     ).toBeUndefined();
-    expect(findSameScheduleRow(removeScheduleRow(fixtureWithActual, 10), walk)).toBeUndefined();
+    expect(
+      findSameScheduleRow(
+        fixtureWithActual,
+        setScheduleRow(fixtureWithActual, 10, "07:00–07:40", "散歩"),
+        walk,
+      ),
+    ).toBeUndefined();
+    expect(
+      findSameScheduleRow(fixtureWithActual, removeScheduleRow(fixtureWithActual, 10), walk),
+    ).toBeUndefined();
+  });
+
+  it("同じ中身の行の数が押したときと違えば、どれか決められないので undefined を返す", () => {
+    expect(second).toBeDefined();
+    if (second === undefined) {
+      return;
+    }
+    expect(findSameScheduleRow(twice, removeScheduleRow(twice, 10), second)).toBeUndefined();
+    const removedThenAdded = insertScheduleRow(removeScheduleRow(twice, 10), "20:00–21:00", "読書");
+    expect(findSameScheduleRow(twice, removedThenAdded, second)).toBeUndefined();
+    expect(
+      findSameScheduleRow(twice, insertScheduleRow(twice, "07:00–07:30", "散歩"), second),
+    ).toBeUndefined();
   });
 });
