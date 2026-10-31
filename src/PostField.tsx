@@ -11,6 +11,8 @@ type Props = {
   date: string;
   isOnline: boolean;
   onOpenSettings: () => void;
+  /** 送り終えたとき。表示中の投稿の一覧を読み直すのに使う。 */
+  onSent: () => void;
 };
 
 type SendState =
@@ -64,7 +66,7 @@ const startSend = (settings: Settings, date: string, sent: string): NonNullable<
 /**
  * 1 行の投稿欄。送ると今日の journal に `- HH:MM 本文` を追記する。
  */
-export const PostField = ({ settings, date, isOnline, onOpenSettings }: Props) => {
+export const PostField = ({ settings, date, isOnline, onOpenSettings, onSent }: Props) => {
   // 日付が変わったら呼び出し側が key で作り直すので、鍵はマウント時の date のままでよい。
   const draftKey = postDraftKey(date);
   const [text, setText] = useState(() => loadDraft(draftKey) ?? "");
@@ -74,22 +76,26 @@ export const PostField = ({ settings, date, isOnline, onOpenSettings }: Props) =
   const isSending = send.status === "sending";
   const canSend = text.trim() !== "" && !isSending && inFlight === undefined;
 
-  // setText と setSend しか使わないので作り直さない。マウント時の effect がこれを依存に持つ。
-  const track = useCallback((flight: NonNullable<typeof inFlight>): (() => void) => {
-    let isMounted = true;
-    void flight.promise.then((outcome) => {
-      if (isMounted) {
-        // 失敗したら入力を残す。成功しても送信中に書き換えた分は残す。
-        if (outcome.status === "sent") {
-          setText((current) => (current === flight.sent ? "" : current));
+  // マウント時の effect がこれを依存に持つので、onSent は作り直さない関数を渡す。
+  const track = useCallback(
+    (flight: NonNullable<typeof inFlight>): (() => void) => {
+      let isMounted = true;
+      void flight.promise.then((outcome) => {
+        if (isMounted) {
+          // 失敗したら入力を残す。成功しても送信中に書き換えた分は残す。
+          if (outcome.status === "sent") {
+            setText((current) => (current === flight.sent ? "" : current));
+            onSent();
+          }
+          setSend(outcome);
         }
-        setSend(outcome);
-      }
-    });
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+      });
+      return () => {
+        isMounted = false;
+      };
+    },
+    [onSent],
+  );
 
   // マウント時に前回の送信が続いていれば、その結果を待つ。
   useEffect(() => {

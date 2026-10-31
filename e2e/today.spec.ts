@@ -29,6 +29,16 @@ review_at:
 - ...
 `;
 
+// PUT の前後で変わった行の番号。行数が変わったら全行を変わったとみなす。
+const changedLines = (before: string, after: string | undefined): number[] => {
+  const beforeLines = before.split("\n");
+  const afterLines = after?.split("\n") ?? [];
+  if (afterLines.length !== beforeLines.length) {
+    return beforeLines.map((_, index) => index);
+  }
+  return beforeLines.flatMap((line, index) => (line === afterLines[index] ? [] : [index]));
+};
+
 test.beforeEach(async ({ page }) => {
   // 4:00 の日付境界と「いま」の印に左右されないよう、時計を固定する。
   await page.clock.setFixedTime(new Date(`${date}T12:00:00+09:00`));
@@ -41,15 +51,19 @@ test("設定が無ければ今日の画面はトークンの設定を促す", as
   await expect(page.getByText("GitHub のトークンが未設定です")).toBeVisible();
 });
 
-test("今日を開くと daily の「あなたの番」と時間割が出る", async ({ page }) => {
+test("今日を開くと時間割だけが出て、先頭に起床のコマを足す", async ({ page }) => {
   await configure(page);
   await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
   await page.goto("./");
   await expect(page.getByRole("heading", { name: "10月31日(土)" })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: "散歩" })).toBeVisible();
-  await expect(page.getByRole("checkbox", { name: "小説の構想を音声で入れる" })).toBeVisible();
-  await expect(page.getByText("残り 2")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "あなたの番" })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "いまのこと" })).toHaveCount(0);
+  const timeline = page.getByRole("region", { name: "時間割" }).getByRole("listitem");
+  await expect(timeline.first()).toContainText("起床");
   await expect(page.getByRole("textbox", { name: "09:00–18:00 の実績" })).toBeVisible();
+  const unscheduled = page.getByRole("region", { name: "時間を決めていないこと" });
+  await expect(unscheduled.getByRole("checkbox", { name: "散歩" })).toBeVisible();
+  await expect(unscheduled.getByRole("checkbox", { name: "小説の構想を音声で入れる" })).toBeVisible();
 });
 
 test("チェックを 1 つ付けると、その行の [ ] だけが [x] になって PUT される", async ({ page }) => {
@@ -57,17 +71,20 @@ test("チェックを 1 つ付けると、その行の [ ] だけが [x] にな�
   const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
   await page.goto("./");
   await page.getByRole("checkbox", { name: "散歩" }).check();
-  await expect(page.getByText("残り 1")).toBeVisible();
   await expect.poll(() => puts.length).toBe(1);
+  expect(changedLines(daily, puts[0]?.content)).toEqual([daily.split("\n").indexOf("- [ ] 散歩")]);
+  expect(puts[0]?.content.split("\n")[daily.split("\n").indexOf("- [ ] 散歩")]).toBe("- [x] 散歩");
+});
 
-  const [put] = puts;
-  expect(put?.path).toBe(`daily/${date}.md`);
-  const before = daily.split("\n");
-  const after = put?.content.split("\n") ?? [];
-  expect(after).toHaveLength(before.length);
-  const changed = before.flatMap((line, index) => (line === after[index] ? [] : [index]));
-  expect(changed).toEqual([before.indexOf("- [ ] 散歩")]);
-  expect(after[before.indexOf("- [ ] 散歩")]).toBe("- [x] 散歩");
+test("起床のコマを開いて「起きた」を押すと、wake_at の行だけが変わる", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "起床" }).click();
+  await page.getByRole("button", { name: "起きた" }).click();
+  await expect(page.getByText("12:00 に起床")).toBeVisible();
+  expect(puts).toHaveLength(1);
+  expect(changedLines(daily, puts[0]?.content)).toEqual([daily.split("\n").indexOf("wake_at:")]);
 });
 
 test("起床を記録した後は時刻だけを出し、直すボタンを出さない", async ({ page }) => {
@@ -75,8 +92,74 @@ test("起床を記録した後は時刻だけを出し、直すボタンを出�
   const woke = daily.replace("wake_at:\n", `wake_at: ${date}T06:40:00+09:00\n`);
   await mockGitHub(page, new Map([[`daily/${date}.md`, woke]]));
   await page.goto("./");
+  await page.getByRole("button", { name: "起床" }).click();
   await expect(page.getByText("06:40 に起床")).toBeVisible();
+  await expect(page.getByRole("button", { name: "起きた" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "いまに直す" })).toHaveCount(0);
+});
+
+const taskDaily = daily
+  .replace(
+    "| 09:00–18:00 | 仕事 | | |",
+    "| 09:00–18:00 | 仕事 | | |\n| 19:00–19:15 | 請求書 (task: 20261029-abcd) | あなた | |",
+  )
+  .replace(
+    "- [ ] 小説の構想を音声で入れる",
+    "- [ ] 小説の構想を音声で入れる\n- [ ] 請求書を送る: freee で出す (task: 20261029-abcd)",
+  );
+
+const task = `---
+title: 請求書を送る
+status: todo
+assignee: human
+---
+
+## あなたがやること
+- [ ] PDF を出す
+- [ ] メールで送る
+`;
+
+test("task のコマにチェック欄を出し、切り替えると「あなたの番」の行だけが変わる", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, taskDaily]]));
+  await page.goto("./");
+  await expect(
+    page.getByRole("region", { name: "時間を決めていないこと" }).getByRole("checkbox"),
+  ).toHaveCount(2);
+  await page.getByRole("region", { name: "時間割" }).getByRole("checkbox", { name: "請求書を送る" }).check();
+  await expect.poll(() => puts.length).toBe(1);
+  const turnLine = taskDaily.split("\n").indexOf("- [ ] 請求書を送る: freee で出す (task: 20261029-abcd)");
+  expect(changedLines(taskDaily, puts[0]?.content)).toEqual([turnLine]);
+});
+
+test("task のコマをタップするとチェックリストを開く", async ({ page }) => {
+  await configure(page);
+  await mockGitHub(
+    page,
+    new Map([
+      [`daily/${date}.md`, taskDaily],
+      ["tasks/20261029-abcd.md", task],
+    ]),
+  );
+  await page.goto("./");
+  await page.getByRole("button", { name: /請求書/ }).click();
+  await expect(page.getByRole("checkbox", { name: "PDF を出す" })).toBeVisible();
+  await expect(page.getByText("freee で出す")).toBeVisible();
+});
+
+test("質問のコマをタップすると回答のシートを開く", async ({ page }) => {
+  await configure(page);
+  const question = task.replace("title: 請求書を送る", "title: 質問: 請求書の送り先");
+  await mockGitHub(
+    page,
+    new Map([
+      [`daily/${date}.md`, taskDaily],
+      ["tasks/20261029-abcd.md", question],
+    ]),
+  );
+  await page.goto("./");
+  await page.getByRole("button", { name: /請求書/ }).click();
+  await expect(page.getByRole("dialog").getByText("請求書の送り先")).toBeVisible();
 });
 
 test("4:00 をまたぐと、保存していない実績の入力を捨てる", async ({ page }) => {

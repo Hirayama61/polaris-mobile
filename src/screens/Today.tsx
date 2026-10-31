@@ -10,17 +10,19 @@ import {
   setWakeAt,
   type TurnItem,
 } from "../daily";
-import { isNowInSlot, splitTaskRef, splitTurnLabel } from "../display";
+import { isNowInSlot, splitTurnLabel } from "../display";
 import { describeFailure, type Failure } from "../failure";
 import { writeKnownFile } from "../github";
-import { PostField } from "../PostField";
+import { QuestionSheet } from "../QuestionSheet";
 import type { Settings } from "../settings";
 import { TaskChecklist } from "../TaskChecklist";
 import { taskPathOf } from "../tasks";
+import { buildTimetable } from "../timetable";
 import { StateCard } from "../ui";
 import { dailyPath, type useDaily } from "../useDaily";
 import { useProjectNames } from "../useProjectNames";
 import { FailureAction, UnconfiguredCard } from "./common";
+import { type SlotTaskState, useSlotTask } from "./useSlotTask";
 
 type Props = {
   settings: Settings;
@@ -35,7 +37,7 @@ type WriteTarget =
   | { kind: "wake" }
   | { kind: "actual"; slot: string };
 
-// 失敗はその操作をした節の下に出す。
+// 失敗はその操作をした節の下に出す。起床の失敗は起床のコマの下に出す。
 type WriteArea = "turns" | "wake" | "schedule";
 
 // 同じ daily への書き込みは 1 つずつにする。
@@ -80,14 +82,63 @@ const ErrorMessage = ({ failure, onOpenSettings }: { failure: Failure; onOpenSet
   </div>
 );
 
+const WAKE_DETAIL_ID = "slot-detail-wake";
+
+type SlotTaskDetailProps = {
+  state: SlotTaskState;
+  settings: Settings;
+  onRetry: () => void;
+  onOpenSettings: () => void;
+};
+
+const SlotTaskDetail = (props: SlotTaskDetailProps) => {
+  const { state, settings, onRetry, onOpenSettings } = props;
+  if (state.status === "closed") {
+    return null;
+  }
+  if (state.status === "loading") {
+    return <p className="subtasks-note muted">読んでいます</p>;
+  }
+  if (state.status === "error") {
+    const isSettingsAction = state.failure.action === "settings";
+    return (
+      <div className="message message-error" role="alert">
+        <p>{state.failure.reason}</p>
+        <p>{state.failure.hint}</p>
+        {isSettingsAction && (
+          <button type="button" className="button button-small" onClick={onOpenSettings}>
+            設定を開く
+          </button>
+        )}
+        {!isSettingsAction && (
+          <button type="button" className="button button-small" onClick={onRetry}>
+            読み直す
+          </button>
+        )}
+      </div>
+    );
+  }
+  return (
+    <TaskChecklist
+      settings={settings}
+      taskId={state.taskId}
+      path={state.path}
+      onOpenSettings={onOpenSettings}
+    />
+  );
+};
+
 /**
- * 「あなたの番」を先頭に、今日の時間割を続けて出す。チェック、起床、実績はその場で GitHub へ commit する。
+ * 今日の時間割だけを出す。起床のコマで起床を、`(task: ID)` のコマでやることか質問を開く。
+ * チェック、起床、実績はその場で GitHub へ commit する。
  */
 export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }: Props) => {
   const [write, setWrite] = useState<WriteState>({ status: "idle" });
   // 保存前と保存に失敗した実績の入力。キーは slotKey。
   const [actualDrafts, setActualDrafts] = useState<ReadonlyMap<string, string>>(new Map());
   const [openLine, setOpenLine] = useState<number | undefined>(undefined);
+  const [isWakeOpen, setIsWakeOpen] = useState(false);
+  const slotTask = useSlotTask(settings);
   const minutesOfDay = useMinutesOfDay();
   const { state } = daily;
   const taskIds =
@@ -103,6 +154,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   if (hasDateChanged) {
     setDraftsDate(date);
     setActualDrafts(new Map());
+    setIsWakeOpen(false);
+    slotTask.close();
   }
 
   // オフラインで出した失敗は、つながったら消す。
@@ -127,47 +180,32 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
       </div>
     );
   }
-  const postField = (
-    <PostField
-      key={date}
-      settings={settings}
-      date={date}
-      isOnline={isOnline}
-      onOpenSettings={onOpenSettings}
-    />
-  );
   if (state.status === "error") {
     return (
-      <>
-        <StateCard
-          title="今日の計画を読めませんでした"
-          tone="error"
-          action={
-            <FailureAction failure={state.failure} onRetry={daily.reload} onOpenSettings={onOpenSettings} />
-          }
-        >
-          <p>{state.failure.reason}</p>
-          <p className="muted">{state.failure.hint}</p>
-        </StateCard>
-        {postField}
-      </>
+      <StateCard
+        title="今日の計画を読めませんでした"
+        tone="error"
+        action={
+          <FailureAction failure={state.failure} onRetry={daily.reload} onOpenSettings={onOpenSettings} />
+        }
+      >
+        <p>{state.failure.reason}</p>
+        <p className="muted">{state.failure.hint}</p>
+      </StateCard>
     );
   }
   if (state.status === "missing") {
     return (
-      <>
-        <StateCard
-          title="今日の計画はまだありません"
-          action={
-            <button type="button" className="button" onClick={daily.reload}>
-              読み直す
-            </button>
-          }
-        >
-          <p className="muted">毎朝 6:00 に朝ジョブが作ります。夜の振り返りは今日も書けます。</p>
-        </StateCard>
-        {postField}
-      </>
+      <StateCard
+        title="今日の計画はまだありません"
+        action={
+          <button type="button" className="button" onClick={daily.reload}>
+            読み直す
+          </button>
+        }
+      >
+        <p className="muted">毎朝 6:00 に朝ジョブが作ります。夜の振り返りは今日も書けます。</p>
+      </StateCard>
     );
   }
 
@@ -178,7 +216,6 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     writingTarget?.kind === "turn" && writingTarget.line === turn.line
       ? writingTarget.nextChecked
       : turn.isChecked;
-  const remaining = view.turns.filter((turn) => !checkedOf(turn)).length;
   const wakeClock = clockOf(view.wakeAt);
 
   const runWrite = (
@@ -213,10 +250,10 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
       });
   };
 
-  const handleToggle = (turn: TurnItem): void => {
+  const handleToggle = (turn: TurnItem, area: WriteArea): void => {
     const nextChecked = !turn.isChecked;
     // 再試行時はリモートの最新内容に当てるので、行番号ではなくラベルで探し直す。
-    runWrite({ kind: "turn", line: turn.line, nextChecked }, "turns", "チェック", (current) => {
+    runWrite({ kind: "turn", line: turn.line, nextChecked }, area, "チェック", (current) => {
       const target = extractTurns(current).find((candidate) => candidate.label === turn.label);
       return target === undefined ? current : setTurnChecked(current, target.line, nextChecked);
     });
@@ -260,6 +297,54 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
       <ErrorMessage failure={write.failure} onOpenSettings={onOpenSettings} />
     ) : undefined;
 
+  const timetable = buildTimetable(view.schedule, view.turns);
+
+  const handleOpenSlot = (slot: string, taskId: string): void => {
+    const isOpen = slotTask.detail.status !== "closed" && slotTask.detail.slot === slot;
+    if (isOpen) {
+      slotTask.close();
+      return;
+    }
+    slotTask.open(slot, taskId);
+  };
+
+  const wakeDetail = (
+    <div id={WAKE_DETAIL_ID} className="slot-detail">
+      {wakeClock === undefined ? (
+        <div className="wake">
+          <span className="wake-text muted">起きたら押してください</span>
+          <button
+            type="button"
+            className="button button-small wake-action"
+            disabled={isWriting}
+            onClick={handleWake}
+          >
+            {writingTarget?.kind === "wake" ? "保存中" : "起きた"}
+          </button>
+        </div>
+      ) : (
+        <p className="wake-text">
+          <span className="wake-time">{wakeClock}</span> に起床
+        </p>
+      )}
+      {errorIn("wake")}
+    </div>
+  );
+
+  const wakeToggle = (time: string, text: string) => (
+    <button
+      type="button"
+      className="slot-main slot-toggle"
+      aria-expanded={isWakeOpen}
+      aria-controls={WAKE_DETAIL_ID}
+      onClick={() => setIsWakeOpen(!isWakeOpen)}
+    >
+      <span className="slot-time">{time}</span>
+      <span className="slot-what">{text}</span>
+      <span className="turn-chevron" aria-hidden="true" />
+    </button>
+  );
+
   return (
     <>
       {state.freshness.kind === "stale" && (
@@ -274,43 +359,142 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         </div>
       )}
 
-      <section className="section" aria-label="起床">
-        <div className="panel wake">
-          {wakeClock === undefined ? (
-            <>
-              <span className="wake-text muted">起きたら押してください</span>
-              <button
-                type="button"
-                className="button button-small wake-action"
-                disabled={isWriting}
-                onClick={handleWake}
-              >
-                {writingTarget?.kind === "wake" ? "保存中" : "起きた"}
-              </button>
-            </>
-          ) : (
-            <span className="wake-text">
-              <span className="wake-time">{wakeClock}</span> に起床
-            </span>
-          )}
+      <section className="section" aria-labelledby="schedule-title">
+        <div className="section-head">
+          <h2 id="schedule-title" className="section-title">
+            時間割
+          </h2>
         </div>
-        {errorIn("wake")}
+        <ol className="panel timeline">
+          {timetable.slots.map((slot) => {
+            if (slot.source === "added-wake") {
+              return (
+                <li key="added-wake" className="slot slot-mine">
+                  <div className="slot-head">{wakeToggle(wakeClock ?? "", "起床")}</div>
+                  {isWakeOpen && wakeDetail}
+                </li>
+              );
+            }
+            const { row, text, taskId, opens, turn } = slot;
+            const key = slotKey(row);
+            const isNow = isNowInSlot(row.time, minutesOfDay);
+            const classes = ["slot", isMine(row.who) ? "slot-mine" : "", isNow ? "slot-now" : ""]
+              .filter((name) => name !== "")
+              .join(" ");
+            const meta = (
+              <span className="slot-meta">
+                {isNow && <span className="tag tag-now">いま</span>}
+                {row.who !== "" && (
+                  <span className={isMine(row.who) ? "tag tag-mine" : "tag"}>{row.who}</span>
+                )}
+                {taskId !== undefined && <span className="slot-task">{taskId}</span>}
+              </span>
+            );
+            const body = (
+              <span className="slot-body">
+                <span className="slot-what">{text}</span>
+                {meta}
+              </span>
+            );
+            const isTaskOpen = slotTask.detail.status !== "closed" && slotTask.detail.slot === key;
+            const detailId = `slot-detail-${row.line}`;
+            const isTurnWriting =
+              turn !== undefined && writingTarget?.kind === "turn" && writingTarget.line === turn.line;
+            const turnParts = turn === undefined ? undefined : splitTurnLabel(turn.label);
+            const checkboxId = `slot-box-${row.line}`;
+            const check = turn !== undefined && (
+              <label className="slot-check" htmlFor={checkboxId} aria-label={turnParts?.title}>
+                <input
+                  id={checkboxId}
+                  type="checkbox"
+                  className="turn-box"
+                  checked={checkedOf(turn)}
+                  disabled={isWriting}
+                  onChange={() => handleToggle(turn, "schedule")}
+                />
+              </label>
+            );
+            return (
+              <li key={row.line} className={classes} aria-current={isNow ? "time" : undefined}>
+                <div className="slot-head">
+                  {opens.kind === "wake" && wakeToggle(row.time, text)}
+                  {opens.kind === "task" && (
+                    <button
+                      type="button"
+                      className="slot-main slot-toggle"
+                      aria-expanded={isTaskOpen}
+                      aria-controls={detailId}
+                      onClick={() => handleOpenSlot(key, opens.taskId)}
+                    >
+                      <span className="slot-time">{row.time}</span>
+                      {body}
+                      <span className="turn-chevron" aria-hidden="true" />
+                    </button>
+                  )}
+                  {opens.kind === "none" && (
+                    <div className="slot-main">
+                      <span className="slot-time">{row.time}</span>
+                      {body}
+                    </div>
+                  )}
+                  {isTurnWriting && <span className="turn-status">保存中</span>}
+                  {check}
+                </div>
+                {row.actual !== undefined && (
+                  <form
+                    className="slot-actual"
+                    onSubmit={(event: FormEvent) => {
+                      event.preventDefault();
+                      saveActual(row);
+                    }}
+                  >
+                    <input
+                      type="text"
+                      className="input input-actual"
+                      aria-label={`${row.time} の実績`}
+                      enterKeyHint="done"
+                      placeholder="実績"
+                      readOnly={isWriting}
+                      value={actualDrafts.get(key) ?? row.actual}
+                      onChange={(event) => {
+                        const value = event.target.value;
+                        setActualDrafts((drafts) => new Map(drafts).set(key, value));
+                      }}
+                      onBlur={() => saveActual(row)}
+                    />
+                    {writingTarget?.kind === "actual" && writingTarget.slot === key && (
+                      <span className="slot-actual-status">保存中</span>
+                    )}
+                  </form>
+                )}
+                {opens.kind === "wake" && isWakeOpen && wakeDetail}
+                {opens.kind === "task" && isTaskOpen && (
+                  <div id={detailId} className="slot-detail">
+                    {turnParts?.steps !== undefined && <p className="turn-steps">{turnParts.steps}</p>}
+                    <SlotTaskDetail
+                      state={slotTask.detail}
+                      settings={settings}
+                      onRetry={() => slotTask.open(key, opens.taskId)}
+                      onOpenSettings={onOpenSettings}
+                    />
+                  </div>
+                )}
+              </li>
+            );
+          })}
+        </ol>
+        {errorIn("schedule")}
       </section>
 
-      <section className="section" aria-labelledby="turns-title">
-        <div className="section-head">
-          <h2 id="turns-title" className="section-title">
-            あなたの番
-          </h2>
-          {view.turns.length > 0 && (
-            <span className="section-meta">{remaining === 0 ? "完了" : `残り ${remaining}`}</span>
-          )}
-        </div>
-        {view.turns.length === 0 ? (
-          <p className="panel panel-empty muted">今日はありません。</p>
-        ) : (
+      {timetable.unscheduled.length > 0 && (
+        <section className="section" aria-labelledby="unscheduled-title">
+          <div className="section-head">
+            <h2 id="unscheduled-title" className="section-title">
+              時間を決めていないこと
+            </h2>
+          </div>
           <ul className="panel turns">
-            {view.turns.map((turn) => {
+            {timetable.unscheduled.map((turn) => {
               const isChecked = checkedOf(turn);
               const isTurnWriting = writingTarget?.kind === "turn" && writingTarget.line === turn.line;
               const { title, steps, minutes, taskId } = splitTurnLabel(turn.label);
@@ -327,7 +511,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                   className="turn-box"
                   checked={isChecked}
                   disabled={isWriting}
-                  onChange={() => handleToggle(turn)}
+                  onChange={() => handleToggle(turn, "turns")}
                 />
               );
               const status = isTurnWriting && <span className="turn-status">保存中</span>;
@@ -392,75 +576,19 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               );
             })}
           </ul>
-        )}
-        {errorIn("turns")}
-      </section>
+          {errorIn("turns")}
+        </section>
+      )}
 
-      {postField}
-
-      <section className="section" aria-labelledby="schedule-title">
-        <div className="section-head">
-          <h2 id="schedule-title" className="section-title">
-            時間割
-          </h2>
-        </div>
-        {view.schedule.length === 0 ? (
-          <p className="panel panel-empty muted">時間割はありません。</p>
-        ) : (
-          <ol className="panel timeline">
-            {view.schedule.map((row) => {
-              const isNow = isNowInSlot(row.time, minutesOfDay);
-              const { text, taskId } = splitTaskRef(row.what);
-              const classes = ["slot", isMine(row.who) ? "slot-mine" : "", isNow ? "slot-now" : ""]
-                .filter((name) => name !== "")
-                .join(" ");
-              return (
-                <li key={row.line} className={classes} aria-current={isNow ? "time" : undefined}>
-                  <span className="slot-time">{row.time}</span>
-                  <span className="slot-body">
-                    <span className="slot-what">{text}</span>
-                    <span className="slot-meta">
-                      {isNow && <span className="tag tag-now">いま</span>}
-                      {row.who !== "" && (
-                        <span className={isMine(row.who) ? "tag tag-mine" : "tag"}>{row.who}</span>
-                      )}
-                      {taskId !== undefined && <span className="slot-task">{taskId}</span>}
-                    </span>
-                    {row.actual !== undefined && (
-                      <form
-                        className="slot-actual"
-                        onSubmit={(event: FormEvent) => {
-                          event.preventDefault();
-                          saveActual(row);
-                        }}
-                      >
-                        <input
-                          type="text"
-                          className="input input-actual"
-                          aria-label={`${row.time} の実績`}
-                          enterKeyHint="done"
-                          placeholder="実績"
-                          readOnly={isWriting}
-                          value={actualDrafts.get(slotKey(row)) ?? row.actual}
-                          onChange={(event) => {
-                            const value = event.target.value;
-                            setActualDrafts((drafts) => new Map(drafts).set(slotKey(row), value));
-                          }}
-                          onBlur={() => saveActual(row)}
-                        />
-                        {writingTarget?.kind === "actual" && writingTarget.slot === slotKey(row) && (
-                          <span className="slot-actual-status">保存中</span>
-                        )}
-                      </form>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ol>
-        )}
-        {errorIn("schedule")}
-      </section>
+      {slotTask.question !== undefined && (
+        <QuestionSheet
+          settings={settings}
+          isOnline={isOnline}
+          initialQuestion={slotTask.question}
+          onClose={slotTask.closeQuestion}
+          onOpenSettings={onOpenSettings}
+        />
+      )}
     </>
   );
 };

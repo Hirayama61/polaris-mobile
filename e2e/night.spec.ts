@@ -43,16 +43,15 @@ test("日記を保存すると、投稿の一覧を読み直す", async ({ page 
   await expect(posts.getByText("夕飯を作った")).toBeVisible();
 });
 
-test("今日の画面で送った投稿は、送り終えると入力欄を空にし、夜の一覧に出る", async ({ page }) => {
+test("夜の画面で送った投稿は、送り終えると入力欄を空にし、一覧に出る", async ({ page }) => {
   await configure(page);
   await mockGitHub(page, new Map());
   await page.goto("./");
+  await page.getByRole("button", { name: "夜" }).click();
   const field = page.getByRole("textbox", { name: "いまのこと" });
   await field.fill("夕日がきれい");
   await page.getByRole("button", { name: "送る", exact: true }).click();
   await expect(page.getByText("21:00 に投稿しました")).toBeVisible();
   await expect(field).toHaveValue("");
-
-  await page.getByRole("button", { name: "夜" }).click();
   await expect(page.getByRole("region", { name: "今日の投稿" }).getByText("夕日がきれい")).toBeVisible();
 });
