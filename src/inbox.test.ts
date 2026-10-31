@@ -1,11 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
+  getProjectColor,
   getProjectItems,
   groupInboxByProject,
   hasUnansweredQuestion,
   type InboxItem,
   isNewSince,
   loadInbox,
+  NO_PROJECT_COLOR,
+  PROJECT_COLOR_COUNT,
   toInboxItem,
 } from "./inbox";
 
@@ -176,5 +179,27 @@ describe("loadInbox", () => {
         async () => undefined,
       ),
     ).rejects.toThrow("401");
+  });
+});
+
+describe("getProjectColor", () => {
+  it("同じ slug には何度呼んでも同じ色を返す", () => {
+    expect(getProjectColor("polaris")).toBe(getProjectColor("polaris"));
+  });
+
+  it("slug の違うプロジェクトには別の色を返す", () => {
+    expect(getProjectColor("polaris")).not.toBe(getProjectColor("blog"));
+  });
+
+  it("色は styles.css にある --project-0 から --project-7 のどれか", () => {
+    const slugs = ["polaris", "blog", "health", "a", "", "とても長いプロジェクトの名前"];
+    const pattern = new RegExp(`^var\\(--project-[0-${PROJECT_COLOR_COUNT - 1}]\\)$`);
+    for (const slug of slugs) {
+      expect(getProjectColor(slug)).toMatch(pattern);
+    }
+  });
+
+  it("project の無いものは中立色にする", () => {
+    expect(getProjectColor(undefined)).toBe(NO_PROJECT_COLOR);
   });
 });

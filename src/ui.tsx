@@ -29,6 +29,27 @@ export const MessageIcon = ({ size = 22 }: IconProps) => (
 );
 
 /**
+ * 受信箱の行の質問の印。
+ */
+export const QuestionIcon = ({ size = 22 }: IconProps) => (
+  <svg {...svgProps(size)} aria-hidden="true">
+    <circle cx="12" cy="12" r="10" />
+    <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3" />
+    <path d="M12 17h.01" />
+  </svg>
+);
+
+/**
+ * 受信箱の行のタスクの印。
+ */
+export const TaskIcon = ({ size = 22 }: IconProps) => (
+  <svg {...svgProps(size)} aria-hidden="true">
+    <rect x="3" y="3" width="18" height="18" rx="2" />
+    <path d="m9 12 2 2 4-4" />
+  </svg>
+);
+
+/**
  * シートを閉じる×。
  */
 export const CloseIcon = ({ size = 22 }: IconProps) => (

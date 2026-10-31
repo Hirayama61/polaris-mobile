@@ -31,6 +31,14 @@ const items: InboxItem[] = [
   },
   {
     kind: "task",
+    id: "20261030-t3",
+    title: "下書きを 1 本読む",
+    projectSlug: "blog",
+    projectName: "ブログ",
+    created: "2026-10-30T12:00:00+09:00",
+  },
+  {
+    kind: "task",
     id: "20261028-t2",
     title: "散歩のルートを決める",
     projectSlug: undefined,
