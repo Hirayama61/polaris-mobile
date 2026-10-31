@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  countSameScheduleRow,
   countSameScheduleRows,
   createMinimalDaily,
   extractReview,
@@ -416,6 +417,20 @@ describe("countSameScheduleRows", () => {
     expect(countSameScheduleRows(fixtureWithActual, "08:00–08:30", "朝食")).toBe(0);
     const added = insertScheduleRow(fixtureWithActual, "08:00–08:30", "朝 | 食");
     expect(countSameScheduleRows(added, "08:00–08:30", "朝 | 食")).toBe(1);
+  });
+});
+
+describe("countSameScheduleRow", () => {
+  it("中身が同じ行を数え、消すと 1 つ減る", () => {
+    const [walk] = extractSchedule(fixtureWithActual);
+    expect(walk).toBeDefined();
+    if (walk === undefined) {
+      return;
+    }
+    const twice = insertScheduleRow(fixtureWithActual, walk.time, walk.what);
+    expect(countSameScheduleRow(twice, walk)).toBe(2);
+    expect(countSameScheduleRow(removeScheduleRow(twice, walk.line), walk)).toBe(1);
+    expect(countSameScheduleRow(setScheduleActual(fixtureWithActual, walk.line, "した"), walk)).toBe(0);
   });
 });
 

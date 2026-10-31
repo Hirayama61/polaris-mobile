@@ -304,6 +304,16 @@ const isSameRow = (a: ScheduleRow, b: ScheduleRow): boolean =>
 export const findSameScheduleRow = (text: string, row: ScheduleRow): ScheduleRow | undefined =>
   extractSchedule(text).find((candidate) => isSameRow(candidate, row));
 
+/**
+ * 中身 (時刻・やること・誰・実績) が同じ行の数を数える。直すと消すの再試行で、別の同じ行に当て直さないために使う。
+ *
+ * @param text - daily ファイル全体。
+ * @param row - 開いたときの行。
+ * @returns 時間割の表で中身が一致する行の数。
+ */
+export const countSameScheduleRow = (text: string, row: ScheduleRow): number =>
+  extractSchedule(text).filter((candidate) => isSameRow(candidate, row)).length;
+
 const startOf = (time: string): string => time.split("–")[0]?.trim() ?? "";
 
 /**
