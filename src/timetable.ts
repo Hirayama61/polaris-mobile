@@ -48,10 +48,12 @@ export const isWakeText = (text: string): boolean => text.startsWith(WAKE_PREFIX
 const turnTaskIdOf = (turn: TurnItem): string | undefined => splitTurnLabel(turn.label).taskId;
 
 const getSlotOpens = (text: string, taskId: string | undefined): SlotOpens => {
-  if (isWakeText(text)) {
+  const isWake = isWakeText(text);
+  const hasTaskId = taskId !== undefined;
+  if (isWake) {
     return { kind: "wake" };
   }
-  if (taskId !== undefined) {
+  if (hasTaskId) {
     return { kind: "task", taskId };
   }
   return { kind: "none" };
@@ -60,7 +62,8 @@ const getSlotOpens = (text: string, taskId: string | undefined): SlotOpens => {
 type ScheduleSlot = Extract<TimetableSlot, { source: "schedule" }>;
 
 const findTurn = (turns: readonly TurnItem[], taskId: string | undefined): TurnItem | undefined => {
-  if (taskId === undefined) {
+  const hasTaskId = taskId !== undefined;
+  if (!hasTaskId) {
     return undefined;
   }
   return turns.find((candidate) => turnTaskIdOf(candidate) === taskId);

@@ -30,23 +30,27 @@ export const useSlotTask = (settings: Settings) => {
 
   const open = (slot: string, taskId: string): void => {
     const path = taskPathOf(taskId);
-    if (path === undefined) {
+    const isUnsafeId = path === undefined;
+    if (isUnsafeId) {
       return;
     }
     const request = ++requestRef.current;
     setDetail({ status: "loading", slot });
     readText(settings, path)
       .then((text) => {
-        if (request !== requestRef.current) {
+        const isStaleRequest = request !== requestRef.current;
+        if (isStaleRequest) {
           return;
         }
         // ファイルが無いときは、チェックリストの側で「見つかりません」と出す。
-        if (text === undefined) {
+        const isMissing = text === undefined;
+        if (isMissing) {
           setDetail({ status: "checklist", slot, taskId, path });
           return;
         }
         const item = getQuestionItem(taskId, text);
-        if (item === undefined) {
+        const isQuestion = item !== undefined;
+        if (!isQuestion) {
           setDetail({ status: "checklist", slot, taskId, path });
           return;
         }
@@ -54,7 +58,8 @@ export const useSlotTask = (settings: Settings) => {
         setQuestion(item);
       })
       .catch((error: unknown) => {
-        if (request === requestRef.current) {
+        const isCurrentRequest = request === requestRef.current;
+        if (isCurrentRequest) {
           setDetail({ status: "error", slot, taskId, failure: describeFailure(error) });
         }
       });

@@ -324,7 +324,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         </div>
         <ol className="panel timeline">
           {timetable.slots.map((slot) => {
-            if (slot.source === "added-wake") {
+            const isAddedWake = slot.source === "added-wake";
+            if (isAddedWake) {
               return (
                 <li key="added-wake" className="slot slot-mine">
                   <div className="slot-head">{wakeToggle(wakeClock ?? "", "起床")}</div>
@@ -353,6 +354,9 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                 {meta}
               </span>
             );
+            const isWakeSlot = opens.kind === "wake";
+            const isTaskSlot = opens.kind === "task";
+            const isPlainSlot = opens.kind === "none";
             const isTaskOpen = slotTask.detail.status !== "closed" && slotTask.detail.slot === key;
             const detailId = `slot-detail-${row.line}`;
             const isTurnWriting =
@@ -374,8 +378,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             return (
               <li key={row.line} className={classes} aria-current={isNow ? "time" : undefined}>
                 <div className="slot-head">
-                  {opens.kind === "wake" && wakeToggle(row.time, text)}
-                  {opens.kind === "task" && (
+                  {isWakeSlot && wakeToggle(row.time, text)}
+                  {isTaskSlot && (
                     <button
                       type="button"
                       className="slot-main slot-toggle"
@@ -388,7 +392,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                       <span className="turn-chevron" aria-hidden="true" />
                     </button>
                   )}
-                  {opens.kind === "none" && (
+                  {isPlainSlot && (
                     <div className="slot-main">
                       <span className="slot-time">{row.time}</span>
                       {body}
@@ -424,8 +428,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                     )}
                   </form>
                 )}
-                {opens.kind === "wake" && isWakeOpen && wakeDetail}
-                {opens.kind === "task" && isTaskOpen && (
+                {isWakeSlot && isWakeOpen && wakeDetail}
+                {isTaskSlot && isTaskOpen && (
                   <div id={detailId} className="slot-detail">
                     {turnParts?.steps !== undefined && <p className="turn-steps">{turnParts.steps}</p>}
                     <SlotTaskDetail

@@ -16,13 +16,16 @@ type SlotTaskDetailProps = {
  */
 export const SlotTaskDetail = (props: SlotTaskDetailProps) => {
   const { state, settings, onRetry, onOpenSettings } = props;
-  if (state.status === "closed") {
+  const isClosed = state.status === "closed";
+  const isLoading = state.status === "loading";
+  const isError = state.status === "error";
+  if (isClosed) {
     return null;
   }
-  if (state.status === "loading") {
+  if (isLoading) {
     return <p className="subtasks-note muted">読んでいます</p>;
   }
-  if (state.status === "error") {
+  if (isError) {
     const isSettingsAction = state.failure.action === "settings";
     return (
       <div className="message message-error" role="alert">
