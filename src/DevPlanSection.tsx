@@ -25,15 +25,27 @@ const EntryRow = (props: { entry: DevPlanEntry }) => {
   );
 };
 
+const ClosedRow = (props: { issue: RepoIssue }) => {
+  const { issue } = props;
+  const issueLine = toIssueLine(issue);
+  return (
+    <li className="dev-row">
+      <span className="dev-issue">{issueLine}</span>
+    </li>
+  );
+};
+
 const RepoPlan = (props: { plan: DevRepoPlan }) => {
   const { plan } = props;
-  if (plan.kind === "error") {
+  const isError = plan.kind === "error";
+  if (isError) {
+    const failureHint = getRepoFailureHint(plan.failure, plan.repo);
     return (
       <div className="panel dev-repo">
         <p className="project-group">{plan.repo}</p>
         <div className="dev-error" role="alert">
           <p>読めませんでした。{plan.failure.reason}</p>
-          <p className="muted">{getRepoFailureHint(plan.failure, plan.repo)}</p>
+          <p className="muted">{failureHint}</p>
         </div>
       </div>
     );
@@ -56,9 +68,7 @@ const RepoPlan = (props: { plan: DevRepoPlan }) => {
       {hasClosed ? (
         <ul className="dev-list">
           {plan.closed.map((issue) => (
-            <li key={issue.number} className="dev-row">
-              <span className="dev-issue">{toIssueLine(issue)}</span>
-            </li>
+            <ClosedRow key={issue.number} issue={issue} />
           ))}
         </ul>
       ) : (
@@ -75,7 +85,8 @@ const RepoPlan = (props: { plan: DevRepoPlan }) => {
  */
 export const DevPlanSection = (props: { plan: DevPlanState }) => {
   const { plan } = props;
-  if (plan.status === "idle") {
+  const isIdle = plan.status === "idle";
+  if (isIdle) {
     return null;
   }
   return (
