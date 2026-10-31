@@ -17,6 +17,8 @@ export type InboxItem =
       title: string;
       /** 「## 回答」に書いてあり、整理ループの反映を待っている。 */
       answered: boolean;
+      /** frontmatter の `project`。`projects/<slug>.md` と対応する。 */
+      projectSlug: string | undefined;
       projectName: string | undefined;
       created: string | undefined;
     }
@@ -24,6 +26,7 @@ export type InboxItem =
       kind: "task";
       id: string;
       title: string;
+      projectSlug: string | undefined;
       projectName: string | undefined;
       created: string | undefined;
     };
@@ -36,20 +39,20 @@ export type InboxGroup = {
   items: InboxItem[];
 };
 
-// union の各型から project 名を外す。`Omit<InboxItem, ...>` だと共通のキーだけが残る。
-type WithoutProjectName<T> = T extends unknown ? Omit<T, "projectName"> : never;
+// union の各型から project を外す。`Omit<InboxItem, ...>` だと共通のキーだけが残る。
+type WithoutProject<T> = T extends unknown ? Omit<T, "projectSlug" | "projectName"> : never;
 
 /** project の無いものの見出し。 */
 export const NO_PROJECT_LABEL = "プロジェクトなし";
 
 /**
- * 1 件のタスクのファイルを受信箱の 1 件にする。project 名はまだ付けない。
+ * 1 件のタスクのファイルを受信箱の 1 件にする。project はまだ付けない。
  *
  * @param id - task ID。
  * @param text - `tasks/<id>.md` の全体。
  * @returns 受信箱に出さないものは undefined。
  */
-export const toInboxItem = (id: string, text: string): WithoutProjectName<InboxItem> | undefined => {
+export const toInboxItem = (id: string, text: string): WithoutProject<InboxItem> | undefined => {
   const created = readFrontmatterValue(text, "created");
   const questionTitle = openQuestionTitle(text);
   if (questionTitle !== undefined) {
@@ -87,6 +90,16 @@ export const groupInboxByProject = (items: readonly InboxItem[]): InboxGroup[] =
     items: items.filter((item) => item.projectName === projectName).sort(compareItems),
   }));
 };
+
+/**
+ * 1 つのプロジェクトのタスクと質問を選ぶ。並びは `groupInboxByProject` の見出しの中と同じ。
+ *
+ * @param items - 受信箱の全件。
+ * @param slug - `projects/<slug>.md` の slug。
+ * @returns 新しい配列。
+ */
+export const getProjectItems = (items: readonly InboxItem[], slug: string): InboxItem[] =>
+  items.filter((item) => item.projectSlug === slug).sort(compareItems);
 
 /**
  * 前に受信箱を開いた時刻より後に作られたか。
@@ -130,8 +143,9 @@ export const loadInbox = async (list: ListNames, read: ReadText): Promise<InboxI
       if (text === undefined || item === undefined) {
         return undefined;
       }
-      const projectName = await projectNameOf(readFrontmatterValue(text, "project"));
-      return { ...item, projectName };
+      const projectSlug = readFrontmatterValue(text, "project");
+      const projectName = await projectNameOf(projectSlug);
+      return { ...item, projectSlug, projectName };
     }),
   );
   return items.filter((item) => item !== undefined);

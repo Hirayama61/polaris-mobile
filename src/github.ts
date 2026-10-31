@@ -336,7 +336,7 @@ const getRepoJson = async (settings: Settings, repo: string, pathAndQuery: strin
   return response.json();
 };
 
-type IssueEntry = { number: number; title: string; closed_at?: unknown };
+type IssueEntry = { number: number; title: string; closed_at?: unknown; labels?: unknown };
 
 type PullEntry = { head: { ref: string } };
 
@@ -426,4 +426,81 @@ export const listOpenPullHeadRefs = async (settings: Settings, repo: string): Pr
     return [];
   }
   return body.filter(hasHeadRef).map((entry) => entry.head.ref);
+};
+
+/**
+ * 他のリポジトリの open の Issue の 1 件。PR は含めない。
+ */
+export type RepoOpenIssue = { number: number; title: string; labels: string[] };
+
+type MergedPullEntry = { merged_at: string };
+
+const toLabelName = (label: unknown): string | undefined => {
+  if (!isRecord(label)) {
+    return undefined;
+  }
+  const { name } = label;
+  const hasName = typeof name === "string";
+  if (!hasName) {
+    return undefined;
+  }
+  return name;
+};
+
+const getLabelNames = (entry: IssueEntry): string[] => {
+  const { labels } = entry;
+  if (!Array.isArray(labels)) {
+    return [];
+  }
+  return labels.map(toLabelName).filter((name) => name !== undefined);
+};
+
+const toRepoOpenIssue = (entry: IssueEntry): RepoOpenIssue => ({
+  number: entry.number,
+  title: entry.title,
+  labels: getLabelNames(entry),
+});
+
+const hasMergedAt = (entry: unknown): entry is MergedPullEntry => {
+  if (!isRecord(entry)) {
+    return false;
+  }
+  const isMerged = typeof entry.merged_at === "string";
+  return isMerged;
+};
+
+/**
+ * open の Issue をラベル付きで読む。100 件を超える分は読まない。
+ *
+ * @param settings - 接続設定。トークンだけを使う。
+ * @param repo - `owner/name`。
+ * @returns PR を除いた Issue。
+ * @throws GitHubError 読めなかったとき。
+ */
+export const listOpenIssues = async (settings: Settings, repo: string): Promise<RepoOpenIssue[]> => {
+  const body = await getRepoJson(settings, repo, "issues?state=open&per_page=100");
+  if (!Array.isArray(body)) {
+    return [];
+  }
+  return body.filter(isIssueEntry).map(toRepoOpenIssue);
+};
+
+/**
+ * 最近更新された closed の PR のうち、マージされたもののマージ日時を読む。100 件を超える分は読まない。
+ *
+ * @param settings - 接続設定。トークンだけを使う。
+ * @param repo - `owner/name`。
+ * @returns ISO 8601 の日時。期間での絞り込みは呼ぶ側がする。
+ * @throws GitHubError 読めなかったとき。
+ */
+export const listMergedPullDates = async (settings: Settings, repo: string): Promise<string[]> => {
+  const body = await getRepoJson(
+    settings,
+    repo,
+    "pulls?state=closed&sort=updated&direction=desc&per_page=100",
+  );
+  if (!Array.isArray(body)) {
+    return [];
+  }
+  return body.filter(hasMergedAt).map((entry) => entry.merged_at);
 };

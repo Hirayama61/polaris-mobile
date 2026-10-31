@@ -11,6 +11,20 @@ export type InboxLoadState =
   | { status: "error"; failure: Failure };
 
 /**
+ * 読み終えた受信箱の全件を取り出す。
+ *
+ * @param state - 受信箱の読み込みの状態。
+ * @returns 読み終えていなければ undefined。
+ */
+export const getInboxItems = (state: InboxLoadState): InboxItem[] | undefined => {
+  const isReady = state.status === "ready";
+  if (!isReady) {
+    return undefined;
+  }
+  return state.items;
+};
+
+/**
  * 受信箱の全件を読む。`reload` で読み直す。
  *
  * @remarks 書き込みは持たない。タブの「!」のため、受信箱を開く前から App が読む。
