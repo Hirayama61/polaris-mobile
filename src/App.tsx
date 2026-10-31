@@ -15,7 +15,7 @@ import { SettingsScreen } from "./screens/Settings";
 import { TodayScreen } from "./screens/Today";
 import { isConfigured, loadSettings, type Settings, saveSettings } from "./settings";
 import { TasksSheet } from "./TasksSheet";
-import { GearIcon, InboxIcon, MessageIcon, MoonIcon, PenIcon, SunIcon } from "./ui";
+import { type BackTo, GearIcon, InboxIcon, MessageIcon, MoonIcon, PenIcon, SunIcon } from "./ui";
 import { useDaily } from "./useDaily";
 import { getInboxItems, useInbox } from "./useInbox";
 import { useOnline } from "./useOnline";
@@ -88,6 +88,7 @@ export const App = () => {
     setOpenedItem(undefined);
     reloadInbox();
   }, [reloadInbox]);
+  const inboxBackTo: BackTo = { label: INBOX_BACK_LABEL, onBack: closeItem };
   const [isProjectsOpen, setIsProjectsOpen] = useState(false);
   const closeProjects = useCallback(() => setIsProjectsOpen(false), []);
   const [isChangelogOpen, setIsChangelogOpen] = useState(false);
@@ -226,7 +227,7 @@ export const App = () => {
           settings={settings}
           isOnline={isOnline}
           initialQuestion={openedItem}
-          closeLabel={INBOX_BACK_LABEL}
+          backTo={inboxBackTo}
           onClose={closeItem}
           onOpenSettings={openSettings}
         />
@@ -243,7 +244,7 @@ export const App = () => {
         <TasksSheet
           settings={settings}
           initialTask={openedItem}
-          closeLabel={INBOX_BACK_LABEL}
+          backTo={inboxBackTo}
           onClose={closeItem}
           onOpenSettings={openSettings}
         />

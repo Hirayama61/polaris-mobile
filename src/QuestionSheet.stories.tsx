@@ -58,6 +58,6 @@ export const Failed: Story = {
 };
 
 export const FromInbox: Story = {
-  args: { closeLabel: "受信箱に戻る" },
+  args: { backTo: { label: "受信箱に戻る", onBack: () => {} } },
   beforeEach: () => mockGitHub({ [path]: { status: 200, content: question("(未回答)") } }),
 };

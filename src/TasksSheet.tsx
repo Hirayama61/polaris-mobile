@@ -6,7 +6,7 @@ import { toKeyedItems } from "./keys";
 import { addDoubt, type DoubtLine, extractSection, parseDoubts } from "./questions";
 import type { Settings } from "./settings";
 import { completeTask, extractChecklist, type HumanTask, loadHumanTasks, setChecklistItem } from "./tasks";
-import { CloseIcon } from "./ui";
+import { type BackTo, CloseIcon } from "./ui";
 
 type LoadState =
   | { status: "loading" }
@@ -29,8 +29,8 @@ type Props = {
   settings: Settings;
   /** 受信箱でタップしたタスク。詳細から開く。 */
   initialTask: HumanTask;
-  /** 詳細の戻るボタンでシートを閉じ、開いた画面に戻すときの文言。無ければシートの中の一覧に戻る。 */
-  closeLabel?: string;
+  /** 詳細の戻るボタンの文言と行き先。呼び出し側が決める。無ければシートの中の一覧に戻る。 */
+  backTo?: BackTo;
   onClose: () => void;
   onOpenSettings: () => void;
 };
@@ -276,7 +276,7 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
 /**
  * `tasks/*.md` の人の todo を一覧にし、タップで「## あなたがやること」をチェックできるシート。
  */
-export const TasksSheet = ({ settings, initialTask, closeLabel, onClose, onOpenSettings }: Props) => {
+export const TasksSheet = ({ settings, initialTask, backTo, onClose, onOpenSettings }: Props) => {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [selected, setSelected] = useState<HumanTask | undefined>(initialTask);
 
@@ -326,12 +326,11 @@ export const TasksSheet = ({ settings, initialTask, closeLabel, onClose, onOpenS
     };
   }, [onClose]);
 
-  const isBackToOrigin = closeLabel !== undefined;
-  const backLabel = closeLabel ?? "一覧に戻る";
+  const backLabel = backTo?.label ?? "一覧に戻る";
 
   const back = (): void => {
-    if (isBackToOrigin) {
-      onClose();
+    if (backTo !== undefined) {
+      backTo.onBack();
       return;
     }
     setSelected(undefined);

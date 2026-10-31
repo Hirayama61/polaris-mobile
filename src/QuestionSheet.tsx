@@ -3,7 +3,7 @@ import { describeFailure, type Failure } from "./failure";
 import { isConflict, listFileNames, readFile, readText, writeIfUnchanged } from "./github";
 import { collectOpenQuestions, extractSection, type QuestionItem, replaceAnswer } from "./questions";
 import type { Settings } from "./settings";
-import { CloseIcon } from "./ui";
+import { type BackTo, CloseIcon } from "./ui";
 
 type ListState =
   | { status: "loading" }
@@ -28,8 +28,8 @@ type Props = {
   isOnline: boolean;
   /** 受信箱でタップした質問。詳細から開き、一覧は「一覧に戻る」で読む。 */
   initialQuestion: QuestionItem;
-  /** 詳細の戻るボタンでシートを閉じ、開いた画面に戻すときの文言。無ければシートの中の一覧に戻る。 */
-  closeLabel?: string;
+  /** 詳細の戻るボタンの文言と行き先。呼び出し側が決める。無ければシートの中の一覧に戻る。 */
+  backTo?: BackTo;
   onClose: () => void;
   onOpenSettings: () => void;
 };
@@ -73,7 +73,7 @@ export const QuestionSheet = ({
   settings,
   isOnline,
   initialQuestion,
-  closeLabel,
+  backTo,
   onClose,
   onOpenSettings,
 }: Props) => {
@@ -174,15 +174,14 @@ export const QuestionSheet = ({
     loadDetail(item, true);
   };
 
-  const isBackToOrigin = closeLabel !== undefined;
-  const backLabel = closeLabel ?? "一覧に戻る";
+  const backLabel = backTo?.label ?? "一覧に戻る";
 
   const back = (): void => {
     if (isSaving) {
       return;
     }
-    if (isBackToOrigin) {
-      onClose();
+    if (backTo !== undefined) {
+      backTo.onBack();
       return;
     }
     setSelected(undefined);
