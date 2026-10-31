@@ -69,20 +69,18 @@ const toScheduleSlot = (row: ScheduleRow, turns: readonly TurnItem[]): Timetable
  *
  * @param schedule - daily の時間割。
  * @param turns - daily の「あなたの番」。
- * @returns 起床のコマが無ければ先頭に `added-wake` を足す。task id が無いか、どのコマにも無い項目は `unscheduled`。
+ * @returns 起床のコマが無ければ先頭に `added-wake` を足す。どのコマにも結び付かなかった項目は `unscheduled`。
  */
 export const buildTimetable = (schedule: readonly ScheduleRow[], turns: readonly TurnItem[]): Timetable => {
   const scheduleSlots = schedule.map((row) => toScheduleSlot(row, turns));
   const hasWake = scheduleSlots.some((slot) => slot.source === "schedule" && slot.opens.kind === "wake");
   const addedWake: TimetableSlot[] = hasWake ? [] : [{ source: "added-wake" }];
-  const scheduledTaskIds = new Set(
+  // 同じ task id の項目が複数あってもコマに出すのは最初の 1 件なので、結び付けた行だけを除く。
+  const linkedLines = new Set(
     scheduleSlots.flatMap((slot) =>
-      slot.source === "schedule" && slot.taskId !== undefined ? [slot.taskId] : [],
+      slot.source === "schedule" && slot.turn !== undefined ? [slot.turn.line] : [],
     ),
   );
-  const unscheduled = turns.filter((turn) => {
-    const taskId = turnTaskIdOf(turn);
-    return taskId === undefined || !scheduledTaskIds.has(taskId);
-  });
+  const unscheduled = turns.filter((turn) => !linkedLines.has(turn.line));
   return { slots: [...addedWake, ...scheduleSlots], unscheduled };
 };

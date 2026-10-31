@@ -61,6 +61,17 @@ describe("buildTimetable", () => {
     expect(slots[0]).toMatchObject({ opens: { kind: "wake" }, taskId: "20261029-abcd" });
   });
 
+  it("同じ task id の項目が複数あれば、コマに結び付かなかった項目を unscheduled に残す", () => {
+    const read = turn(20, "資料を読む (task: 20261029-abcd)");
+    const answer = turn(21, "回答を書く (task: 20261029-abcd)");
+    const { slots, unscheduled } = buildTimetable(
+      [row(10, "06:30–06:45", "起床"), row(11, "10:00–10:15", "質問 (task: 20261029-abcd)")],
+      [read, answer],
+    );
+    expect(slots[1]).toMatchObject({ turn: read });
+    expect(unscheduled).toEqual([answer]);
+  });
+
   it("task id の合う「あなたの番」が無いコマは turn を持たない", () => {
     const { slots } = buildTimetable([row(10, "10:00–10:15", "請求書 (task: 20261029-abcd)")], []);
     expect(slots[1]).toMatchObject({ source: "schedule", taskId: "20261029-abcd", turn: undefined });
