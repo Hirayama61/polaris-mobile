@@ -1,0 +1,120 @@
+[
+  {
+    "file": "src/screens/Today.tsx",
+    "operation": "今日の画面で「あなたの番」のチェックを切り替え、daily の行を書き換える",
+    "e2e": [
+      {
+        "spec": "e2e/today.spec.ts",
+        "test": "チェックを 1 つ付けると、その行の [ ] だけが [x] になって PUT される"
+      },
+      {
+        "spec": "e2e/today.spec.ts",
+        "test": "task のコマにチェック欄を出し、切り替えると「あなたの番」の行だけが変わる"
+      }
+    ]
+  },
+  {
+    "file": "src/screens/Today.tsx",
+    "operation": "起床のコマで「起きた」を押し、daily の wake_at を書く",
+    "e2e": [
+      {
+        "spec": "e2e/today.spec.ts",
+        "test": "起床のコマを開いて「起きた」を押すと、wake_at の行だけが変わる"
+      }
+    ]
+  },
+  {
+    "file": "src/screens/Today.tsx",
+    "operation": "時間割の「実績」のセルを書く",
+    "e2e": [],
+    "pending": true
+  },
+  {
+    "file": "src/screens/useSlotSave.ts",
+    "operation": "時間割のコマを直す",
+    "e2e": [
+      {
+        "spec": "e2e/today.spec.ts",
+        "test": "コマを直すと、その行の時刻・やること・誰だけが変わって PUT される"
+      },
+      { "spec": "e2e/today.spec.ts", "test": "時刻を空にして保存すると、その場で知らせて PUT しない" }
+    ]
+  },
+  {
+    "file": "src/screens/useSlotSave.ts",
+    "operation": "時間割にコマを足す",
+    "e2e": [{ "spec": "e2e/today.spec.ts", "test": "コマを足すと、時刻の順の位置に 1 行だけ入る" }]
+  },
+  {
+    "file": "src/screens/useSlotSave.ts",
+    "operation": "時間割のコマを消す",
+    "e2e": [{ "spec": "e2e/today.spec.ts", "test": "コマを消すと、その行だけがなくなる" }]
+  },
+  {
+    "file": "src/TaskChecklist.tsx",
+    "operation": "タスクのチェックリストの項目を切り替え、tasks のファイルを書き換える",
+    "e2e": [],
+    "pending": true
+  },
+  {
+    "file": "src/TasksSheet.tsx",
+    "operation": "タスクのシートで項目のチェック、完了、疑問点を tasks のファイルに書く",
+    "e2e": [],
+    "pending": true
+  },
+  {
+    "file": "src/QuestionSheet.tsx",
+    "operation": "質問のシートで回答を書き、tasks のファイルを書き換える",
+    "e2e": [],
+    "pending": true
+  },
+  {
+    "file": "src/screens/Night.tsx",
+    "operation": "夜の画面で振り返りを保存し、daily の「振り返り」と review_at を書く",
+    "e2e": [],
+    "pending": true
+  },
+  {
+    "file": "src/screens/Night.tsx",
+    "operation": "夜の画面で日記を保存し、journal に足す",
+    "e2e": [{ "spec": "e2e/night.spec.ts", "test": "日記を保存すると、投稿の一覧を読み直す" }]
+  },
+  {
+    "file": "src/PostField.tsx",
+    "operation": "「いまのこと」を送り、journal に投稿を足す",
+    "e2e": [
+      {
+        "spec": "e2e/night.spec.ts",
+        "test": "夜の画面で送った投稿は、送り終えると入力欄を空にし、一覧に出る"
+      }
+    ]
+  },
+  {
+    "file": "src/useBlogSave.ts",
+    "operation": "ブログの記事の「## 一言」を保存する",
+    "e2e": [
+      { "spec": "e2e/blog.spec.ts", "test": "記事を段階つきで並べ、outline の一言だけを書き換えて保存する" }
+    ]
+  },
+  {
+    "file": "src/useBlogSave.ts",
+    "operation": "draft に URL を入れて公開済みにする",
+    "e2e": [{ "spec": "e2e/blog.spec.ts", "test": "draft に URL を入れて公開済みにする" }]
+  },
+  {
+    "file": "src/screens/useBlogIdea.ts",
+    "operation": "ブログのアイデアを writing/blog/ideas/ に新しく作る",
+    "e2e": [
+      {
+        "spec": "e2e/blog.spec.ts",
+        "test": "アイデアを書くと ideas に書いたままのファイルを作り、構成待ちで並べる"
+      }
+    ]
+  },
+  {
+    "file": "src/FeedbackSheet.tsx",
+    "operation": "要望シートから inbox/ に新しいメモを作る",
+    "e2e": [],
+    "pending": true
+  }
+]

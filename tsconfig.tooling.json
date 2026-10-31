@@ -3,5 +3,5 @@
   "compilerOptions": {
     "types": ["node", "vite/client"]
   },
-  "include": [".storybook/*.ts", "e2e", "vrt", "playwright.config.ts", "playwright.vrt.config.ts"]
+  "include": [".storybook/*.ts", "e2e", "scripts", "vrt", "playwright.config.ts", "playwright.vrt.config.ts"]
 }
