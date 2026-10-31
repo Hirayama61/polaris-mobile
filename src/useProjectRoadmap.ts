@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { describeFailure } from "./failure";
 import { listIssuesClosedSince, listMergedPullDates, listOpenIssues } from "./github";
 import type { ProjectSummary } from "./projects";
@@ -55,35 +55,65 @@ export const loadProjectRoadmap = async (
 };
 
 /**
- * 選んだプロジェクトが連携プロジェクトなら、その進み具合を GitHub から読む。
- *
- * @param settings - 接続設定。トークンだけを使う。
- * @param project - 選んだプロジェクト。一覧を出しているときは undefined。
- * @returns 読み込みの状態。
+ * 1 つのリポジトリの進み具合を読む関数。テストで差し替える。
  */
-export const useProjectRoadmap = (
-  settings: Settings,
-  project: ProjectSummary | undefined,
-): ProjectRoadmapState => {
-  const [state, setState] = useState<ProjectRoadmapState>({ status: "idle" });
-  const repo = getRoadmapRepo(project);
+export type LoadRoadmap = (settings: Settings, repo: string, now: Date) => Promise<ProjectRoadmap>;
 
-  useEffect(() => {
+/**
+ * 進み具合の要求を出す口。
+ */
+export type RoadmapRequests = {
+  /** 選んだプロジェクトの進み具合を読み始める。連携していなければ `idle` にする。 */
+  load: (settings: Settings, project: ProjectSummary) => void;
+  /** 一覧に戻ったときに `idle` にする。読み途中の応答は捨てる。 */
+  reset: () => void;
+};
+
+/**
+ * 進み具合の要求を出し、最後に出した要求の応答だけを `onChange` に渡す。
+ *
+ * @remarks 選び直しや一覧に戻った後に、前の要求の応答で上書きしないため、要求ごとに番号を振る。
+ * @param onChange - 読み込みの状態を受け取る関数。
+ * @param loadRoadmap - 進み具合を読む関数。
+ * @returns 要求を出す口。
+ */
+export const createRoadmapRequests = (
+  onChange: (state: ProjectRoadmapState) => void,
+  loadRoadmap: LoadRoadmap = loadProjectRoadmap,
+): RoadmapRequests => {
+  let latest = 0;
+  const load = (settings: Settings, project: ProjectSummary): void => {
+    latest += 1;
+    const requestId = latest;
+    const repo = getRoadmapRepo(project);
     if (repo === undefined) {
-      setState({ status: "idle" });
-      return undefined;
+      onChange({ status: "idle" });
+      return;
     }
-    let isCancelled = false;
-    setState({ status: "loading" });
-    void loadProjectRoadmap(settings, repo, new Date()).then((roadmap) => {
-      if (!isCancelled) {
-        setState({ status: "ready", roadmap });
+    onChange({ status: "loading" });
+    void loadRoadmap(settings, repo, new Date()).then((roadmap) => {
+      const isLatest = requestId === latest;
+      if (isLatest) {
+        onChange({ status: "ready", roadmap });
       }
     });
-    return () => {
-      isCancelled = true;
-    };
-  }, [settings, repo]);
+  };
+  const reset = (): void => {
+    latest += 1;
+    onChange({ status: "idle" });
+  };
+  return { load, reset };
+};
 
-  return state;
+/**
+ * プロジェクトの進み具合の読み込みの状態と、要求を出す口。
+ *
+ * @remarks 取得はプロジェクトを選ぶハンドラが `load` で始める。この hook は自分から読まない。
+ * @returns 読み込みの状態と、`load` と `reset`。
+ */
+export const useProjectRoadmap = (): { state: ProjectRoadmapState } & RoadmapRequests => {
+  const [state, setState] = useState<ProjectRoadmapState>({ status: "idle" });
+  // setState は描画をまたいで同じなので、口も最初の 1 つを使い続ける。
+  const [requests] = useState(() => createRoadmapRequests(setState));
+  return { state, ...requests };
 };

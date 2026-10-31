@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import type { ProjectSummary } from "./projects";
+import type { ProjectRoadmap } from "./roadmap";
 import { defaultSettings } from "./settings";
-import { loadProjectRoadmap } from "./useProjectRoadmap";
+import { createRoadmapRequests, loadProjectRoadmap, type ProjectRoadmapState } from "./useProjectRoadmap";
 
 const settings = { ...defaultSettings, token: "test-token" };
 // 東京の 2026-10-31 22:00。直近 14 日は 10-18 から。
@@ -67,5 +69,82 @@ describe("loadProjectRoadmap", () => {
     stubGitHub({});
     const roadmap = await loadProjectRoadmap(settings, "o/missing", now);
     expect(roadmap).toMatchObject({ kind: "error", repo: "o/missing" });
+  });
+});
+
+const project = (overrides: Partial<ProjectSummary>): ProjectSummary => ({
+  slug: "polaris",
+  name: "Polaris",
+  isRetired: false,
+  status: "active",
+  kind: "code",
+  github: "o/a",
+  body: "",
+  ...overrides,
+});
+
+const roadmapOf = (repo: string): ProjectRoadmap => ({
+  kind: "ready",
+  repo,
+  open: [],
+  closed: [],
+  merged: [],
+});
+
+// 呼ばれた順に応答を保留し、テストから任意の順で返す。
+const deferredLoader = () => {
+  const pending: { repo: string; resolve: (roadmap: ProjectRoadmap) => void }[] = [];
+  const loadRoadmap = vi.fn(
+    (_settings: unknown, repo: string) =>
+      new Promise<ProjectRoadmap>((resolve) => {
+        pending.push({ repo, resolve });
+      }),
+  );
+  return { loadRoadmap, pending };
+};
+
+describe("createRoadmapRequests", () => {
+  it("連携プロジェクトを選ぶと loading にしてから、読んだ進み具合で ready にする", async () => {
+    const states: ProjectRoadmapState[] = [];
+    const { loadRoadmap, pending } = deferredLoader();
+    const requests = createRoadmapRequests((state) => states.push(state), loadRoadmap);
+    requests.load(settings, project({}));
+    expect(states).toEqual([{ status: "loading" }]);
+    expect(loadRoadmap).toHaveBeenCalledWith(settings, "o/a", expect.any(Date));
+    pending[0]?.resolve(roadmapOf("o/a"));
+    await Promise.resolve();
+    expect(states.at(-1)).toEqual({ status: "ready", roadmap: roadmapOf("o/a") });
+  });
+
+  it("連携していないプロジェクトを選ぶと読まずに idle にする", () => {
+    const states: ProjectRoadmapState[] = [];
+    const { loadRoadmap } = deferredLoader();
+    const requests = createRoadmapRequests((state) => states.push(state), loadRoadmap);
+    requests.load(settings, project({ github: undefined }));
+    expect(states).toEqual([{ status: "idle" }]);
+    expect(loadRoadmap).not.toHaveBeenCalled();
+  });
+
+  it("選び直したら、前の要求の応答が後から届いても上書きしない", async () => {
+    const states: ProjectRoadmapState[] = [];
+    const { loadRoadmap, pending } = deferredLoader();
+    const requests = createRoadmapRequests((state) => states.push(state), loadRoadmap);
+    requests.load(settings, project({ github: "o/a" }));
+    requests.load(settings, project({ slug: "b", github: "o/b" }));
+    pending[1]?.resolve(roadmapOf("o/b"));
+    pending[0]?.resolve(roadmapOf("o/a"));
+    await Promise.resolve();
+    expect(states.at(-1)).toEqual({ status: "ready", roadmap: roadmapOf("o/b") });
+  });
+
+  it("一覧に戻った後に届いた応答は捨てて idle のままにする", async () => {
+    const states: ProjectRoadmapState[] = [];
+    const { loadRoadmap, pending } = deferredLoader();
+    const requests = createRoadmapRequests((state) => states.push(state), loadRoadmap);
+    requests.load(settings, project({}));
+    requests.reset();
+    pending[0]?.resolve(roadmapOf("o/a"));
+    await Promise.resolve();
+    expect(states).toEqual([{ status: "loading" }, { status: "idle" }]);
   });
 });

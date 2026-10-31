@@ -177,8 +177,18 @@ export const ProjectsSheet = ({ settings, inboxItems, onClose, onOpenSettings }:
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [selected, setSelected] = useState<ProjectSummary | undefined>(undefined);
   const devPlan = useDevPlan(settings, getLoadedProjects(load));
-  const roadmap = useProjectRoadmap(settings, selected);
+  const roadmap = useProjectRoadmap();
   const isListing = selected === undefined;
+
+  const selectProject = (project: ProjectSummary): void => {
+    setSelected(project);
+    roadmap.load(settings, project);
+  };
+
+  const backToList = (): void => {
+    setSelected(undefined);
+    roadmap.reset();
+  };
 
   const fetchProjects = useCallback(() => {
     if (settings.token === "") {
@@ -238,7 +248,7 @@ export const ProjectsSheet = ({ settings, inboxItems, onClose, onOpenSettings }:
               type="button"
               className="icon-button sheet-back"
               aria-label="一覧に戻る"
-              onClick={() => setSelected(undefined)}
+              onClick={backToList}
             >
               <span className="back-chevron" aria-hidden="true" />
             </button>
@@ -254,7 +264,7 @@ export const ProjectsSheet = ({ settings, inboxItems, onClose, onOpenSettings }:
         {isListing && <DevPlanSection plan={devPlan} />}
 
         {selected !== undefined ? (
-          <ProjectDetail project={selected} roadmap={roadmap} inboxItems={inboxItems} />
+          <ProjectDetail project={selected} roadmap={roadmap.state} inboxItems={inboxItems} />
         ) : settings.token === "" ? (
           <div className="message message-error" role="alert">
             <p>トークンが未設定です。</p>
@@ -292,7 +302,7 @@ export const ProjectsSheet = ({ settings, inboxItems, onClose, onOpenSettings }:
                 <button
                   type="button"
                   className={project.isRetired ? "project-row project-retired" : "project-row"}
-                  onClick={() => setSelected(project)}
+                  onClick={() => selectProject(project)}
                 >
                   <span className="turn-line">{project.name}</span>
                   <span className="project-chevron" aria-hidden="true" />
