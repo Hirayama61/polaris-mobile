@@ -9,6 +9,8 @@ import {
   extractTurns,
   extractWakeAt,
   findSameScheduleRow,
+  getCheckedTurns,
+  getDoneScheduleRows,
   hasChangedScheduleRow,
   insertScheduleRow,
   isScheduleTime,
@@ -126,6 +128,34 @@ describe("extractTurns", () => {
   it("他の節のチェックボックスは拾わない", () => {
     const text = `${fixture}\n## おまけ\n- [ ] 拾わない\n`;
     expect(extractTurns(text)).toHaveLength(2);
+  });
+});
+
+describe("getDoneScheduleRows", () => {
+  it("実績のセルに文字がある行だけを返す", () => {
+    expect(getDoneScheduleRows(fixtureWithActual)).toEqual([
+      { line: 11, time: "09:00–18:00", what: "仕事", who: "", actual: "10:00 から" },
+    ]);
+  });
+
+  it("空白だけのセルは書いていないものとみなす", () => {
+    const text = fixtureWithActual.replace("| あなた | |", "| あなた |   |");
+    expect(getDoneScheduleRows(text).map((row) => row.what)).toEqual(["仕事"]);
+  });
+
+  it("「実績」列が無い daily では空配列を返す", () => {
+    expect(getDoneScheduleRows(fixture)).toEqual([]);
+  });
+});
+
+describe("getCheckedTurns", () => {
+  it("チェック済みの項目だけを返す", () => {
+    const text = fixture.replace("- [ ] 小説の構想", "- [x] 小説の構想");
+    expect(getCheckedTurns(text)).toEqual([{ line: 14, isChecked: true, label: "小説の構想を音声で入れる" }]);
+  });
+
+  it("チェックが 1 つも無ければ空配列を返す", () => {
+    expect(getCheckedTurns(fixture)).toEqual([]);
   });
 });
 

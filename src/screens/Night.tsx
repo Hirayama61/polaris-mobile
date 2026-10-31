@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { formatTokyoIso } from "../clock";
-import { createMinimalDaily, extractReview, extractReviewAt, setReview, setReviewAt } from "../daily";
+import {
+  createMinimalDaily,
+  extractReview,
+  extractReviewAt,
+  getCheckedTurns,
+  getDoneScheduleRows,
+  setReview,
+  setReviewAt,
+} from "../daily";
 import { loadDraft, nightDraftKeys, remainingAfterSave, removeDraft, saveDraft } from "../drafts";
 import { describeFailure, type Failure } from "../failure";
 import { readFile, updateFile } from "../github";
@@ -72,6 +80,11 @@ const usePosts = (settings: Settings, date: string, reloadKey: number): PostsSta
 export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }: Props) => {
   const { state } = daily;
   const existingReview = state.status === "ready" ? extractReview(state.content) : "";
+  const dailyContent = state.status === "ready" ? state.content : "";
+  const doneRows = getDoneScheduleRows(dailyContent);
+  const checkedTurns = getCheckedTurns(dailyContent);
+  const isDoneVisible = state.status === "ready" || state.status === "missing";
+  const hasDone = doneRows.length > 0 || checkedTurns.length > 0;
   // 日付が変わったら App が key で作り直すので、鍵はマウント時の date のままでよい。
   const { review: reviewKey, journal: journalKey } = nightDraftKeys(date);
   const [review, setReviewDraft] = useState(() => loadDraft(reviewKey) ?? existingReview);
@@ -194,6 +207,36 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         </section>
       )}
 
+      {isDoneVisible && (
+        <section className="section" aria-labelledby="done-title">
+          <div className="section-head">
+            <h2 id="done-title" className="section-title">
+              今日やったこと
+            </h2>
+          </div>
+          {!hasDone && <p className="panel panel-empty muted">今日の記録はまだありません。</p>}
+          {hasDone && (
+            <ul className="panel done">
+              {toKeyedItems(doneRows, (row) => `${row.time} ${row.what}`).map(({ key, item: row }) => (
+                <li key={key} className="done-item">
+                  <span className="done-time">{row.time}</span>
+                  <span className="done-text">
+                    {row.what}
+                    <span className="done-actual">{row.actual}</span>
+                  </span>
+                </li>
+              ))}
+              {toKeyedItems(checkedTurns, (turn) => turn.label).map(({ key, item: turn }) => (
+                <li key={`turn-${key}`} className="done-item">
+                  <span className="done-time">✓</span>
+                  <span className="done-text">{turn.label}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
       <section className="section">
         <label className="field">
           <span className="section-head">
@@ -211,7 +254,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             readOnly={save.status === "saving"}
             rows={6}
             value={review}
-            placeholder="できたこと、明日に回すこと"
+            placeholder="上のやったことを見て、できたこと・明日に回すこと"
             onChange={(event) => {
               setHasEditedReview(true);
               setReviewDraft(event.target.value);

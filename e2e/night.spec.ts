@@ -55,3 +55,43 @@ test("夜の画面で送った投稿は、送り終えると入力欄を空に�
   await expect(field).toHaveValue("");
   await expect(page.getByRole("region", { name: "今日の投稿" }).getByText("夕日がきれい")).toBeVisible();
 });
+
+const dailyWithDone = `---
+date: ${date}
+plan_at: ${date}T06:00:00+09:00
+review_at:
+---
+
+## 今日の時間割
+| 時刻 | やること | 誰 | 実績 |
+| --- | --- | --- | --- |
+| 07:00–07:30 | 散歩 | あなた | |
+| 09:00–18:00 | 仕事 | | 10:00 から |
+
+## あなたの番 (3 つまで)
+- [x] 小説の構想を音声で入れる
+- [ ] 散歩
+
+## 振り返り (夜に書く)
+`;
+
+test("振り返りの上に、実績を書いたコマとチェックした「あなたの番」を並べる", async ({ page }) => {
+  await configure(page);
+  await mockGitHub(page, new Map([[`daily/${date}.md`, dailyWithDone]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "夜" }).click();
+  const done = page.getByRole("region", { name: "今日やったこと" });
+  await expect(done.getByRole("listitem")).toHaveCount(2);
+  await expect(done.getByText("10:00 から")).toBeVisible();
+  await expect(done.getByText("小説の構想を音声で入れる")).toBeVisible();
+  await expect(done.getByText("散歩")).toHaveCount(0);
+});
+
+test("daily が無ければ、今日の記録はまだないと出す", async ({ page }) => {
+  await configure(page);
+  await mockGitHub(page, new Map());
+  await page.goto("./");
+  await page.getByRole("button", { name: "夜" }).click();
+  const done = page.getByRole("region", { name: "今日やったこと" });
+  await expect(done.getByText("今日の記録はまだありません。")).toBeVisible();
+});

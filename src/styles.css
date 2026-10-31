@@ -540,6 +540,37 @@ a {
   border-top: 1px solid var(--border);
 }
 
+/* ---------- 今日やったこと ---------- */
+.done-item {
+  display: grid;
+  grid-template-columns: 6.4em minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px 16px;
+}
+
+.done-time {
+  color: var(--text-2);
+  font-size: 13px;
+  line-height: 1.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.done-text {
+  font-size: 15px;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.done-actual {
+  display: block;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+.done .done-item + .done-item {
+  border-top: 1px solid var(--border);
+}
+
 /* ---------- 時間割 ---------- */
 .slot {
   position: relative;
