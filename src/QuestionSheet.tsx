@@ -28,6 +28,8 @@ type Props = {
   isOnline: boolean;
   /** 受信箱でタップした質問。詳細から開き、一覧は「一覧に戻る」で読む。 */
   initialQuestion: QuestionItem;
+  /** 詳細の戻るボタンでシートを閉じ、開いた画面に戻すときの文言。無ければシートの中の一覧に戻る。 */
+  closeLabel?: string;
   onClose: () => void;
   onOpenSettings: () => void;
 };
@@ -67,7 +69,14 @@ const ErrorMessage = ({
  * 保存できたら一覧に戻して読み直す。失敗したときは書いた回答を残すため詳細に留める。
  * 保存中だけは閉じさせない。閉じると保存の結果を見ずに同じ回答を書き直せてしまうため。
  */
-export const QuestionSheet = ({ settings, isOnline, initialQuestion, onClose, onOpenSettings }: Props) => {
+export const QuestionSheet = ({
+  settings,
+  isOnline,
+  initialQuestion,
+  closeLabel,
+  onClose,
+  onOpenSettings,
+}: Props) => {
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [selected, setSelected] = useState<QuestionItem | undefined>(initialQuestion);
   const [detail, setDetail] = useState<DetailState>({ status: "loading" });
@@ -165,8 +174,15 @@ export const QuestionSheet = ({ settings, isOnline, initialQuestion, onClose, on
     loadDetail(item, true);
   };
 
+  const isBackToOrigin = closeLabel !== undefined;
+  const backLabel = closeLabel ?? "一覧に戻る";
+
   const back = (): void => {
     if (isSaving) {
+      return;
+    }
+    if (isBackToOrigin) {
+      onClose();
       return;
     }
     setSelected(undefined);
@@ -292,7 +308,7 @@ export const QuestionSheet = ({ settings, isOnline, initialQuestion, onClose, on
               disabled={isSaving}
               onClick={back}
             >
-              一覧に戻る
+              {backLabel}
             </button>
 
             {detail.status === "loading" && (

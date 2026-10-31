@@ -32,6 +32,9 @@ const screenLabels = {
   settings: "設定",
 } satisfies Record<Screen, string>;
 
+/** 受信箱から開いたシートの戻るボタンの文言。押すとシートを閉じて受信箱に戻る。 */
+const INBOX_BACK_LABEL = `${screenLabels.inbox}に戻る`;
+
 const screenIcons = {
   today: <SunIcon />,
   inbox: <InboxIcon />,
@@ -223,6 +226,7 @@ export const App = () => {
           settings={settings}
           isOnline={isOnline}
           initialQuestion={openedItem}
+          closeLabel={INBOX_BACK_LABEL}
           onClose={closeItem}
           onOpenSettings={openSettings}
         />
@@ -239,6 +243,7 @@ export const App = () => {
         <TasksSheet
           settings={settings}
           initialTask={openedItem}
+          closeLabel={INBOX_BACK_LABEL}
           onClose={closeItem}
           onOpenSettings={openSettings}
         />

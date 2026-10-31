@@ -56,3 +56,8 @@ export const Missing: Story = {
 export const Failed: Story = {
   beforeEach: () => mockGitHub({ [path]: { status: 500 } }),
 };
+
+export const FromInbox: Story = {
+  args: { closeLabel: "受信箱に戻る" },
+  beforeEach: () => mockGitHub({ [path]: { status: 200, content: question("(未回答)") } }),
+};

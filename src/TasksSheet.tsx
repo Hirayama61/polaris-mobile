@@ -29,6 +29,8 @@ type Props = {
   settings: Settings;
   /** 受信箱でタップしたタスク。詳細から開く。 */
   initialTask: HumanTask;
+  /** 詳細の戻るボタンでシートを閉じ、開いた画面に戻すときの文言。無ければシートの中の一覧に戻る。 */
+  closeLabel?: string;
   onClose: () => void;
   onOpenSettings: () => void;
 };
@@ -274,7 +276,7 @@ const TaskDetail = ({ settings, task, onCompleted, onOpenSettings }: DetailProps
 /**
  * `tasks/*.md` の人の todo を一覧にし、タップで「## あなたがやること」をチェックできるシート。
  */
-export const TasksSheet = ({ settings, initialTask, onClose, onOpenSettings }: Props) => {
+export const TasksSheet = ({ settings, initialTask, closeLabel, onClose, onOpenSettings }: Props) => {
   const [load, setLoad] = useState<LoadState>({ status: "loading" });
   const [selected, setSelected] = useState<HumanTask | undefined>(initialTask);
 
@@ -324,6 +326,17 @@ export const TasksSheet = ({ settings, initialTask, onClose, onOpenSettings }: P
     };
   }, [onClose]);
 
+  const isBackToOrigin = closeLabel !== undefined;
+  const backLabel = closeLabel ?? "一覧に戻る";
+
+  const back = (): void => {
+    if (isBackToOrigin) {
+      onClose();
+      return;
+    }
+    setSelected(undefined);
+  };
+
   const handleCompleted = (id: string): void => {
     setSelected(undefined);
     setLoad((current) =>
@@ -339,12 +352,7 @@ export const TasksSheet = ({ settings, initialTask, onClose, onOpenSettings }: P
       <div className="sheet" role="dialog" aria-modal="true" aria-labelledby="tasks-title">
         <div className="sheet-head">
           {selected !== undefined && (
-            <button
-              type="button"
-              className="icon-button sheet-back"
-              aria-label="一覧に戻る"
-              onClick={() => setSelected(undefined)}
-            >
+            <button type="button" className="icon-button sheet-back" aria-label={backLabel} onClick={back}>
               <span className="back-chevron" aria-hidden="true" />
             </button>
           )}
