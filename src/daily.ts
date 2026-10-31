@@ -277,8 +277,9 @@ export const setScheduleRow = (text: string, line: number, time: string, what: s
   const indent = target.slice(0, pipes[0] ?? 0);
   const head = toTableLine([time, toCellValue(what), SCHEDULE_WHO_MINE]);
   const rest = restOfRow(target, pipes[3]);
-  const replaced = `${indent}${head}${rest}`;
-  return lines.map((current, index) => (index === line ? replaced : current)).join("\n");
+  const next = [...lines];
+  next[line] = `${indent}${head}${rest}`;
+  return next.join("\n");
 };
 
 // 3 番目の `|` から後ろ。無ければ空。
@@ -313,6 +314,43 @@ export const findSameScheduleRow = (text: string, row: ScheduleRow): ScheduleRow
  */
 export const countSameScheduleRow = (text: string, row: ScheduleRow): number =>
   extractSchedule(text).filter((candidate) => isSameRow(candidate, row)).length;
+
+/**
+ * 消す操作が、押したときの daily に対してもう書けているかを判定する。応答を受け取れずに押し直したときに使う。
+ *
+ * @param base - 押したときの daily。
+ * @param current - いまの daily。
+ * @param row - 開いたときの行。
+ * @returns 同じ中身の行と表の行の両方が押したときより減っていれば true。他の更新で中身が変わっただけなら false。
+ */
+export const hasRemovedScheduleRow = (base: string, current: string, row: ScheduleRow): boolean => {
+  const hasFewerSame = countSameScheduleRow(current, row) < countSameScheduleRow(base, row);
+  const hasFewerRows = extractSchedule(current).length < extractSchedule(base).length;
+  return hasFewerSame && hasFewerRows;
+};
+
+/**
+ * 直す操作が、押したときの daily に対してもう書けているかを判定する。応答を受け取れずに押し直したときに使う。
+ *
+ * @param base - 押したときの daily。
+ * @param current - いまの daily。
+ * @param row - 開いたときの行。
+ * @param time - 直した後の時刻。
+ * @param what - 直した後のやること。
+ * @returns 元の中身の行が減り、直した後の中身の行が増えていれば true。他の更新で中身が変わっただけなら false。
+ */
+export const hasChangedScheduleRow = (
+  base: string,
+  current: string,
+  row: ScheduleRow,
+  time: string,
+  what: string,
+): boolean => {
+  const changed: ScheduleRow = { ...row, time, what: toCellValue(what), who: SCHEDULE_WHO_MINE };
+  const hasFewerOld = countSameScheduleRow(current, row) < countSameScheduleRow(base, row);
+  const hasMoreNew = countSameScheduleRow(current, changed) > countSameScheduleRow(base, changed);
+  return hasFewerOld && hasMoreNew;
+};
 
 const startOf = (time: string): string => time.split("–")[0]?.trim() ?? "";
 

@@ -9,6 +9,8 @@ import {
   extractTurns,
   extractWakeAt,
   findSameScheduleRow,
+  hasChangedScheduleRow,
+  hasRemovedScheduleRow,
   insertScheduleRow,
   isScheduleTime,
   parseDaily,
@@ -431,6 +433,35 @@ describe("countSameScheduleRow", () => {
     expect(countSameScheduleRow(twice, walk)).toBe(2);
     expect(countSameScheduleRow(removeScheduleRow(twice, walk.line), walk)).toBe(1);
     expect(countSameScheduleRow(setScheduleActual(fixtureWithActual, walk.line, "した"), walk)).toBe(0);
+  });
+});
+
+describe("hasRemovedScheduleRow と hasChangedScheduleRow", () => {
+  const [walk] = extractSchedule(fixtureWithActual);
+
+  it("前の 1 回が書けていれば true を返す", () => {
+    expect(walk).toBeDefined();
+    if (walk === undefined) {
+      return;
+    }
+    const removed = removeScheduleRow(fixtureWithActual, walk.line);
+    expect(hasRemovedScheduleRow(fixtureWithActual, removed, walk)).toBe(true);
+    const changed = setScheduleRow(fixtureWithActual, walk.line, "07:10–07:40", "散歩 | 長め");
+    expect(hasChangedScheduleRow(fixtureWithActual, changed, walk, "07:10–07:40", "散歩 | 長め")).toBe(true);
+  });
+
+  it("他の更新で中身が変わっただけなら false を返す", () => {
+    expect(walk).toBeDefined();
+    if (walk === undefined) {
+      return;
+    }
+    const otherActual = setScheduleActual(fixtureWithActual, walk.line, "した");
+    expect(hasRemovedScheduleRow(fixtureWithActual, otherActual, walk)).toBe(false);
+    expect(hasChangedScheduleRow(fixtureWithActual, otherActual, walk, "07:10–07:40", "散歩")).toBe(false);
+    expect(hasRemovedScheduleRow(fixtureWithActual, fixtureWithActual, walk)).toBe(false);
+    expect(hasChangedScheduleRow(fixtureWithActual, fixtureWithActual, walk, "07:10–07:40", "散歩")).toBe(
+      false,
+    );
   });
 });
 

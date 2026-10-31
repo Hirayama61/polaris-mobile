@@ -1,8 +1,9 @@
 import { type FormEvent, type PropsWithChildren, useEffect, useRef, useState } from "react";
 import {
-  countSameScheduleRow,
   countSameScheduleRows,
   findSameScheduleRow,
+  hasChangedScheduleRow,
+  hasRemovedScheduleRow,
   insertScheduleRow,
   removeScheduleRow,
   type ScheduleRow,
@@ -299,13 +300,7 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
     daily.reload();
     onClose();
   };
-  const sameRowLine = (current: string, base: string): number => {
-    // 応答を受け取れずに押し直したとき、押す前より同じ中身の行が減っていれば、前の 1 回が書けている。
-    // 残った同じ中身の別の行に当て直さない。
-    const hasApplied = countSameScheduleRow(current, row) < countSameScheduleRow(base, row);
-    if (hasApplied) {
-      throw new SlotAlreadySavedError();
-    }
+  const sameRowLine = (current: string): number => {
     const same = findSameScheduleRow(current, row);
     const isGone = same === undefined;
     if (isGone) {
@@ -320,12 +315,23 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
     if (isInvalid) {
       return;
     }
-    run("直す", (current, base) =>
-      setScheduleRow(current, sameRowLine(current, base), check.time, check.what),
-    );
+    run("直す", (current, base) => {
+      // 応答を受け取れずに押し直したとき、前の 1 回が書けていれば、残った同じ中身の別の行に当て直さない。
+      const hasChanged = hasChangedScheduleRow(base, current, row, check.time, check.what);
+      if (hasChanged) {
+        throw new SlotAlreadySavedError();
+      }
+      return setScheduleRow(current, sameRowLine(current), check.time, check.what);
+    });
   };
   const handleRemove = (): void => {
-    run("消す", (current, base) => removeScheduleRow(current, sameRowLine(current, base)));
+    run("消す", (current, base) => {
+      const hasRemoved = hasRemovedScheduleRow(base, current, row);
+      if (hasRemoved) {
+        throw new SlotAlreadySavedError();
+      }
+      return removeScheduleRow(current, sameRowLine(current));
+    });
   };
   const submitLabel = submitLabelOf(isSaving, "保存");
   return (

@@ -24,10 +24,12 @@ export type SlotInputCheck =
 export const checkSlotInput = (start: string, end: string, what: string): SlotInputCheck => {
   const time = toScheduleTime(start, end);
   const trimmedWhat = what.trim();
-  if (time === undefined) {
+  const isTimeInvalid = time === undefined;
+  const isWhatEmpty = trimmedWhat === "";
+  if (isTimeInvalid) {
     return { kind: "invalid", field: "time", message: "開始と終了の時刻を 07:00 の形で入れてください。" };
   }
-  if (trimmedWhat === "") {
+  if (isWhatEmpty) {
     return { kind: "invalid", field: "what", message: "やることを入れてください。" };
   }
   return { kind: "ok", time, what: trimmedWhat };
