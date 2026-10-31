@@ -64,7 +64,8 @@ export const useSlotSave = (
 
   const run = (what: string, transform: (current: string, base: string) => string): void => {
     const { state } = daily;
-    if (isSaving || state.status !== "ready") {
+    const isReady = state.status === "ready";
+    if (isSaving || !isReady) {
       return;
     }
     if (!isOnline) {
@@ -86,13 +87,15 @@ export const useSlotSave = (
         onSaved();
       })
       .catch((error: unknown) => {
-        if (error instanceof SlotAlreadySavedError) {
+        const isAlreadySaved = error instanceof SlotAlreadySavedError;
+        const isChanged = error instanceof SlotChangedError;
+        if (isAlreadySaved) {
           daily.reload();
           setSave({ status: "idle" });
           onSaved();
           return;
         }
-        if (error instanceof SlotChangedError) {
+        if (isChanged) {
           setSave({ status: "stale" });
           return;
         }

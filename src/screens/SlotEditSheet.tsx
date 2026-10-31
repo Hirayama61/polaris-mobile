@@ -3,7 +3,7 @@ import {
   countSameScheduleRows,
   findSameScheduleRow,
   hasChangedScheduleRow,
-  hasRemovedScheduleRow,
+  hasLostSameScheduleRow,
   insertScheduleRow,
   removeScheduleRow,
   type ScheduleRow,
@@ -42,7 +42,8 @@ const SlotSheetFrame = (props: FrameProps) => {
 
   useEffect(() => {
     const handleKey = (event: KeyboardEvent): void => {
-      if (event.key === "Escape" && !isBusyRef.current) {
+      const isEscape = event.key === "Escape";
+      if (isEscape && !isBusyRef.current) {
         onClose();
       }
     };
@@ -194,7 +195,8 @@ const SlotMessage = (props: MessageProps) => {
 const NO_CHECK = null;
 
 const invalidFieldOf = (check: SlotInputCheck | null): "time" | "what" | null => {
-  if (check?.kind !== "invalid") {
+  const isInvalid = check?.kind === "invalid";
+  if (!isInvalid) {
     return null;
   }
   return check.field;
@@ -321,14 +323,19 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
       if (hasChanged) {
         throw new SlotAlreadySavedError();
       }
+      const hasLost = hasLostSameScheduleRow(base, current, row);
+      if (hasLost) {
+        throw new SlotChangedError();
+      }
       return setScheduleRow(current, sameRowLine(current), check.time, check.what);
     });
   };
   const handleRemove = (): void => {
     run("消す", (current, base) => {
-      const hasRemoved = hasRemovedScheduleRow(base, current, row);
-      if (hasRemoved) {
-        throw new SlotAlreadySavedError();
+      // 前の 1 回で消えたのか、他の更新で変わったのかは見分けられないので、読み直してもらう。
+      const hasLost = hasLostSameScheduleRow(base, current, row);
+      if (hasLost) {
+        throw new SlotChangedError();
       }
       return removeScheduleRow(current, sameRowLine(current));
     });

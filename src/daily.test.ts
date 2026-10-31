@@ -10,7 +10,7 @@ import {
   extractWakeAt,
   findSameScheduleRow,
   hasChangedScheduleRow,
-  hasRemovedScheduleRow,
+  hasLostSameScheduleRow,
   insertScheduleRow,
   isScheduleTime,
   parseDaily,
@@ -436,29 +436,33 @@ describe("countSameScheduleRow", () => {
   });
 });
 
-describe("hasRemovedScheduleRow と hasChangedScheduleRow", () => {
+describe("hasLostSameScheduleRow と hasChangedScheduleRow", () => {
   const [walk] = extractSchedule(fixtureWithActual);
 
-  it("前の 1 回が書けていれば true を返す", () => {
+  it("同じ中身の行が減っていれば、消えたか変わったかによらず hasLostSameScheduleRow が true", () => {
     expect(walk).toBeDefined();
     if (walk === undefined) {
       return;
     }
     const removed = removeScheduleRow(fixtureWithActual, walk.line);
-    expect(hasRemovedScheduleRow(fixtureWithActual, removed, walk)).toBe(true);
-    const changed = setScheduleRow(fixtureWithActual, walk.line, "07:10–07:40", "散歩 | 長め");
-    expect(hasChangedScheduleRow(fixtureWithActual, changed, walk, "07:10–07:40", "散歩 | 長め")).toBe(true);
+    expect(hasLostSameScheduleRow(fixtureWithActual, removed, walk)).toBe(true);
+    const otherActual = setScheduleActual(fixtureWithActual, walk.line, "した");
+    expect(hasLostSameScheduleRow(fixtureWithActual, otherActual, walk)).toBe(true);
+    // 消した後に別のコマが足されても、減ったことは見分けられる。
+    const removedThenAdded = insertScheduleRow(removed, "20:00–21:00", "読書");
+    expect(hasLostSameScheduleRow(fixtureWithActual, removedThenAdded, walk)).toBe(true);
+    expect(hasLostSameScheduleRow(fixtureWithActual, fixtureWithActual, walk)).toBe(false);
   });
 
-  it("他の更新で中身が変わっただけなら false を返す", () => {
+  it("直した後の行が増えていれば hasChangedScheduleRow が true、他の更新で変わっただけなら false", () => {
     expect(walk).toBeDefined();
     if (walk === undefined) {
       return;
     }
+    const changed = setScheduleRow(fixtureWithActual, walk.line, "07:10–07:40", "散歩 | 長め");
+    expect(hasChangedScheduleRow(fixtureWithActual, changed, walk, "07:10–07:40", "散歩 | 長め")).toBe(true);
     const otherActual = setScheduleActual(fixtureWithActual, walk.line, "した");
-    expect(hasRemovedScheduleRow(fixtureWithActual, otherActual, walk)).toBe(false);
     expect(hasChangedScheduleRow(fixtureWithActual, otherActual, walk, "07:10–07:40", "散歩")).toBe(false);
-    expect(hasRemovedScheduleRow(fixtureWithActual, fixtureWithActual, walk)).toBe(false);
     expect(hasChangedScheduleRow(fixtureWithActual, fixtureWithActual, walk, "07:10–07:40", "散歩")).toBe(
       false,
     );

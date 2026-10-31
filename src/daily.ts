@@ -196,7 +196,8 @@ const toCellValue = (value: string): string => value.replace(/\s+/g, " ").replac
 const EMPTY_CELL = "";
 
 const toTableCell = (cell: string): string => {
-  if (cell === EMPTY_CELL) {
+  const isEmpty = cell === EMPTY_CELL;
+  if (isEmpty) {
     return " ";
   }
   return ` ${cell} `;
@@ -226,7 +227,8 @@ export const isScheduleTime = (time: string): boolean => SCHEDULE_TIME_PATTERN.t
  */
 export const toScheduleTime = (start: string, end: string): string | undefined => {
   const time = `${start.trim()}–${end.trim()}`;
-  if (!isScheduleTime(time)) {
+  const isTimeInvalid = !isScheduleTime(time);
+  if (isTimeInvalid) {
     return undefined;
   }
   return time;
@@ -245,7 +247,8 @@ export const NO_CLOCK = "";
  */
 export const splitScheduleTime = (time: string): { start: string; end: string } => {
   const match = LOOSE_TIME_PATTERN.exec(time.trim());
-  if (match === null) {
+  const isUnreadable = match === null;
+  if (isUnreadable) {
     return { start: NO_CLOCK, end: NO_CLOCK };
   }
   const [, startHour = "", startMinute = "", endHour = "", endMinute = ""] = match;
@@ -269,7 +272,8 @@ export const setScheduleRow = (text: string, line: number, time: string, what: s
   const { rows } = findScheduleTable(lines);
   const target = lines[line];
   const isRow = rows.some((candidate) => candidate.line === line);
-  if (!isRow || target === undefined) {
+  const isMissing = !isRow || target === undefined;
+  if (isMissing) {
     return text;
   }
   // 先頭 3 列 (時刻・やること・誰) の後ろは、3 番目の `|` から後ろを 1 文字も変えずに残す。
@@ -284,7 +288,8 @@ export const setScheduleRow = (text: string, line: number, time: string, what: s
 
 // 3 番目の `|` から後ろ。無ければ空。
 const restOfRow = (target: string, restStart: number | undefined): string => {
-  if (restStart === undefined) {
+  const hasRest = restStart !== undefined;
+  if (!hasRest) {
     return "";
   }
   return target.slice(restStart + 1);
@@ -316,18 +321,17 @@ export const countSameScheduleRow = (text: string, row: ScheduleRow): number =>
   extractSchedule(text).filter((candidate) => isSameRow(candidate, row)).length;
 
 /**
- * 消す操作が、押したときの daily に対してもう書けているかを判定する。応答を受け取れずに押し直したときに使う。
+ * 開いた行と同じ中身の行が、押したときより減っているかを判定する。
+ *
+ * 減っていれば、前の 1 回が書けたか、他の更新で変わったか消えた。どちらか見分けられないので、残った同じ中身の行に当て直さない。
  *
  * @param base - 押したときの daily。
  * @param current - いまの daily。
  * @param row - 開いたときの行。
- * @returns 同じ中身の行と表の行の両方が押したときより減っていれば true。他の更新で中身が変わっただけなら false。
+ * @returns 減っていれば true。
  */
-export const hasRemovedScheduleRow = (base: string, current: string, row: ScheduleRow): boolean => {
-  const hasFewerSame = countSameScheduleRow(current, row) < countSameScheduleRow(base, row);
-  const hasFewerRows = extractSchedule(current).length < extractSchedule(base).length;
-  return hasFewerSame && hasFewerRows;
-};
+export const hasLostSameScheduleRow = (base: string, current: string, row: ScheduleRow): boolean =>
+  countSameScheduleRow(current, row) < countSameScheduleRow(base, row);
 
 /**
  * 直す操作が、押したときの daily に対してもう書けているかを判定する。応答を受け取れずに押し直したときに使う。
@@ -347,7 +351,7 @@ export const hasChangedScheduleRow = (
   what: string,
 ): boolean => {
   const changed: ScheduleRow = { ...row, time, what: toCellValue(what), who: SCHEDULE_WHO_MINE };
-  const hasFewerOld = countSameScheduleRow(current, row) < countSameScheduleRow(base, row);
+  const hasFewerOld = hasLostSameScheduleRow(base, current, row);
   const hasMoreNew = countSameScheduleRow(current, changed) > countSameScheduleRow(base, changed);
   return hasFewerOld && hasMoreNew;
 };
@@ -378,7 +382,8 @@ export const countSameScheduleRows = (text: string, time: string, what: string):
 export const insertScheduleRow = (text: string, time: string, what: string): string => {
   const lines = splitLines(text);
   const { rows, columnCount, lastLine } = findScheduleTable(lines);
-  if (lastLine === undefined) {
+  const hasNoTable = lastLine === undefined;
+  if (hasNoTable) {
     return text;
   }
   const start = startOf(time);

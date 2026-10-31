@@ -43,7 +43,8 @@ type WriteTarget =
 type SlotSheet = { kind: "closed" } | { kind: "add" } | { kind: "change"; row: ScheduleRow };
 
 const changingRowOf = (sheet: SlotSheet): ScheduleRow | undefined => {
-  if (sheet.kind !== "change") {
+  const isChanging = sheet.kind === "change";
+  if (!isChanging) {
     return undefined;
   }
   return sheet.row;
