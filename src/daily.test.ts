@@ -489,6 +489,12 @@ describe("findSameScheduleRow", () => {
     expect(first && findSameScheduleRow(twice, twice, first)?.line).toBe(10);
   });
 
+  it("開いた後に表の前の行が増えても、開いた daily での番目で行を返す", () => {
+    expect(second).toBeDefined();
+    const shifted = twice.replace("wake_at:", "wake_at: 2026-10-31T06:40:00+09:00\nnote: x");
+    expect(second && findSameScheduleRow(twice, shifted, second)?.line).toBe(12);
+  });
+
   it("時刻・やること・誰・実績のどれかが変わっていれば undefined を返す", () => {
     expect(walk).toBeDefined();
     if (walk === undefined) {

@@ -32,7 +32,7 @@ const meta = {
     date: "2026-10-31",
     isOnline: true,
     daily,
-    row: work ?? { line: 0, time: "", what: "", who: "", actual: undefined },
+    target: { row: work ?? { line: 0, time: "", what: "", who: "", actual: undefined }, content },
     onClose: () => {},
     onOpenSettings: () => {},
   },

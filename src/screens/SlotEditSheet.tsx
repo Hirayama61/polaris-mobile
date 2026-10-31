@@ -286,7 +286,14 @@ export const AddSlotSheet = (props: AddProps) => {
   );
 };
 
-type ChangeProps = AddProps & { row: ScheduleRow };
+/**
+ * 直すコマ。`content` は開いたときの daily で、`row` はこの中の行。
+ *
+ * 書くときの daily は開いた後にキャッシュから最新へ入れ替わることがあるので、行を探す基準は開いたときの daily にする。
+ */
+export type SlotTarget = { row: ScheduleRow; content: string };
+
+type ChangeProps = AddProps & { target: SlotTarget };
 
 /**
  * 時間割のコマ 1 つの時刻とやることを直す、または消すシート。
@@ -294,7 +301,8 @@ type ChangeProps = AddProps & { row: ScheduleRow };
  * @remarks 書く直前の daily で開いたときと同じ行を探し、変わっていたら上書きしない。
  */
 export const ChangeSlotSheet = (props: ChangeProps) => {
-  const { settings, date, isOnline, daily, row, onClose, onOpenSettings } = props;
+  const { settings, date, isOnline, daily, target, onClose, onOpenSettings } = props;
+  const { row, content: opened } = target;
   const form = useSlotForm(row.time, row.what);
   const { save, isSaving, run } = useSlotSave(settings, date, isOnline, daily, onClose);
   const handleReload = (): void => {
@@ -302,8 +310,8 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
     onClose();
   };
   // 同じ中身の行の数が変わっていれば、前の 1 回で書けたのか他の更新で変わったのか見分けられないので、読み直してもらう。
-  const sameRowLine = (current: string, base: string): number => {
-    const same = findSameScheduleRow(base, current, row);
+  const sameRowLine = (current: string): number => {
+    const same = findSameScheduleRow(opened, current, row);
     const isGone = same === undefined;
     if (isGone) {
       throw new SlotChangedError();
@@ -317,17 +325,17 @@ export const ChangeSlotSheet = (props: ChangeProps) => {
     if (isInvalid) {
       return;
     }
-    run("直す", (current, base) => {
+    run("直す", (current) => {
       // 応答を受け取れずに押し直したとき、前の 1 回が書けていれば、残った同じ中身の別の行に当て直さない。
-      const hasChanged = hasChangedScheduleRow(base, current, row, check.time, check.what);
+      const hasChanged = hasChangedScheduleRow(opened, current, row, check.time, check.what);
       if (hasChanged) {
         throw new SlotAlreadySavedError();
       }
-      return setScheduleRow(current, sameRowLine(current, base), check.time, check.what);
+      return setScheduleRow(current, sameRowLine(current), check.time, check.what);
     });
   };
   const handleRemove = (): void => {
-    run("消す", (current, base) => removeScheduleRow(current, sameRowLine(current, base)));
+    run("消す", (current) => removeScheduleRow(current, sameRowLine(current)));
   };
   const submitLabel = submitLabelOf(isSaving, "保存");
   return (

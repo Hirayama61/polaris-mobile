@@ -22,7 +22,7 @@ import { PenIcon, StateCard } from "../ui";
 import { dailyPath, type useDaily } from "../useDaily";
 import { useProjectNames } from "../useProjectNames";
 import { FailureAction, UnconfiguredCard } from "./common";
-import { AddSlotSheet, ChangeSlotSheet } from "./SlotEditSheet";
+import { AddSlotSheet, ChangeSlotSheet, type SlotTarget } from "./SlotEditSheet";
 import { SlotTaskDetail } from "./SlotTaskDetail";
 import { useSlotTask } from "./useSlotTask";
 
@@ -40,14 +40,14 @@ type WriteTarget =
   | { kind: "actual"; slot: string };
 
 // 時間割のコマを足すか直すシート。同時に開くのは 1 つだけ。
-type SlotSheet = { kind: "closed" } | { kind: "add" } | { kind: "change"; row: ScheduleRow };
+type SlotSheet = { kind: "closed" } | { kind: "add" } | { kind: "change"; target: SlotTarget };
 
-const changingRowOf = (sheet: SlotSheet): ScheduleRow | undefined => {
+const changingTargetOf = (sheet: SlotSheet): SlotTarget | undefined => {
   const isChanging = sheet.kind === "change";
   if (!isChanging) {
     return undefined;
   }
-  return sheet.row;
+  return sheet.target;
 };
 
 // 失敗はその操作をした節の下に出す。起床の失敗は起床のコマの下に出す。
@@ -291,7 +291,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const { question } = slotTask;
   const hasQuestion = question !== undefined;
   const isAddSheetOpen = slotSheet.kind === "add";
-  const changingRow = changingRowOf(slotSheet);
+  const changingTarget = changingTargetOf(slotSheet);
+  const isChangeSheetOpen = changingTarget !== undefined;
 
   const wakeDetail = (
     <div id={WAKE_DETAIL_ID} className="slot-detail">
@@ -448,7 +449,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                     className="icon-button slot-edit"
                     aria-label={`${row.time} のコマを直す`}
                     disabled={isWriting}
-                    onClick={() => setSlotSheet({ kind: "change", row })}
+                    onClick={() => setSlotSheet({ kind: "change", target: { row, content: state.content } })}
                   >
                     <PenIcon size={18} />
                   </button>
@@ -602,13 +603,13 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           onOpenSettings={onOpenSettings}
         />
       )}
-      {changingRow !== undefined && (
+      {isChangeSheetOpen && (
         <ChangeSlotSheet
           settings={settings}
           date={date}
           isOnline={isOnline}
           daily={daily}
-          row={changingRow}
+          target={changingTarget}
           onClose={closeSlotSheet}
           onOpenSettings={onOpenSettings}
         />
