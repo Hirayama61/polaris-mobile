@@ -25,6 +25,7 @@
 - `src/**/*.stories.tsx`、`.storybook/`: Storybook。GitHub API を使う部品は `src/stories/mockGitHub.ts` で fetch を差し替える
 - `vrt/`: Storybook の静的ビルドに対する VRT。基準画像は `vrt/__screenshots__/`
 - `e2e/`: `vite preview` に対する E2E。GitHub API は `page.route` でモックし、PAT は使わない
+- `e2e/ledger.json`: GitHub への書き込み操作 (`updateFile` `writeKnownFile` `writeIfUnchanged` `createFile` の呼び出し) と担当の E2E の対応表。1 行が 1 操作で、E2E がまだ無い行は `pending: true`。手で書き、`bun run check` の `check:ledger` (`scripts/check-ledger.ts`) が更新漏れを落とす
 
 ## 開発の流れ
 
