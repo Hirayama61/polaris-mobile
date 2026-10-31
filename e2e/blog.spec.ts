@@ -70,11 +70,46 @@ test("draft に URL を入れて公開済みにする", async ({ page }) => {
   await expect(page.getByText("公開", { exact: true })).toBeVisible();
 });
 
-test("新しいアイデアの導線から思いつきのシートを開く", async ({ page }) => {
+test("アイデアを書くと ideas に書いたままのファイルを作り、構成待ちで並べる", async ({ page }) => {
   await configure(page);
-  await mockGitHub(page, files());
+  const puts = await mockGitHub(page, files());
   await page.goto("./");
   await page.getByRole("button", { name: "ブログ" }).click();
-  await page.getByRole("main").getByRole("button", { name: "思いつきを送る" }).click();
-  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.getByRole("main").getByRole("button", { name: "アイデアを書く" }).click();
+
+  const body = "# お茶の淹れ方\n\n- 温度\n- 時間";
+  await page.getByRole("dialog").getByRole("textbox", { name: "アイデア" }).fill(body);
+  await page.getByRole("dialog").getByRole("button", { name: "送信" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]?.path).toMatch(/^writing\/blog\/ideas\/\d{8}-[0-9a-z]{4}\.md$/);
+  expect(puts[0]?.sha).toBeUndefined();
+  expect(puts[0]?.content).toMatch(
+    /^---\ncreated: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00\nsource: mobile\nstatus: new\n---\n\n/,
+  );
+  expect(puts[0]?.content.endsWith(`---\n\n${body}\n`)).toBe(true);
+  await expect(page.getByRole("dialog").getByRole("status")).toContainText("に書きました");
+  await expect(page.getByRole("dialog").getByRole("textbox", { name: "アイデア" })).toHaveValue("");
+
+  await page.getByRole("dialog").getByRole("button", { name: "閉じる" }).click();
+  await expect(page.getByRole("button", { name: /お茶の淹れ方/ })).toContainText("構成待ち");
+});
+
+test("アイデアの書きかけは閉じても残り、思いつきのシートには混ざらない", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, files());
+  await page.goto("./");
+  await page.getByRole("button", { name: "ブログ" }).click();
+  await page.getByRole("main").getByRole("button", { name: "アイデアを書く" }).click();
+  await page.getByRole("dialog").getByRole("textbox", { name: "アイデア" }).fill("書きかけ");
+  await page.getByRole("dialog").getByRole("button", { name: "閉じる" }).click();
+
+  await page.getByRole("banner").getByRole("button", { name: "思いつきを送る" }).click();
+  await expect(page.getByRole("dialog").getByRole("textbox", { name: "タイトル" })).toHaveValue("");
+  await page.getByRole("dialog").getByRole("button", { name: "閉じる" }).click();
+
+  await page.reload();
+  await page.getByRole("button", { name: "ブログ" }).click();
+  await page.getByRole("main").getByRole("button", { name: "アイデアを書く" }).click();
+  await expect(page.getByRole("dialog").getByRole("textbox", { name: "アイデア" })).toHaveValue("書きかけ");
+  expect(puts).toHaveLength(0);
 });

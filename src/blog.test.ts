@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   type BlogPost,
+  buildBlogIdea,
   extractComment,
   getBlogStage,
   getBlogTitle,
@@ -10,6 +11,7 @@ import {
   publishDraft,
   setComment,
   sortBlogPosts,
+  toBlogIdeaId,
   toBlogPath,
 } from "./blog";
 
@@ -218,5 +220,32 @@ describe("loadBlogPosts", () => {
       path.includes("tea") ? undefined : files.get(path),
     );
     expect(posts.map(({ id }) => id)).toEqual(["walk"]);
+  });
+});
+
+describe("toBlogIdeaId", () => {
+  it("created の日本時間の日付と 4 文字から id を作る", () => {
+    expect(toBlogIdeaId("2026-10-31T23:50:00+09:00", "a7k2")).toBe("20261031-a7k2");
+  });
+});
+
+describe("buildBlogIdea", () => {
+  const created = "2026-10-31T08:15:00+09:00";
+
+  it("frontmatter に created、source、status を書き、本文を書いたまま続ける", () => {
+    const body = "  - 朝の散歩\n\n  - 続いた理由\n";
+    expect(buildBlogIdea(body, created)).toBe(
+      `---\ncreated: 2026-10-31T08:15:00+09:00\nsource: mobile\nstatus: new\n---\n\n${body}`,
+    );
+  });
+
+  it("本文の末尾に改行が無ければ 1 つだけ足す", () => {
+    expect(buildBlogIdea("# 題", created)).toBe(
+      "---\ncreated: 2026-10-31T08:15:00+09:00\nsource: mobile\nstatus: new\n---\n\n# 題\n",
+    );
+  });
+
+  it("作ったファイルは構成待ちになる", () => {
+    expect(getBlogStage({ ideas: buildBlogIdea("題", created) })).toBe("needsOutline");
   });
 });

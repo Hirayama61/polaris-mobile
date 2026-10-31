@@ -3,6 +3,7 @@
  *
  * 1 本の記事は 4 つのフォルダで同じファイル名 (id) を持つ。書き換えてよいのは
  * outline と draft の「## 一言」節と、draft の frontmatter の `status` と `url` だけ。
+ * 新しく作ってよいのは ideas のアイデアのファイルだけで、既存のファイルは上書きしない。
  */
 import { extractSection, replaceSection, setFrontmatterValue } from "./daily";
 import { type ListNames, type ReadText, readFrontmatterValue, SAFE_ID_PATTERN } from "./projects";
@@ -62,6 +63,28 @@ export type BlogPost = {
  */
 export const toBlogPath = (folder: BlogFolder, id: string): string =>
   `${BLOG_ROOT}/${folder}/${id}${MARKDOWN_EXTENSION}`;
+
+/**
+ * 新しいアイデアの id を決める。
+ *
+ * @param created - +09:00 つきの ISO 8601。日付部分を id に使う。
+ * @param suffix - `inboxSuffix` で作った 4 文字。
+ * @returns 例: `20261031-a7k2`。
+ */
+export const toBlogIdeaId = (created: string, suffix: string): string =>
+  `${created.slice(0, 10).replaceAll("-", "")}-${suffix}`;
+
+/**
+ * ideas に作るアイデアのファイルの内容を組み立てる。
+ *
+ * @param body - 書いた本文。書き換えずにそのまま入れる。
+ * @param created - +09:00 つきの ISO 8601。frontmatter の `created` になる。
+ * @returns frontmatter (`created`、`source: mobile`、`status: new`) と本文。末尾に改行が無ければ 1 つ足す。
+ */
+export const buildBlogIdea = (body: string, created: string): string => {
+  const ending = body.endsWith("\n") ? "" : "\n";
+  return `---\ncreated: ${created}\nsource: mobile\nstatus: new\n---\n\n${body}${ending}`;
+};
 
 /**
  * 「## 一言」節の本文を返す。
