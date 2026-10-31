@@ -336,22 +336,52 @@ const getRepoJson = async (settings: Settings, repo: string, pathAndQuery: strin
   return response.json();
 };
 
-const toRepoIssue = (entry: unknown): RepoIssue[] => {
-  if (typeof entry !== "object" || entry === null || "pull_request" in entry) {
-    return [];
+type IssueEntry = { number: number; title: string; closed_at?: unknown };
+
+type PullEntry = { head: { ref: string } };
+
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null;
+
+const isIssueEntry = (entry: unknown): entry is IssueEntry => {
+  if (!isRecord(entry)) {
+    return false;
   }
-  if (!("number" in entry) || typeof entry.number !== "number") {
-    return [];
-  }
-  if (!("title" in entry) || typeof entry.title !== "string") {
-    return [];
-  }
-  const hasClosedAt = "closed_at" in entry && typeof entry.closed_at === "string";
-  const closedAt = hasClosedAt ? String(entry.closed_at) : undefined;
-  return [{ number: entry.number, title: entry.title, closedAt }];
+  const isPull = "pull_request" in entry;
+  const hasNumber = typeof entry.number === "number";
+  const hasTitle = typeof entry.title === "string";
+  return !isPull && hasNumber && hasTitle;
 };
 
-const toRepoIssues = (body: unknown): RepoIssue[] => (Array.isArray(body) ? body.flatMap(toRepoIssue) : []);
+const hasHeadRef = (entry: unknown): entry is PullEntry => {
+  if (!isRecord(entry) || !isRecord(entry.head)) {
+    return false;
+  }
+  const hasRef = typeof entry.head.ref === "string";
+  return hasRef;
+};
+
+const getClosedAt = (entry: IssueEntry): string | undefined => {
+  const { closed_at: closedAt } = entry;
+  const hasClosedAt = typeof closedAt === "string";
+  if (!hasClosedAt) {
+    return undefined;
+  }
+  return closedAt;
+};
+
+const toRepoIssue = (entry: IssueEntry): RepoIssue => ({
+  number: entry.number,
+  title: entry.title,
+  closedAt: getClosedAt(entry),
+});
+
+const toRepoIssues = (body: unknown): RepoIssue[] => {
+  if (!Array.isArray(body)) {
+    return [];
+  }
+  return body.filter(isIssueEntry).map(toRepoIssue);
+};
 
 /**
  * open で `ready` の Issue を読む。100 件を超える分は読まない。
@@ -395,15 +425,5 @@ export const listOpenPullHeadRefs = async (settings: Settings, repo: string): Pr
   if (!Array.isArray(body)) {
     return [];
   }
-  return body.flatMap((entry: unknown) =>
-    typeof entry === "object" &&
-    entry !== null &&
-    "head" in entry &&
-    typeof entry.head === "object" &&
-    entry.head !== null &&
-    "ref" in entry.head &&
-    typeof entry.head.ref === "string"
-      ? [entry.head.ref]
-      : [],
-  );
+  return body.filter(hasHeadRef).map((entry) => entry.head.ref);
 };
