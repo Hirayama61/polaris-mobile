@@ -328,7 +328,8 @@ test("チェックの保存が 409 で競合したら読み直して当て直し
 const rejectPuts = async (page: Page): Promise<string[]> => {
   const rejected: string[] = [];
   await page.route("https://api.github.com/**", async (route) => {
-    if (route.request().method() !== "PUT") {
+    const isPutRequest = route.request().method() === "PUT";
+    if (!isPutRequest) {
       await route.fallback();
       return;
     }
