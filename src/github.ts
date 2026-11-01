@@ -1,18 +1,23 @@
 import { loadBlob, saveBlob } from "./blobCache";
 import { createLimiter } from "./limit";
+import { getRateLimit, type RateLimit } from "./rateLimit";
 import type { Settings } from "./settings";
 import { getFileNamesIn, type RepoTree, toRepoTree } from "./tree";
 
 /**
  * GitHub Contents API のエラー。`status` は HTTP ステータス。ネットワーク到達前の失敗は 0。
+ *
+ * `rateLimit` はレート制限に当たったときだけ持つ。
  */
 export class GitHubError extends Error {
   readonly status: number;
+  readonly rateLimit: RateLimit | undefined;
 
-  constructor(status: number, message: string) {
+  constructor(status: number, message: string, rateLimit?: RateLimit) {
     super(message);
     this.name = "GitHubError";
     this.status = status;
+    this.rateLimit = rateLimit;
   }
 }
 
@@ -78,6 +83,11 @@ const describeError = async (response: Response): Promise<string> => {
   return fallback;
 };
 
+const toGitHubError = async (response: Response): Promise<GitHubError> => {
+  const rateLimit = getRateLimit(response.status, response.headers, new Date());
+  return new GitHubError(response.status, await describeError(response), rateLimit);
+};
+
 const request = async (input: string, init: RequestInit): Promise<Response> => {
   try {
     return await fetch(input, init);
@@ -130,7 +140,7 @@ const readBlobText = async (settings: Settings, sha: string): Promise<string> =>
     cache: GET_CACHE,
   });
   if (!response.ok) {
-    throw new GitHubError(response.status, await describeError(response));
+    throw await toGitHubError(response);
   }
   return response.text();
 };
@@ -155,7 +165,7 @@ export const readFile = async (settings: Settings, path: string): Promise<Remote
     return { kind: "missing" };
   }
   if (!response.ok) {
-    throw new GitHubError(response.status, await describeError(response));
+    throw await toGitHubError(response);
   }
   const body: unknown = await response.json();
   const sha = readSha(body);
@@ -186,7 +196,7 @@ const putFile = async (
     }),
   }).finally(forgetTree);
   if (!response.ok) {
-    throw new GitHubError(response.status, await describeError(response));
+    throw await toGitHubError(response);
   }
   const body: unknown = await response.json();
   if (typeof body === "object" && body !== null && "content" in body) {
@@ -333,7 +343,7 @@ export const listFileNames = async (settings: Settings, path: string): Promise<s
     return [];
   }
   if (!response.ok) {
-    throw new GitHubError(response.status, await describeError(response));
+    throw await toGitHubError(response);
   }
   const body: unknown = await response.json();
   if (!Array.isArray(body)) {
@@ -369,7 +379,7 @@ export const readText = async (settings: Settings, path: string): Promise<string
     return undefined;
   }
   if (!response.ok) {
-    throw new GitHubError(response.status, await describeError(response));
+    throw await toGitHubError(response);
   }
   return response.text();
 };
@@ -385,7 +395,7 @@ const readTree = async (settings: Settings): Promise<RepoTree> => {
     return toRepoTree({ tree: [] });
   }
   if (!response.ok) {
-    throw new GitHubError(response.status, await describeError(response));
+    throw await toGitHubError(response);
   }
   return toRepoTree(await response.json());
 };
@@ -489,7 +499,7 @@ const getRepoJson = async (settings: Settings, repo: string, pathAndQuery: strin
     cache: GET_CACHE,
   });
   if (!response.ok) {
-    throw new GitHubError(response.status, await describeError(response));
+    throw await toGitHubError(response);
   }
   return response.json();
 };
