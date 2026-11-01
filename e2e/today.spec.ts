@@ -324,6 +324,65 @@ test("チェックの保存が 409 で競合したら読み直して当て直し
   await expect(checkbox).toBeChecked();
 });
 
+// PUT だけを 401 (PAT の期限切れ) で断る。読み込みは mockGitHub に任せる。
+const rejectPuts = async (page: Page): Promise<string[]> => {
+  const rejected: string[] = [];
+  await page.route("https://api.github.com/**", async (route) => {
+    const isPutRequest = route.request().method() === "PUT";
+    if (!isPutRequest) {
+      await route.fallback();
+      return;
+    }
+    rejected.push(route.request().url());
+    await route.fulfill({ status: 401, json: { message: "Bad credentials" } });
+  });
+  return rejected;
+};
+
+test("実績の保存に失敗すると、その行のすぐ下に失敗が出て、入力は残る", async ({ page }) => {
+  await configure(page);
+  const files = new Map([[`daily/${date}.md`, daily]]);
+  const puts = await mockGitHub(page, files);
+  const rejected = await rejectPuts(page);
+  await page.goto("./");
+  const actual = page.getByRole("textbox", { name: "07:00–07:30 の実績" });
+  await actual.fill("30 分歩いた");
+  await actual.press("Enter");
+  await expect.poll(() => rejected.length).toBe(1);
+
+  const timeline = page.getByRole("region", { name: "時間割" });
+  const row = timeline.getByRole("listitem").filter({ has: actual });
+  await expect(row.getByRole("alert")).toBeVisible();
+  await expect(timeline.getByRole("alert")).toHaveCount(1);
+  await expect(actual).toHaveValue("30 分歩いた");
+  expect(puts).toHaveLength(0);
+  expect(files.get(`daily/${date}.md`)).toBe(daily);
+});
+
+test("「時間を決めていないこと」のチェックの保存に失敗すると、その行のすぐ下に失敗が出る", async ({
+  page,
+}) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
+  const rejected = await rejectPuts(page);
+  await page.goto("./");
+  const unscheduled = page.getByRole("region", { name: "時間を決めていないこと" });
+  const checkbox = unscheduled.getByRole("checkbox", { name: "小説の構想を音声で入れる" });
+  // 失敗するとチェックは元に戻るので、check() の状態の確かめと競合しないよう click() で押す。
+  await checkbox.click();
+  await expect.poll(() => rejected.length).toBe(1);
+
+  // has の locator は li からの相対で探すので、region から始めずに page から作る。
+  const row = unscheduled
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("checkbox", { name: "小説の構想を音声で入れる" }) });
+  await expect(row.getByRole("alert")).toBeVisible();
+  await expect(unscheduled.getByRole("alert")).toHaveCount(1);
+  await expect(page.getByRole("region", { name: "時間割" }).getByRole("alert")).toHaveCount(0);
+  await expect(checkbox).not.toBeChecked();
+  expect(puts).toHaveLength(0);
+});
+
 const taskId = "20261029-t1";
 
 const paperTask = `---
