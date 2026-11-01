@@ -98,7 +98,8 @@ const NO_INDEXED_RANGE = undefined;
 
 const toIndexedRange = (time: string, index: number): IndexedRange[] => {
   const range = toSlotRange(time);
-  if (range === NO_SLOT_RANGE) {
+  const isMissingRange = range === NO_SLOT_RANGE;
+  if (isMissingRange) {
     return [];
   }
   return [{ ...range, index }];
@@ -106,6 +107,9 @@ const toIndexedRange = (time: string, index: number): IndexedRange[] => {
 
 const getRatioInRange = (range: SlotRange, minutesOfDay: number): number =>
   (minutesOfDay - range.start) / (range.end - range.start);
+
+const isInRange = (range: SlotRange, minutesOfDay: number): boolean =>
+  minutesOfDay >= range.start && minutesOfDay < range.end;
 
 const byStart = (a: IndexedRange, b: IndexedRange): number => a.start - b.start;
 
@@ -120,7 +124,7 @@ const byStart = (a: IndexedRange, b: IndexedRange): number => a.start - b.start;
  */
 export const getNowMarker = (times: readonly string[], minutesOfDay: number): NowMarker | undefined => {
   const ranges = times.flatMap(toIndexedRange);
-  const current = ranges.find((range) => minutesOfDay >= range.start && minutesOfDay < range.end);
+  const current = ranges.find((range) => isInRange(range, minutesOfDay));
   const hasCurrent = current !== NO_INDEXED_RANGE;
   if (hasCurrent) {
     return { index: current.index, ratio: getRatioInRange(current, minutesOfDay) };
