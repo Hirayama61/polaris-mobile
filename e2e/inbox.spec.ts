@@ -175,7 +175,8 @@ test("質問に A で答えて保存すると、「## 回答」だけを書き�
   await expect.poll(() => puts.length).toBe(1);
   expect(puts[0]?.path).toBe("tasks/20261030-q1.md");
   expect(puts[0]?.content).toBe(question.replace("## 回答\n(未回答)\n", "## 回答\n\nA\n"));
-  await expect(dialog.getByRole("status")).toHaveText(/^回答を書きました。tasks\/20261030-q1\.md$/);
+  // 保存後は一覧の読み込み中の表示も role="status" なので、成功の表示だけに絞る。
+  await expect(dialog.locator(".message-ok")).toHaveText(/^回答を書きました。tasks\/20261030-q1\.md$/);
   await expect(
     dialog.getByRole("button", { name: /受信箱のタブはどこに置く/ }).getByText("回答済み"),
   ).toBeVisible();
