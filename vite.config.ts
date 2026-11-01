@@ -4,6 +4,7 @@ import { VitePWA } from "vite-plugin-pwa";
 import { defineConfig } from "vitest/config";
 import packageJson from "./package.json" with { type: "json" };
 import { CHANGELOG_GIT_FORMAT, CHANGELOG_PATHS, parseChangelog } from "./src/changelog";
+import { CSP_PLUGIN_NAME, getCspMetaTag } from "./src/csp";
 
 // 浅い clone や git の無い環境では履歴を空にしてビルドを続ける。
 const readChangelog = () => {
@@ -27,6 +28,8 @@ export default defineConfig({
   },
   plugins: [
     react(),
+    // 開発サーバーの HMR を止めないよう、CSP は本番ビルドにだけ入れる。
+    { name: CSP_PLUGIN_NAME, apply: "build", transformIndexHtml: () => [getCspMetaTag()] },
     VitePWA({
       registerType: "autoUpdate",
       includeAssets: ["icon.svg", "apple-touch-icon.png"],
