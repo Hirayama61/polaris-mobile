@@ -20,11 +20,16 @@ export type WritePlace = { kind: "turn"; line: number } | { kind: "wake" } | { k
  * @remarks 失敗を出すかどうかだけを決める。失敗の文言と出し方は呼び出し側が持つ。
  */
 export const isWriteAt = (target: WriteTarget, place: WritePlace): boolean => {
-  if (target.kind === "turn" && place.kind === "turn") {
-    return target.line === place.line;
+  const isTurnPair = target.kind === "turn" && place.kind === "turn";
+  if (isTurnPair) {
+    const isSameLine = target.line === place.line;
+    return isSameLine;
   }
-  if (target.kind === "actual" && place.kind === "actual") {
-    return target.slot === place.slot;
+  const isActualPair = target.kind === "actual" && place.kind === "actual";
+  if (isActualPair) {
+    const isSameSlot = target.slot === place.slot;
+    return isSameSlot;
   }
-  return target.kind === "wake" && place.kind === "wake";
+  const isWakePair = target.kind === "wake" && place.kind === "wake";
+  return isWakePair;
 };
