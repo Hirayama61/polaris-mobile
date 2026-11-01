@@ -1,6 +1,6 @@
 [
   {
-    "file": "src/screens/Today.tsx",
+    "file": "src/screens/useTodayWrite.ts",
     "operation": "今日の画面で「あなたの番」のチェックを切り替え、daily の行を書き換える",
     "e2e": [
       {
@@ -22,7 +22,7 @@
     ]
   },
   {
-    "file": "src/screens/Today.tsx",
+    "file": "src/screens/useTodayWrite.ts",
     "operation": "起床のコマで「起きた」を押し、daily の wake_at を書く",
     "e2e": [
       {
@@ -32,7 +32,7 @@
     ]
   },
   {
-    "file": "src/screens/Today.tsx",
+    "file": "src/screens/useTodayWrite.ts",
     "operation": "時間割の「実績」のセルを書く",
     "e2e": [
       {
