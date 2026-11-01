@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { isNowInSlot, splitTaskRef, splitTurnLabel } from "./display";
+import {
+  canFoldSlot,
+  hasSlotEnded,
+  isDoneActual,
+  isNowInSlot,
+  splitTaskRef,
+  splitTurnLabel,
+} from "./display";
 
 describe("splitTaskRef", () => {
   it("末尾の (task: ID) を切り離す", () => {
@@ -40,6 +47,62 @@ describe("isNowInSlot", () => {
   it("形が違えば false", () => {
     expect(isNowInSlot("午前", at(9, 0))).toBe(false);
     expect(isNowInSlot("", at(9, 0))).toBe(false);
+  });
+});
+
+describe("hasSlotEnded", () => {
+  const at = (hour: number, minute: number): number => hour * 60 + minute;
+
+  it("終了時刻ちょうどから終わったとみなす", () => {
+    expect(hasSlotEnded("07:00–07:30", at(7, 29))).toBe(false);
+    expect(hasSlotEnded("07:00–07:30", at(7, 30))).toBe(true);
+    expect(hasSlotEnded("07:00–07:30", at(12, 0))).toBe(true);
+  });
+
+  it("始まる前と途中は終わっていない", () => {
+    expect(hasSlotEnded("09:00-18:00", at(8, 0))).toBe(false);
+    expect(hasSlotEnded("09:00-18:00", at(12, 0))).toBe(false);
+  });
+
+  it("形が違えば false", () => {
+    expect(hasSlotEnded("午前", at(23, 0))).toBe(false);
+    expect(hasSlotEnded("", at(23, 0))).toBe(false);
+  });
+});
+
+describe("isDoneActual", () => {
+  it("前後の空白を除いて「完了」なら true", () => {
+    expect(isDoneActual("完了")).toBe(true);
+    expect(isDoneActual(" 完了 ")).toBe(true);
+  });
+
+  it("空、書き足し、列が無いときは false", () => {
+    expect(isDoneActual("")).toBe(false);
+    expect(isDoneActual("完了 20分")).toBe(false);
+    expect(isDoneActual("未完了")).toBe(false);
+    expect(isDoneActual(undefined)).toBe(false);
+  });
+});
+
+describe("canFoldSlot", () => {
+  const at = (hour: number, minute: number): number => hour * 60 + minute;
+
+  it("完了して終わったコマは畳む", () => {
+    expect(canFoldSlot("完了", "07:00–07:30", at(7, 30))).toBe(true);
+  });
+
+  it("完了でも終わる前と途中は畳まない", () => {
+    expect(canFoldSlot("完了", "07:00–07:30", at(6, 59))).toBe(false);
+    expect(canFoldSlot("完了", "07:00–07:30", at(7, 29))).toBe(false);
+  });
+
+  it("終わっていても完了でなければ畳まない", () => {
+    expect(canFoldSlot("", "07:00–07:30", at(12, 0))).toBe(false);
+    expect(canFoldSlot(undefined, "07:00–07:30", at(12, 0))).toBe(false);
+  });
+
+  it("時刻が読めなければ畳まない", () => {
+    expect(canFoldSlot("完了", "午前", at(23, 0))).toBe(false);
   });
 });
 

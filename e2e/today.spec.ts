@@ -242,3 +242,46 @@ test("コマを消すと、その行だけがなくなる", async ({ page }) => 
   const expected = daily.split("\n").filter((line) => line !== "| 09:00–18:00 | 仕事 | | |");
   expect(puts[0]?.content).toBe(expected.join("\n"));
 });
+
+test("完了して終わったコマは 1 行に畳み、終わっていないコマは今までどおり出す", async ({ page }) => {
+  const doneDaily = daily
+    .replace("| 07:00–07:30 | 散歩 | あなた | |", "| 07:00–07:30 | 散歩 | あなた | 完了 |")
+    .replace("| 09:00–18:00 | 仕事 | | |", "| 09:00–18:00 | 仕事 | | 完了 |");
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, doneDaily]]));
+  await page.goto("./");
+  const folded = page.getByRole("button", { name: "07:00–07:30 散歩 完了" });
+  await expect(folded).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("textbox", { name: "07:00–07:30 の実績" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "07:00–07:30 のコマを直す" })).toHaveCount(0);
+  await expect(page.getByRole("textbox", { name: "09:00–18:00 の実績" })).toHaveValue("完了");
+  expect(puts).toEqual([]);
+});
+
+test("畳んだコマをタップすると中身が開き、daily には書き込まない", async ({ page }) => {
+  const doneDaily = daily.replace(
+    "| 07:00–07:30 | 散歩 | あなた | |",
+    "| 07:00–07:30 | 散歩 | あなた | 完了 |",
+  );
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, doneDaily]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "07:00–07:30 散歩 完了" }).click();
+  await expect(page.getByRole("textbox", { name: "07:00–07:30 の実績" })).toHaveValue("完了");
+  await expect(page.getByRole("button", { name: "07:00–07:30 のコマを直す" })).toBeVisible();
+  expect(puts).toEqual([]);
+});
+
+test("終わったコマの実績を「完了」で保存すると、PUT した後に 1 行に畳む", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
+  await page.goto("./");
+  const actual = page.getByRole("textbox", { name: "07:00–07:30 の実績" });
+  await actual.fill("完了");
+  await actual.press("Enter");
+  await expect.poll(() => puts.length).toBe(1);
+  const line = daily.split("\n").indexOf("| 07:00–07:30 | 散歩 | あなた | |");
+  expect(changedLines(daily, puts[0]?.content)).toEqual([line]);
+  await expect(page.getByRole("button", { name: "07:00–07:30 散歩 完了" })).toBeVisible();
+  await expect(actual).toHaveCount(0);
+});
