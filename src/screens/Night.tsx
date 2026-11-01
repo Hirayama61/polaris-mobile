@@ -16,8 +16,9 @@ import { appendJournal, extractPosts, type JournalPost, journalPath } from "../j
 import { toKeyedItems } from "../keys";
 import { PostField, waitForPost } from "../PostField";
 import { isConfigured, type Settings } from "../settings";
+import { StateCard } from "../ui";
 import { dailyPath, type useDaily } from "../useDaily";
-import { UnconfiguredCard } from "./common";
+import { FailureAction, UnconfiguredCard } from "./common";
 
 type Props = {
   settings: Settings;
@@ -37,7 +38,10 @@ type SaveState =
 const clockOf = (iso: string | undefined): string | undefined =>
   iso === undefined ? undefined : /T(\d{2}:\d{2})/.exec(iso)?.[1];
 
-type PostsState = { status: "loading" } | { status: "ready"; posts: JournalPost[] } | { status: "error" };
+type PostsState =
+  | { status: "loading" }
+  | { status: "ready"; posts: JournalPost[] }
+  | { status: "error"; failure: Failure };
 
 const OFFLINE_FAILURE: Failure = {
   reason: "オフラインのため保存できません。",
@@ -62,9 +66,9 @@ const usePosts = (settings: Settings, date: string, reloadKey: number): PostsSta
           setPosts({ status: "ready", posts: file.kind === "found" ? extractPosts(file.content) : [] });
         }
       })
-      .catch(() => {
+      .catch((error: unknown) => {
         if (!isCancelled) {
-          setPosts({ status: "error" });
+          setPosts({ status: "error", failure: describeFailure(error) });
         }
       });
     return () => {
@@ -100,8 +104,10 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const [save, setSave] = useState<SaveState>({ status: "idle" });
   const [journalSaveCount, setJournalSaveCount] = useState(0);
   const [sentPostCount, setSentPostCount] = useState(0);
+  const [postsRetryCount, setPostsRetryCount] = useState(0);
   const handlePostSent = useCallback(() => setSentPostCount((count) => count + 1), []);
-  const posts = usePosts(settings, date, journalSaveCount + sentPostCount);
+  const handleRetryPosts = useCallback(() => setPostsRetryCount((count) => count + 1), []);
+  const posts = usePosts(settings, date, journalSaveCount + sentPostCount + postsRetryCount);
   // 保存の完了時に、その時点の入力と保存した内容を比べるために使う。
   const latest = useRef({ review, journal });
   latest.current = { review, journal };
@@ -199,7 +205,20 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             )}
           </div>
           {posts.status === "error" ? (
-            <p className="panel panel-empty muted">投稿を読めませんでした。</p>
+            <StateCard
+              title="今日の投稿を読めませんでした"
+              tone="error"
+              action={
+                <FailureAction
+                  failure={posts.failure}
+                  onRetry={handleRetryPosts}
+                  onOpenSettings={onOpenSettings}
+                />
+              }
+            >
+              <p>{posts.failure.reason}</p>
+              <p>{posts.failure.hint}</p>
+            </StateCard>
           ) : posts.posts.length === 0 ? (
             <p className="panel panel-empty muted">今日の投稿はまだありません。</p>
           ) : (
