@@ -94,6 +94,8 @@ const START_OF_SLOT = 0;
 
 type IndexedRange = SlotRange & { index: number };
 
+const NO_INDEXED_RANGE = undefined;
+
 const toIndexedRange = (time: string, index: number): IndexedRange[] => {
   const range = toSlotRange(time);
   if (range === NO_SLOT_RANGE) {
@@ -119,12 +121,15 @@ const byStart = (a: IndexedRange, b: IndexedRange): number => a.start - b.start;
 export const getNowMarker = (times: readonly string[], minutesOfDay: number): NowMarker | undefined => {
   const ranges = times.flatMap(toIndexedRange);
   const current = ranges.find((range) => minutesOfDay >= range.start && minutesOfDay < range.end);
-  if (current !== undefined) {
+  const hasCurrent = current !== NO_INDEXED_RANGE;
+  if (hasCurrent) {
     return { index: current.index, ratio: getRatioInRange(current, minutesOfDay) };
   }
   const hasStarted = ranges.some((range) => range.start <= minutesOfDay);
   const next = ranges.filter((range) => range.start > minutesOfDay).sort(byStart)[0];
-  if (!hasStarted || next === undefined) {
+  const hasNext = next !== NO_INDEXED_RANGE;
+  const isBetweenSlots = hasStarted && hasNext;
+  if (!isBetweenSlots) {
     return NO_NOW_MARKER;
   }
   return { index: next.index, ratio: START_OF_SLOT };
