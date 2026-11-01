@@ -9,24 +9,32 @@ const NO_RATE_LIMIT = undefined;
 
 const SECOND_MS = 1000;
 
+const MISSING_HEADER = null;
+
+const NO_SECONDS = undefined;
+
 const readSeconds = (value: string | null): number | undefined => {
-  if (value === null || value.trim() === "") {
-    return undefined;
+  const isMissing = value === MISSING_HEADER || value.trim() === "";
+  if (isMissing) {
+    return NO_SECONDS;
   }
   const seconds = Number(value);
-  if (!Number.isFinite(seconds) || seconds < 0) {
-    return undefined;
+  const isValidSeconds = Number.isFinite(seconds) && seconds >= 0;
+  if (!isValidSeconds) {
+    return NO_SECONDS;
   }
   return seconds;
 };
 
 const getResetAt = (headers: Headers, now: Date): Date | undefined => {
   const retryAfter = readSeconds(headers.get("retry-after"));
-  if (retryAfter !== undefined) {
+  const hasRetryAfter = retryAfter !== NO_SECONDS;
+  if (hasRetryAfter) {
     return new Date(now.getTime() + retryAfter * SECOND_MS);
   }
   const reset = readSeconds(headers.get("x-ratelimit-reset"));
-  if (reset !== undefined) {
+  const hasReset = reset !== NO_SECONDS;
+  if (hasReset) {
     return new Date(reset * SECOND_MS);
   }
   return undefined;

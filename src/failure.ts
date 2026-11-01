@@ -17,7 +17,8 @@ const RATE_LIMITED_REASON = "GitHub の読み取りの上限に当たりまし�
 
 const describeRateLimit = (rateLimit: RateLimit): Failure => {
   const { resetAt } = rateLimit;
-  if (resetAt === undefined) {
+  const hasResetAt = resetAt !== undefined;
+  if (!hasResetAt) {
     return {
       reason: RATE_LIMITED_REASON,
       hint: "しばらく待ってからもう一度試してください。",
@@ -43,8 +44,10 @@ export const describeFailure = (error: unknown): Failure => {
     const reason = error instanceof Error ? error.message : String(error);
     return { reason, hint: "もう一度試してください。", action: "retry" };
   }
-  if (error.rateLimit !== undefined) {
-    return describeRateLimit(error.rateLimit);
+  const { rateLimit } = error;
+  const isRateLimited = rateLimit !== undefined;
+  if (isRateLimited) {
+    return describeRateLimit(rateLimit);
   }
   switch (error.status) {
     case 0:
