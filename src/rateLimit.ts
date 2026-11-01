@@ -22,13 +22,16 @@ const MISSING_HEADER = null;
 
 const NO_SECONDS = undefined;
 
+/** `retry-after` と `x-ratelimit-reset` が取りうる最小の秒数。負の値は壊れたヘッダーとして捨てる。 */
+const MIN_SECONDS = 0;
+
 const readSeconds = (value: string | null): number | undefined => {
   const isMissing = value === MISSING_HEADER || value.trim() === "";
   if (isMissing) {
     return NO_SECONDS;
   }
   const seconds = Number(value);
-  const isValidSeconds = Number.isFinite(seconds) && seconds >= 0;
+  const isValidSeconds = Number.isFinite(seconds) && seconds >= MIN_SECONDS;
   if (!isValidSeconds) {
     return NO_SECONDS;
   }
