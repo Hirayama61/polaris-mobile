@@ -80,8 +80,13 @@ const isMine = (who: string): boolean => who === "あなた";
 // 起床を足したコマは時刻を持たないので、現在時刻の線の対象にしない。
 const NO_SLOT_TIME = "";
 
-const getSlotTime = (slot: TimetableSlot): string =>
-  slot.source === "added-wake" ? NO_SLOT_TIME : slot.row.time;
+const getSlotTime = (slot: TimetableSlot): string => {
+  const isAddedWake = slot.source === "added-wake";
+  if (isAddedWake) {
+    return NO_SLOT_TIME;
+  }
+  return slot.row.time;
+};
 
 const clockOf = (iso: string | undefined): string | undefined =>
   iso === undefined ? undefined : /T(\d{2}:\d{2})/.exec(iso)?.[1];
