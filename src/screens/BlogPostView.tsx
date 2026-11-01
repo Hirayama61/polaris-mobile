@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   BLOG_STAGE_LABELS,
   type BlogPost,
@@ -34,6 +35,7 @@ const toLineKey = (line: ProjectLine): string => {
  * 1 本の記事のいちばん進んだ版の本文を出し、一言と公開の欄を並べる。
  *
  * @remarks 一覧の読み直しは持たない。保存したら `onSaved` で一覧を持つ側に知らせる。
+ * 公開した後は読み直しで公開の欄が消えるので、公開できたことはここで覚えて出す。
  */
 export const BlogPostView = (props: Props) => {
   const { settings, isOnline, post, onBack, onSaved, onOpenSettings } = props;
@@ -41,6 +43,12 @@ export const BlogPostView = (props: Props) => {
   const hasBody = lines.some((line) => line.kind !== "blank");
   const commentFolder = getCommentFolder(post);
   const canPublish = post.stage === "drafting";
+  const [isPublished, setIsPublished] = useState(false);
+
+  const handlePublished = () => {
+    setIsPublished(true);
+    onSaved();
+  };
 
   return (
     <>
@@ -74,12 +82,20 @@ export const BlogPostView = (props: Props) => {
         />
       )}
 
+      {isPublished && (
+        <section className="section">
+          <p className="save-note save-note-ok" role="status">
+            公開済みにしました
+          </p>
+        </section>
+      )}
+
       {canPublish && (
         <BlogPublishForm
           settings={settings}
           isOnline={isOnline}
           path={toBlogPath("draft", post.id)}
-          onSaved={onSaved}
+          onSaved={handlePublished}
           onOpenSettings={onOpenSettings}
         />
       )}
