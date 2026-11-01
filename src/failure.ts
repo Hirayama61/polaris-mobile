@@ -1,4 +1,6 @@
+import { formatTokyoTime } from "./clock";
 import { GitHubError } from "./github";
+import { NO_RATE_LIMIT, type RateLimit, UNKNOWN_RESET_AT } from "./rateLimit";
 
 /**
  * 失敗を利用者に見せるための説明。
@@ -11,16 +13,41 @@ export type Failure = {
   action: "settings" | "retry";
 };
 
+const RATE_LIMITED_REASON = "GitHub の読み取りの上限に当たりました。";
+
+const describeRateLimit = (rateLimit: RateLimit): Failure => {
+  const { resetAt } = rateLimit;
+  const hasResetAt = resetAt !== UNKNOWN_RESET_AT;
+  if (!hasResetAt) {
+    return {
+      reason: RATE_LIMITED_REASON,
+      hint: "しばらく待ってからもう一度試してください。",
+      action: "retry",
+    };
+  }
+  const resetLabel = formatTokyoTime(resetAt);
+  return {
+    reason: `${RATE_LIMITED_REASON}${resetLabel} に解除されます。`,
+    hint: "解除されたらもう一度試してください。",
+    action: "retry",
+  };
+};
+
 /**
  * 例外を、理由と次の一手に変える。
  *
  * @param error - GitHub への読み書きで起きた例外。
- * @returns 401 / 403 / 404 はトークンや設定の見直しを、それ以外はやり直しを促す。
+ * @returns レート制限は解除時刻とやり直しを、401 / 403 / 404 はトークンや設定の見直しを、それ以外はやり直しを促す。
  */
 export const describeFailure = (error: unknown): Failure => {
   if (!(error instanceof GitHubError)) {
     const reason = error instanceof Error ? error.message : String(error);
     return { reason, hint: "もう一度試してください。", action: "retry" };
+  }
+  const { rateLimit } = error;
+  const isRateLimited = rateLimit !== NO_RATE_LIMIT;
+  if (isRateLimited) {
+    return describeRateLimit(rateLimit);
   }
   switch (error.status) {
     case 0:
