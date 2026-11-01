@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { configure, mockGitHub } from "./github";
 
 const date = "2026-10-31";
@@ -54,6 +54,53 @@ test("夜の画面で送った投稿は、送り終えると入力欄を空に�
   await expect(page.getByText("21:00 に投稿しました")).toBeVisible();
   await expect(field).toHaveValue("");
   await expect(page.getByRole("region", { name: "今日の投稿" }).getByText("夕日がきれい")).toBeVisible();
+});
+
+// 今日の journal の読み込みだけを、isRejected が真の間は status で断る。ほかは mockGitHub に任せる。
+const rejectJournalReads = async (page: Page, status: number): Promise<{ isRejected: boolean }> => {
+  const gate = { isRejected: true };
+  await page.route("https://api.github.com/**", async (route) => {
+    const request = route.request();
+    const isJournalRead = request.method() === "GET" && request.url().includes(`journal/${date}.md`);
+    if (!gate.isRejected || !isJournalRead) {
+      await route.fallback();
+      return;
+    }
+    await route.fulfill({ status, json: { message: "rejected" } });
+  });
+  return gate;
+};
+
+test("投稿を読めないと理由と「読み直す」を出し、押すと投稿を読み直す", async ({ page }) => {
+  await configure(page);
+  await mockGitHub(page, new Map([[`journal/${date}.md`, journal]]));
+  const gate = await rejectJournalReads(page, 500);
+  await page.goto("./");
+  await page.getByRole("button", { name: "夜" }).click();
+  const posts = page.getByRole("region", { name: "今日の投稿" });
+  const alert = posts.getByRole("alert");
+  await expect(alert.getByText("今日の投稿を読めませんでした")).toBeVisible();
+  await expect(alert.getByText("少し待ってからもう一度試してください。")).toBeVisible();
+  await expect(posts.getByRole("button", { name: "設定を開く" })).toHaveCount(0);
+
+  gate.isRejected = false;
+  await posts.getByRole("button", { name: "読み直す" }).click();
+  await expect(posts.getByRole("listitem")).toHaveCount(2);
+  await expect(alert).toHaveCount(0);
+});
+
+test("トークンが通らず投稿を読めないと、「設定を開く」で設定の画面へ行ける", async ({ page }) => {
+  await configure(page);
+  await mockGitHub(page, new Map([[`journal/${date}.md`, journal]]));
+  await rejectJournalReads(page, 401);
+  await page.goto("./");
+  await page.getByRole("button", { name: "夜" }).click();
+  const posts = page.getByRole("region", { name: "今日の投稿" });
+  await expect(posts.getByRole("alert").getByText("今日の投稿を読めませんでした")).toBeVisible();
+  await expect(posts.getByRole("button", { name: "読み直す" })).toHaveCount(0);
+
+  await posts.getByRole("button", { name: "設定を開く" }).click();
+  await expect(page.getByText("トークン(fine-grained PAT)")).toBeVisible();
 });
 
 const dailyWithDone = `---
