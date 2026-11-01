@@ -9,6 +9,15 @@ const NO_RATE_LIMIT = undefined;
 
 const SECOND_MS = 1000;
 
+/** GitHub がレート制限に当たったときに返すステータス。出どころは GitHub REST API の "Rate limits" の節。 */
+const STATUS_TOO_MANY_REQUESTS = 429;
+
+/** レート制限でも権限不足でも GitHub が返すステータス。`x-ratelimit-remaining` で見分ける。 */
+const STATUS_FORBIDDEN = 403;
+
+/** 残りのリクエスト数を使い切ったときの `x-ratelimit-remaining` の値。 */
+const NO_REMAINING = "0";
+
 const MISSING_HEADER = null;
 
 const NO_SECONDS = undefined;
@@ -52,8 +61,10 @@ const getResetAt = (headers: Headers, now: Date): Date | undefined => {
  * @returns レート制限でなければ `undefined`。
  */
 export const getRateLimit = (status: number, headers: Headers, now: Date): RateLimit | undefined => {
-  const isExhausted = headers.get("x-ratelimit-remaining") === "0";
-  const isRateLimited = status === 429 || (status === 403 && isExhausted);
+  const isExhausted = headers.get("x-ratelimit-remaining") === NO_REMAINING;
+  const isTooManyRequests = status === STATUS_TOO_MANY_REQUESTS;
+  const isForbidden = status === STATUS_FORBIDDEN;
+  const isRateLimited = isTooManyRequests || (isForbidden && isExhausted);
   if (!isRateLimited) {
     return NO_RATE_LIMIT;
   }
