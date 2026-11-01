@@ -76,6 +76,8 @@ test("draft に URL を入れて公開済みにする", async ({ page }) => {
     draft.replace("status: draft\n", "status: done\nurl: https://example.com/pwa\n"),
   );
   await expect(page.getByText("公開", { exact: true })).toBeVisible();
+  await expect(page.getByRole("textbox", { name: "公開した記事の URL" })).toHaveCount(0);
+  await expect(page.getByRole("status").filter({ hasText: "公開済みにしました" })).toBeVisible();
 });
 
 test("アイデアを書くと ideas に書いたままのファイルを作り、構成待ちで並べる", async ({ page }) => {
