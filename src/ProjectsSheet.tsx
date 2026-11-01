@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { DevPlanSection } from "./DevPlanSection";
 import { describeFailure, type Failure } from "./failure";
-import { listFileNames, readFile } from "./github";
+import { createRepoReader } from "./github";
 import { getProjectItems, type InboxItem } from "./inbox";
 import { toKeyedItems } from "./keys";
 import { ProjectItemsSection } from "./ProjectItemsSection";
@@ -157,13 +157,8 @@ export const ProjectsSheet = ({ settings, inboxItems, onClose, onOpenSettings }:
     }
     setLoad({ status: "loading" });
     let isCancelled = false;
-    loadProjects(
-      (path) => listFileNames(settings, path),
-      async (path) => {
-        const file = await readFile(settings, path);
-        return file.kind === "found" ? file.content : undefined;
-      },
-    )
+    const reader = createRepoReader(settings);
+    loadProjects(reader.listFileNames, reader.readText)
       .then((projects) => {
         if (!isCancelled) {
           setLoad({ status: "ready", projects });
