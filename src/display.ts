@@ -77,6 +77,59 @@ export const hasSlotEnded = (time: string, minutesOfDay: number): boolean => {
   return range.end <= minutesOfDay;
 };
 
+/**
+ * 時間割の上で現在時刻の線を引く位置。
+ */
+export type NowMarker = {
+  /** 線を引くコマの、渡した配列での位置。 */
+  index: number;
+  /** コマの上端を 0、下端を 1 とした線の位置。 */
+  ratio: number;
+};
+
+/** 線を引かない。 */
+export const NO_NOW_MARKER = undefined;
+
+const START_OF_SLOT = 0;
+
+type IndexedRange = SlotRange & { index: number };
+
+const toIndexedRange = (time: string, index: number): IndexedRange[] => {
+  const range = toSlotRange(time);
+  if (range === NO_SLOT_RANGE) {
+    return [];
+  }
+  return [{ ...range, index }];
+};
+
+const getRatioInRange = (range: SlotRange, minutesOfDay: number): number =>
+  (minutesOfDay - range.start) / (range.end - range.start);
+
+const byStart = (a: IndexedRange, b: IndexedRange): number => a.start - b.start;
+
+/**
+ * 時間割で現在時刻の線を引く位置を決める。
+ *
+ * @remarks コマの高さや表示は持たない。線の描き方は画面で決める。
+ * @param times - 表示順の時間割の「時刻」。起床のように時刻の無いコマは空文字で渡す。
+ * @param minutesOfDay - 0:00 からの経過分。
+ * @returns 現在時刻を含むコマがあれば、その中の割合。コマとコマの間なら、次に始まるコマの上端。
+ *   最初のコマより前、最後のコマより後、時刻の読めるコマが無いときは {@link NO_NOW_MARKER}。
+ */
+export const getNowMarker = (times: readonly string[], minutesOfDay: number): NowMarker | undefined => {
+  const ranges = times.flatMap(toIndexedRange);
+  const current = ranges.find((range) => minutesOfDay >= range.start && minutesOfDay < range.end);
+  if (current !== undefined) {
+    return { index: current.index, ratio: getRatioInRange(current, minutesOfDay) };
+  }
+  const hasStarted = ranges.some((range) => range.start <= minutesOfDay);
+  const next = ranges.filter((range) => range.start > minutesOfDay).sort(byStart)[0];
+  if (!hasStarted || next === undefined) {
+    return NO_NOW_MARKER;
+  }
+  return { index: next.index, ratio: START_OF_SLOT };
+};
+
 const DONE_ACTUAL = "完了";
 
 /**

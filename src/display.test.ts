@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   canFoldSlot,
+  getNowMarker,
   hasSlotEnded,
   isDoneActual,
   isNowInSlot,
+  NO_NOW_MARKER,
   splitTaskRef,
   splitTurnLabel,
 } from "./display";
@@ -67,6 +69,39 @@ describe("hasSlotEnded", () => {
   it("形が違えば false", () => {
     expect(hasSlotEnded("午前", at(23, 0))).toBe(false);
     expect(hasSlotEnded("", at(23, 0))).toBe(false);
+  });
+});
+
+describe("getNowMarker", () => {
+  const at = (hour: number, minute: number): number => hour * 60 + minute;
+  const times = ["", "07:00–07:30", "09:00–18:00", "午前"];
+
+  it("現在時刻を含むコマの中の割合を返す", () => {
+    expect(getNowMarker(times, at(7, 15))).toEqual({ index: 1, ratio: 0.5 });
+    expect(getNowMarker(times, at(9, 0))).toEqual({ index: 2, ratio: 0 });
+    expect(getNowMarker(times, at(12, 0))).toEqual({ index: 2, ratio: 1 / 3 });
+  });
+
+  it("コマとコマの間なら、次に始まるコマの上端を返す", () => {
+    expect(getNowMarker(times, at(7, 30))).toEqual({ index: 2, ratio: 0 });
+    expect(getNowMarker(times, at(8, 59))).toEqual({ index: 2, ratio: 0 });
+  });
+
+  it("表示順が時刻の順でなくても、次に始まるのは開始のいちばん早いコマ", () => {
+    expect(getNowMarker(["13:00–14:00", "07:00–08:00", "10:00–11:00"], at(9, 0))).toEqual({
+      index: 2,
+      ratio: 0,
+    });
+  });
+
+  it("最初のコマより前と最後のコマより後は線を引かない", () => {
+    expect(getNowMarker(times, at(6, 59))).toBe(NO_NOW_MARKER);
+    expect(getNowMarker(times, at(18, 0))).toBe(NO_NOW_MARKER);
+  });
+
+  it("時刻の読めるコマが無ければ線を引かない", () => {
+    expect(getNowMarker(["", "午前"], at(9, 0))).toBe(NO_NOW_MARKER);
+    expect(getNowMarker([], at(9, 0))).toBe(NO_NOW_MARKER);
   });
 });
 

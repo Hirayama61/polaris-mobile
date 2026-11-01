@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useState } from "react";
 import { formatTokyoIso, tokyoMinutesOfDay } from "../clock";
 import {
   extractSchedule,
@@ -10,14 +10,14 @@ import {
   setWakeAt,
   type TurnItem,
 } from "../daily";
-import { canFoldSlot, isNowInSlot, splitTurnLabel } from "../display";
+import { canFoldSlot, getNowMarker, isNowInSlot, NO_NOW_MARKER, splitTurnLabel } from "../display";
 import { describeFailure, type Failure } from "../failure";
 import { writeKnownFile } from "../github";
 import { QuestionSheet } from "../QuestionSheet";
 import type { Settings } from "../settings";
 import { TaskChecklist } from "../TaskChecklist";
 import { taskPathOf } from "../tasks";
-import { buildTimetable } from "../timetable";
+import { buildTimetable, type TimetableSlot } from "../timetable";
 import { PenIcon, StateCard } from "../ui";
 import { dailyPath, type useDaily } from "../useDaily";
 import { useProjectNames } from "../useProjectNames";
@@ -76,6 +76,12 @@ const useMinutesOfDay = (): number => {
 };
 
 const isMine = (who: string): boolean => who === "あなた";
+
+// 起床を足したコマは時刻を持たないので、現在時刻の線の対象にしない。
+const NO_SLOT_TIME = "";
+
+const getSlotTime = (slot: TimetableSlot): string =>
+  slot.source === "added-wake" ? NO_SLOT_TIME : slot.row.time;
 
 const clockOf = (iso: string | undefined): string | undefined =>
   iso === undefined ? undefined : /T(\d{2}:\d{2})/.exec(iso)?.[1];
@@ -276,6 +282,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     ) : undefined;
 
   const timetable = buildTimetable(view.schedule, view.turns);
+  const nowMarker = getNowMarker(timetable.slots.map(getSlotTime), minutesOfDay);
 
   const handleOpenSlot = (slot: string, taskId: string): void => {
     const isOpen = slotTask.detail.status !== "closed" && slotTask.detail.slot === slot;
@@ -364,7 +371,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           </button>
         </div>
         <ol className="panel timeline">
-          {timetable.slots.map((slot) => {
+          {timetable.slots.map((slot, index) => {
             const isAddedWake = slot.source === "added-wake";
             if (isAddedWake) {
               return (
@@ -397,6 +404,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               );
             }
             const isNow = isNowInSlot(row.time, minutesOfDay);
+            const hasNowLine = nowMarker !== NO_NOW_MARKER && nowMarker.index === index;
+            const nowLineStyle = { "--now-ratio": nowMarker?.ratio } as CSSProperties;
             const isMineSlot = isMine(row.who);
             const hasWho = row.who !== "";
             const hasTaskId = taskId !== undefined;
@@ -445,6 +454,9 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             );
             return (
               <li key={row.line} className={classes} aria-current={isNow ? "time" : undefined}>
+                {hasNowLine && (
+                  <span className="now-line" role="img" aria-label="現在時刻" style={nowLineStyle} />
+                )}
                 <div className="slot-head">
                   {isWakeSlot && wakeToggle(row.time, text)}
                   {isTaskSlot && (
