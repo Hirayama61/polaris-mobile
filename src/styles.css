@@ -734,6 +734,30 @@ a {
   background: var(--accent-soft);
 }
 
+/* 現在時刻の線。--now-ratio はコマの上端を 0、下端を 1 とした位置。タップを邪魔しない */
+.now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--now-ratio) * 100%);
+  z-index: 1;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--primary-bg);
+  pointer-events: none;
+}
+
+.now-line::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--primary-bg);
+}
+
 /* 完了して終わったコマ。これからのコマが目に入るよう、1 行に畳んで控えめにする */
 .slot-folded {
   padding-top: 0;
