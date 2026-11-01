@@ -70,3 +70,45 @@ test("受信箱から開いたタスクは、戻るとシートを閉じて受�
   await expect(dialog).toBeHidden();
   await expect(page.getByRole("button", { name: /受信箱のタブはどこに置く/ })).toBeVisible();
 });
+
+const longTitle = "受信箱の一覧で、タイトルが長いときに横の印が改行されずに同じ位置へ並ぶかを確かめる";
+
+const answered = (id: string, title: string): string => `---
+id: ${id}
+title: "質問: ${title}"
+assignee: human
+status: todo
+---
+
+## 質問
+${title}
+
+## 回答
+A
+`;
+
+test("幅 375px で長いタイトルの行も、回答済みの印は 1 行のまま短い行と同じ位置に並ぶ", async ({ page }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await configure(page);
+  await mockGitHub(
+    page,
+    new Map([
+      ["tasks/20261031-q2.md", answered("20261031-q2", longTitle)],
+      ["tasks/20261031-q3.md", answered("20261031-q3", "短い質問")],
+    ]),
+  );
+  await page.goto("./");
+  await page.getByRole("button", { name: /^受信箱/ }).click();
+
+  const longTag = page.getByRole("button", { name: new RegExp(longTitle) }).getByText("回答済み");
+  const shortTag = page.getByRole("button", { name: /短い質問/ }).getByText("回答済み");
+  const longBox = await longTag.boundingBox();
+  const shortBox = await shortTag.boundingBox();
+  if (longBox === null || shortBox === null) {
+    throw new Error("回答済みの印が表示されていない");
+  }
+  // 印の高さと幅が短い行と同じなら、改行も縮みもしていない。右端が同じなら同じ位置に並んでいる。
+  expect(longBox.height).toBeCloseTo(shortBox.height, 0);
+  expect(longBox.width).toBeCloseTo(shortBox.width, 0);
+  expect(longBox.x + longBox.width).toBeCloseTo(shortBox.x + shortBox.width, 0);
+});

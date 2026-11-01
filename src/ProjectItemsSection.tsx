@@ -1,12 +1,12 @@
 import type { InboxItem } from "./inbox";
+import { KindMark } from "./KindMark";
 
 const ItemRow = (props: { item: InboxItem }) => {
   const { item } = props;
-  const isQuestion = item.kind === "question";
   const isAnswered = item.kind === "question" && item.answered;
   return (
-    <li className="dev-row">
-      {isQuestion && <span className="tag inbox-question">質問</span>}
+    <li className="dev-row project-item-row">
+      <KindMark kind={item.kind} />
       <span className="dev-issue">{item.title}</span>
       {isAnswered && <span className="tag question-answered">回答済み</span>}
     </li>

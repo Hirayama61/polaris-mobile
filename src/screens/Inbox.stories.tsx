@@ -78,3 +78,29 @@ export const Failed: Story = {
     },
   },
 };
+
+const longTitleItems: InboxItem[] = [
+  {
+    kind: "question",
+    id: "20261031-q3",
+    title:
+      "受信箱の一覧で、タイトルが長いときに横の印やボタンが改行されずに同じ位置へ並ぶかを確かめるための質問",
+    answered: true,
+    projectSlug: "polaris",
+    projectName: "Polaris",
+    created: "2026-10-31T10:00:00+09:00",
+  },
+  {
+    kind: "task",
+    id: "20261031-t4",
+    title: "長いタイトルのタスクでも、新着の印と右端の矢印の位置が他の行と揃っていることを見る",
+    projectSlug: "polaris",
+    projectName: "Polaris",
+    created: "2026-10-31T12:00:00+09:00",
+  },
+  ...items,
+];
+
+export const LongTitles: Story = {
+  args: { state: { status: "ready", items: longTitleItems } },
+};
