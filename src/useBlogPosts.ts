@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { type BlogPost, loadBlogPosts } from "./blog";
 import { describeFailure, type Failure } from "./failure";
-import { listFileNames, readText } from "./github";
+import { createRepoReader } from "./github";
 import { isConfigured, type Settings } from "./settings";
 
 export type BlogLoadState =
@@ -31,10 +31,8 @@ export const useBlogPosts = (settings: Settings): { state: BlogLoadState; reload
       return undefined;
     }
     let isCancelled = false;
-    loadBlogPosts(
-      (path) => listFileNames(settings, path),
-      (path) => readText(settings, path),
-    )
+    const reader = createRepoReader(settings);
+    loadBlogPosts(reader.listFileNames, reader.readText)
       .then((posts) => {
         if (!isCancelled) {
           setState({ status: "ready", posts });

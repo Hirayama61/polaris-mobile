@@ -1,7 +1,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { formatTokyoIso } from "./clock";
 import { describeFailure, type Failure } from "./failure";
-import { isConflict, listFileNames, readFile, writeIfUnchanged } from "./github";
+import { createRepoReader, isConflict, readFile, writeIfUnchanged } from "./github";
 import { IssueLink } from "./IssueLink";
 import { toKeyedItems } from "./keys";
 import { getIssueLink, linkifyText } from "./linkify";
@@ -297,13 +297,8 @@ export const TasksSheet = ({ settings, initialTask, backTo, onClose, onOpenSetti
     }
     setLoad({ status: "loading" });
     let isCancelled = false;
-    loadHumanTasks(
-      (path) => listFileNames(settings, path),
-      async (path) => {
-        const file = await readFile(settings, path);
-        return file.kind === "found" ? file.content : undefined;
-      },
-    )
+    const reader = createRepoReader(settings);
+    loadHumanTasks(reader.listFileNames, reader.readText)
       .then((tasks) => {
         if (!isCancelled) {
           setLoad({ status: "ready", tasks });

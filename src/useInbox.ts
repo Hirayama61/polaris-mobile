@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { describeFailure, type Failure } from "./failure";
-import { listFileNames, readText } from "./github";
+import { createRepoReader } from "./github";
 import { type InboxItem, loadInbox } from "./inbox";
 import { isConfigured, type Settings } from "./settings";
 
@@ -45,10 +45,8 @@ export const useInbox = (settings: Settings): { state: InboxLoadState; reload: (
       return undefined;
     }
     let isCancelled = false;
-    loadInbox(
-      (path) => listFileNames(settings, path),
-      (path) => readText(settings, path),
-    )
+    const reader = createRepoReader(settings);
+    loadInbox(reader.listFileNames, reader.readText)
       .then((items) => {
         if (!isCancelled) {
           setState({ status: "ready", items });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { describeFailure, type Failure } from "./failure";
-import { isConflict, listFileNames, readFile, readText, writeIfUnchanged } from "./github";
+import { createRepoReader, isConflict, readFile, writeIfUnchanged } from "./github";
 import { IssueLink } from "./IssueLink";
 import { getIssueLink, linkifyText } from "./linkify";
 import { readFrontmatterValue } from "./projects";
@@ -120,8 +120,10 @@ export const QuestionSheet = ({
   const loadList = useCallback((): void => {
     const request = ++requestRef.current;
     setList((current) => (current.status === "ready" ? current : { status: "loading" }));
-    listFileNames(settings, "tasks")
-      .then((names) => collectOpenQuestions(names, (id) => readText(settings, taskPath(id))))
+    const reader = createRepoReader(settings);
+    reader
+      .listFileNames("tasks")
+      .then((names) => collectOpenQuestions(names, (id) => reader.readText(taskPath(id))))
       .then((items) => {
         if (request === requestRef.current) {
           setList({ status: "ready", items });

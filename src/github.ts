@@ -1,4 +1,7 @@
+import { loadBlob, saveBlob } from "./blobCache";
+import { createLimiter } from "./limit";
 import type { Settings } from "./settings";
+import { getFileNamesIn, type RepoTree, toRepoTree } from "./tree";
 
 /**
  * GitHub Contents API のエラー。`status` は HTTP ステータス。ネットワーク到達前の失敗は 0。
@@ -22,9 +25,35 @@ type WriteOutcome = { sha: string };
 
 const API_BASE = "https://api.github.com";
 
+// GET は ETag で条件付きに問い合わせる。304 はレート制限に数えられず、古い内容も返さない。
+const GET_CACHE: RequestCache = "no-cache";
+
+// GitHub の二次制限 (同時 100 リクエスト超) より十分少なくする。
+const READ_CONCURRENCY = 6;
+
+const limitRead = createLimiter(READ_CONCURRENCY);
+
+// 画面を切り替えるたびの読み直しで tree を取り直さないよう、この間は同じ tree を使い回す。
+// 他の端末での変更はこの分だけ遅れて見える。このアプリからの書き込みでは捨てる。
+const TREE_REUSE_MS = 30_000;
+
+type SharedTree = { key: string; fetchedAt: number; tree: Promise<RepoTree> };
+
+let sharedTree: SharedTree | undefined;
+
+const forgetTree = (): void => {
+  sharedTree = undefined;
+};
+
+// 同じ blob を別の画面が同時に読みにいったとき、リクエストを 1 本にまとめる。
+const pendingBlobs = new Map<string, Promise<string>>();
+
+const repoUrl = (settings: Settings): string =>
+  `${API_BASE}/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}`;
+
 const contentsUrl = (settings: Settings, path: string): string => {
   const encodedPath = path.split("/").map(encodeURIComponent).join("/");
-  return `${API_BASE}/repos/${encodeURIComponent(settings.owner)}/${encodeURIComponent(settings.repo)}/contents/${encodedPath}`;
+  return `${repoUrl(settings)}/contents/${encodedPath}`;
 };
 
 const headers = (settings: Settings, accept: string): HeadersInit => ({
@@ -77,8 +106,39 @@ const encodeBase64 = (text: string): string => {
   return btoa(binary);
 };
 
+const decodeBase64 = (encoded: string): string => {
+  const binary = atob(encoded.replace(/\s/g, ""));
+  const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+};
+
+const readBase64Content = (body: unknown): string | undefined => {
+  if (typeof body !== "object" || body === null) {
+    return undefined;
+  }
+  const source: Record<string, unknown> = { ...body };
+  const { encoding, content } = source;
+  if (encoding !== "base64" || typeof content !== "string") {
+    return undefined;
+  }
+  return decodeBase64(content);
+};
+
+const readBlobText = async (settings: Settings, sha: string): Promise<string> => {
+  const response = await request(`${repoUrl(settings)}/git/blobs/${encodeURIComponent(sha)}`, {
+    headers: headers(settings, "application/vnd.github.raw+json"),
+    cache: GET_CACHE,
+  });
+  if (!response.ok) {
+    throw new GitHubError(response.status, await describeError(response));
+  }
+  return response.text();
+};
+
 /**
- * ファイルを読む。本文は raw で、sha は JSON で別々に取得する。
+ * ファイルを読む。本文と sha を Contents API の JSON 1 回で取る。
+ *
+ * 1 MB を超えるファイルは JSON に本文が載らないので、そのときだけ blob を読み足す。
  *
  * @param settings - 接続設定。
  * @param path - リポジトリ内のパス。
@@ -87,27 +147,20 @@ const encodeBase64 = (text: string): string => {
  */
 export const readFile = async (settings: Settings, path: string): Promise<RemoteFile> => {
   const url = `${contentsUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
-  const [rawResponse, jsonResponse] = await Promise.all([
-    request(url, {
-      headers: headers(settings, "application/vnd.github.raw+json"),
-      cache: "no-store",
-    }),
-    request(url, {
-      headers: headers(settings, "application/vnd.github+json"),
-      cache: "no-store",
-    }),
-  ]);
-  if (rawResponse.status === 404 || jsonResponse.status === 404) {
+  const response = await request(url, {
+    headers: headers(settings, "application/vnd.github+json"),
+    cache: GET_CACHE,
+  });
+  if (response.status === 404) {
     return { kind: "missing" };
   }
-  if (!rawResponse.ok) {
-    throw new GitHubError(rawResponse.status, await describeError(rawResponse));
+  if (!response.ok) {
+    throw new GitHubError(response.status, await describeError(response));
   }
-  if (!jsonResponse.ok) {
-    throw new GitHubError(jsonResponse.status, await describeError(jsonResponse));
-  }
-  const [content, json] = await Promise.all([rawResponse.text(), jsonResponse.json() as Promise<unknown>]);
-  return { kind: "found", content, sha: readSha(json) };
+  const body: unknown = await response.json();
+  const sha = readSha(body);
+  const content = readBase64Content(body) ?? (await readBlobText(settings, sha));
+  return { kind: "found", content, sha };
 };
 
 const putFile = async (
@@ -117,6 +170,8 @@ const putFile = async (
   message: string,
   sha: string | undefined,
 ): Promise<WriteOutcome> => {
+  // 書き込みの最中に読んだ tree も書き込み前のものなので、終わった後にも捨てる。
+  forgetTree();
   const response = await request(contentsUrl(settings, path), {
     method: "PUT",
     headers: {
@@ -129,7 +184,7 @@ const putFile = async (
       branch: settings.branch,
       ...(sha === undefined ? {} : { sha }),
     }),
-  });
+  }).finally(forgetTree);
   if (!response.ok) {
     throw new GitHubError(response.status, await describeError(response));
   }
@@ -272,7 +327,7 @@ export const listFileNames = async (settings: Settings, path: string): Promise<s
   const url = `${contentsUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
   const response = await request(url, {
     headers: headers(settings, "application/vnd.github+json"),
-    cache: "no-store",
+    cache: GET_CACHE,
   });
   if (response.status === 404) {
     return [];
@@ -308,7 +363,7 @@ export const readText = async (settings: Settings, path: string): Promise<string
   const url = `${contentsUrl(settings, path)}?ref=${encodeURIComponent(settings.branch)}`;
   const response = await request(url, {
     headers: headers(settings, "application/vnd.github.raw+json"),
-    cache: "no-store",
+    cache: GET_CACHE,
   });
   if (response.status === 404) {
     return undefined;
@@ -317,6 +372,109 @@ export const readText = async (settings: Settings, path: string): Promise<string
     throw new GitHubError(response.status, await describeError(response));
   }
   return response.text();
+};
+
+const readTree = async (settings: Settings): Promise<RepoTree> => {
+  const url = `${repoUrl(settings)}/git/trees/${encodeURIComponent(settings.branch)}?recursive=1`;
+  const response = await request(url, {
+    headers: headers(settings, "application/vnd.github+json"),
+    cache: GET_CACHE,
+  });
+  // Contents API の一覧と同じく、ブランチやリポジトリが見えなければ空として扱う。
+  if (response.status === 404) {
+    return toRepoTree({ tree: [] });
+  }
+  if (!response.ok) {
+    throw new GitHubError(response.status, await describeError(response));
+  }
+  return toRepoTree(await response.json());
+};
+
+const getSharedTree = (settings: Settings): Promise<RepoTree> => {
+  const key = [settings.token, settings.owner, settings.repo, settings.branch].join("\n");
+  const now = Date.now();
+  const isReusable =
+    sharedTree !== undefined && sharedTree.key === key && now - sharedTree.fetchedAt < TREE_REUSE_MS;
+  if (isReusable && sharedTree !== undefined) {
+    return sharedTree.tree;
+  }
+  const tree = readTree(settings);
+  const entry: SharedTree = { key, fetchedAt: now, tree };
+  sharedTree = entry;
+  tree.catch(() => {
+    if (sharedTree === entry) {
+      forgetTree();
+    }
+  });
+  return tree;
+};
+
+const fetchBlob = async (settings: Settings, sha: string): Promise<string> => {
+  const content = await limitRead(() => readBlobText(settings, sha));
+  saveBlob(sha, content);
+  return content;
+};
+
+const readCachedBlob = (settings: Settings, sha: string): Promise<string> => {
+  const cached = loadBlob(sha);
+  if (cached !== undefined) {
+    return Promise.resolve(cached);
+  }
+  const pending = pendingBlobs.get(sha) ?? fetchBlob(settings, sha);
+  pendingBlobs.set(sha, pending);
+  const forget = (): void => {
+    pendingBlobs.delete(sha);
+  };
+  pending.then(forget, forget);
+  return pending;
+};
+
+/**
+ * 一覧と本文を読む口。書き込み前の読み取りには使わない (sha は `readFile` で取る)。
+ */
+export type RepoReader = {
+  listFileNames: (dir: string) => Promise<string[]>;
+  readText: (path: string) => Promise<string | undefined>;
+};
+
+/**
+ * 1 回の画面表示ぶんの読み取り口を作る。
+ *
+ * 最初の呼び出しで Git Trees を読み、全ファイルの blob sha を得る。30 秒以内に読んだ tree があれば使い回す。
+ * 本文は sha をキーに localStorage へ置き、sha が変わっていなければ読み直さない。
+ * tree が切り詰められていたら Contents API に落とす。本文の読み取りは全体で同時 6 件まで。
+ *
+ * @remarks 作った後の変更は見えない。画面を読み直すたびに作り直す。
+ * @param settings - 接続設定。
+ * @returns 一覧と本文を読む関数。
+ * @throws GitHubError 読めなかったとき (各関数が投げる)。
+ */
+export const createRepoReader = (settings: Settings): RepoReader => {
+  let tree: Promise<RepoTree> | undefined;
+  const getTree = (): Promise<RepoTree> => {
+    tree ??= getSharedTree(settings);
+    return tree;
+  };
+  return {
+    listFileNames: async (dir) => {
+      const current = await getTree();
+      if (current.kind === "truncated") {
+        return listFileNames(settings, dir);
+      }
+      return getFileNamesIn(current.shas, dir);
+    },
+    readText: async (path) => {
+      const current = await getTree();
+      if (current.kind === "truncated") {
+        return limitRead(() => readText(settings, path));
+      }
+      const sha = current.shas.get(path);
+      if (sha === undefined) {
+        return undefined;
+      }
+      return readCachedBlob(settings, sha);
+    },
+  };
 };
 
 /**
@@ -328,7 +486,7 @@ const getRepoJson = async (settings: Settings, repo: string, pathAndQuery: strin
   const encodedRepo = repo.split("/").map(encodeURIComponent).join("/");
   const response = await request(`${API_BASE}/repos/${encodedRepo}/${pathAndQuery}`, {
     headers: headers(settings, "application/vnd.github+json"),
-    cache: "no-store",
+    cache: GET_CACHE,
   });
   if (!response.ok) {
     throw new GitHubError(response.status, await describeError(response));
