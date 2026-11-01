@@ -94,6 +94,44 @@ test("アイデアを書くと ideas に書いたままのファイルを作り�
   await expect(page.getByRole("button", { name: /お茶の淹れ方/ })).toContainText("構成待ち");
 });
 
+test("アイデアの送信の応答を待つ間は、閉じるでも外側のタップでも Esc でも閉じない", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, files());
+  // 後から登録した route が先に当たる。PUT だけ応答を止め、放したら mockGitHub に渡す。
+  let release = (): void => {};
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  await page.route("https://api.github.com/**", async (route) => {
+    if (route.request().method() === "PUT") {
+      await gate;
+    }
+    await route.fallback();
+  });
+  await page.goto("./");
+  await page.getByRole("button", { name: "ブログ" }).click();
+  await page.getByRole("main").getByRole("button", { name: "アイデアを書く" }).click();
+
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("textbox", { name: "アイデア" }).fill("# お茶の淹れ方");
+  await dialog.getByRole("button", { name: "送信" }).click();
+  await expect(dialog.getByRole("button", { name: "送信中…" })).toBeVisible();
+
+  await expect(dialog.getByRole("button", { name: "閉じる" })).toBeDisabled();
+  // シートは上端に出るので、外側として画面の下端を押す。
+  const viewport = page.viewportSize();
+  await page.mouse.click(10, (viewport?.height ?? 0) - 10);
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeVisible();
+
+  release();
+  await expect(dialog.getByRole("status")).toContainText("に書きました");
+  expect(puts).toHaveLength(1);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
+
 test("アイデアの書きかけは閉じても残り、思いつきのシートには混ざらない", async ({ page }) => {
   await configure(page);
   const puts = await mockGitHub(page, files());
