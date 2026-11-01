@@ -10,6 +10,10 @@
       {
         "spec": "e2e/today.spec.ts",
         "test": "task のコマにチェック欄を出し、切り替えると「あなたの番」の行だけが変わる"
+      },
+      {
+        "spec": "e2e/today.spec.ts",
+        "test": "チェックの保存が 409 で競合したら読み直して当て直し、別の端末で付けたチェックを外さない"
       }
     ]
   },
@@ -26,8 +30,12 @@
   {
     "file": "src/screens/Today.tsx",
     "operation": "時間割の「実績」のセルを書く",
-    "e2e": [],
-    "pending": true
+    "e2e": [
+      {
+        "spec": "e2e/today.spec.ts",
+        "test": "実績のセルに書いた文は、その行の実績の列にだけ入り、開き直しても出る"
+      }
+    ]
   },
   {
     "file": "src/screens/useSlotSave.ts",
@@ -53,26 +61,54 @@
   {
     "file": "src/TaskChecklist.tsx",
     "operation": "タスクのチェックリストの項目を切り替え、tasks のファイルを書き換える",
-    "e2e": [],
-    "pending": true
+    "e2e": [
+      {
+        "spec": "e2e/today.spec.ts",
+        "test": "タスクのチェックリストの項目を付けると、tasks のその行だけが [x] になり、開き直しても付いている"
+      },
+      {
+        "spec": "e2e/today.spec.ts",
+        "test": "チェックリストの保存が 409 で競合したら、やり直さずに読み直し、別の場所で付けたチェックを外さない"
+      }
+    ]
   },
   {
     "file": "src/TasksSheet.tsx",
     "operation": "タスクのシートで項目のチェック、完了、疑問点を tasks のファイルに書く",
-    "e2e": [],
-    "pending": true
+    "e2e": [
+      {
+        "spec": "e2e/inbox.spec.ts",
+        "test": "タスクのシートで項目にチェックを付けると、tasks のその行だけが [x] になる"
+      },
+      {
+        "spec": "e2e/inbox.spec.ts",
+        "test": "タスクのシートで疑問点を足すと、「## 疑問点」に 1 行だけ足して一覧に出す"
+      },
+      {
+        "spec": "e2e/inbox.spec.ts",
+        "test": "全部チェックしたタスクを完了にすると、status と updated だけを書き換え、一覧から外す"
+      }
+    ]
   },
   {
     "file": "src/QuestionSheet.tsx",
     "operation": "質問のシートで回答を書き、tasks のファイルを書き換える",
-    "e2e": [],
-    "pending": true
+    "e2e": [
+      {
+        "spec": "e2e/inbox.spec.ts",
+        "test": "質問に A で答えて保存すると、「## 回答」だけを書き換え、一覧で回答済みにする"
+      }
+    ]
   },
   {
     "file": "src/screens/Night.tsx",
     "operation": "夜の画面で振り返りを保存し、daily の「振り返り」と review_at を書く",
-    "e2e": [],
-    "pending": true
+    "e2e": [
+      {
+        "spec": "e2e/night.spec.ts",
+        "test": "振り返りを保存すると、daily の「振り返り」と review_at だけが変わり、開き直しても出る"
+      }
+    ]
   },
   {
     "file": "src/screens/Night.tsx",
@@ -114,7 +150,11 @@
   {
     "file": "src/FeedbackSheet.tsx",
     "operation": "要望シートから inbox/ に新しいメモを作る",
-    "e2e": [],
-    "pending": true
+    "e2e": [
+      {
+        "spec": "e2e/feedback.spec.ts",
+        "test": "要望シートの送信を連打しても、inbox に書いたままのメモを 1 件だけ作る"
+      }
+    ]
   }
 ]
