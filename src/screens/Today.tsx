@@ -10,7 +10,7 @@ import {
   setWakeAt,
   type TurnItem,
 } from "../daily";
-import { hasSlotEnded, isDoneActual, isNowInSlot, splitTurnLabel } from "../display";
+import { canFoldSlot, isNowInSlot, splitTurnLabel } from "../display";
 import { describeFailure, type Failure } from "../failure";
 import { writeKnownFile } from "../github";
 import { QuestionSheet } from "../QuestionSheet";
@@ -376,8 +376,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             }
             const { row, text, taskId, opens, turn } = slot;
             const key = slotKey(row);
-            const isFolded =
-              isDoneActual(row.actual) && hasSlotEnded(row.time, minutesOfDay) && !unfoldedSlots.has(key);
+            const isUnfolded = unfoldedSlots.has(key);
+            const isFolded = canFoldSlot(row.actual, row.time, minutesOfDay) && !isUnfolded;
             const foldedLabel = `${row.time} ${text} 完了`;
             if (isFolded) {
               return (

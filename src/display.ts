@@ -88,6 +88,18 @@ const DONE_ACTUAL = "完了";
 export const isDoneActual = (actual: string | undefined): boolean => actual?.trim() === DONE_ACTUAL;
 
 /**
+ * 「今日」の時間割で、コマを 1 行に畳むかを判定する。
+ *
+ * @remarks 利用者がタップで開いたかは持たない。開閉は画面の state で決める。
+ * @param actual - 実績のセル。列やセルが無ければ undefined。
+ * @param time - 時間割の「時刻」。
+ * @param minutesOfDay - 0:00 からの経過分。
+ * @returns 実績が「完了」で、終了時刻が現在以前なら true。
+ */
+export const canFoldSlot = (actual: string | undefined, time: string, minutesOfDay: number): boolean =>
+  isDoneActual(actual) && hasSlotEnded(time, minutesOfDay);
+
+/**
  * 「あなたの番」の 1 項目を 1 行表示と展開部分に分けた結果。
  */
 export type TurnParts = {

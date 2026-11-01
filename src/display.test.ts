@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { hasSlotEnded, isDoneActual, isNowInSlot, splitTaskRef, splitTurnLabel } from "./display";
+import {
+  canFoldSlot,
+  hasSlotEnded,
+  isDoneActual,
+  isNowInSlot,
+  splitTaskRef,
+  splitTurnLabel,
+} from "./display";
 
 describe("splitTaskRef", () => {
   it("末尾の (task: ID) を切り離す", () => {
@@ -74,6 +81,28 @@ describe("isDoneActual", () => {
     expect(isDoneActual("完了 20分")).toBe(false);
     expect(isDoneActual("未完了")).toBe(false);
     expect(isDoneActual(undefined)).toBe(false);
+  });
+});
+
+describe("canFoldSlot", () => {
+  const at = (hour: number, minute: number): number => hour * 60 + minute;
+
+  it("完了して終わったコマは畳む", () => {
+    expect(canFoldSlot("完了", "07:00–07:30", at(7, 30))).toBe(true);
+  });
+
+  it("完了でも終わる前と途中は畳まない", () => {
+    expect(canFoldSlot("完了", "07:00–07:30", at(6, 59))).toBe(false);
+    expect(canFoldSlot("完了", "07:00–07:30", at(7, 29))).toBe(false);
+  });
+
+  it("終わっていても完了でなければ畳まない", () => {
+    expect(canFoldSlot("", "07:00–07:30", at(12, 0))).toBe(false);
+    expect(canFoldSlot(undefined, "07:00–07:30", at(12, 0))).toBe(false);
+  });
+
+  it("時刻が読めなければ畳まない", () => {
+    expect(canFoldSlot("完了", "午前", at(23, 0))).toBe(false);
   });
 });
 
