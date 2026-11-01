@@ -50,6 +50,14 @@ test("記事を段階つきで並べ、outline の一言だけを書き換えて
   await expect(page.getByText("下書き待ち")).toBeVisible();
 });
 
+test("記事が 1 件も無いときは、まだ記事が無いことを伝える", async ({ page }) => {
+  await configure(page);
+  await mockGitHub(page, new Map());
+  await page.goto("./");
+  await page.getByRole("button", { name: "ブログ" }).click();
+  await expect(page.getByText("まだ記事がありません。", { exact: true })).toBeVisible();
+});
+
 test("draft に URL を入れて公開済みにする", async ({ page }) => {
   await configure(page);
   const puts = await mockGitHub(page, files());
