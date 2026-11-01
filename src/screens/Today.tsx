@@ -1,31 +1,22 @@
 import { type CSSProperties, type FormEvent, useCallback, useEffect, useState } from "react";
-import { formatTokyoIso, tokyoMinutesOfDay } from "../clock";
-import {
-  extractSchedule,
-  extractTurns,
-  parseDaily,
-  type ScheduleRow,
-  setScheduleActual,
-  setTurnChecked,
-  setWakeAt,
-  type TurnItem,
-} from "../daily";
+import { tokyoMinutesOfDay } from "../clock";
+import { extractTurns, parseDaily, type TurnItem } from "../daily";
 import { canFoldSlot, getNowMarker, isNowInSlot, NO_NOW_MARKER, splitTurnLabel } from "../display";
-import { describeFailure, type Failure } from "../failure";
-import { writeKnownFile } from "../github";
+import type { Failure } from "../failure";
 import { QuestionSheet } from "../QuestionSheet";
 import type { Settings } from "../settings";
 import { TaskChecklist } from "../TaskChecklist";
 import { taskPathOf } from "../tasks";
 import { buildTimetable, type TimetableSlot } from "../timetable";
 import { PenIcon, StateCard } from "../ui";
-import { dailyPath, type useDaily } from "../useDaily";
+import type { useDaily } from "../useDaily";
 import { useProjectNames } from "../useProjectNames";
 import { FailureAction, UnconfiguredCard } from "./common";
 import { AddSlotSheet, ChangeSlotSheet, type SlotTarget } from "./SlotEditSheet";
 import { SlotTaskDetail } from "./SlotTaskDetail";
 import { useSlotTask } from "./useSlotTask";
-import { isWriteAt, type WritePlace, type WriteTarget } from "./writePlace";
+import { slotKey, useTodayWrite } from "./useTodayWrite";
+import { isWriteAt, type WritePlace } from "./writePlace";
 
 type Props = {
   settings: Settings;
@@ -44,19 +35,6 @@ const changingTargetOf = (sheet: SlotSheet): SlotTarget | undefined => {
     return undefined;
   }
   return sheet.target;
-};
-
-// 同じ daily への書き込みは 1 つずつにする。
-type WriteState =
-  | { status: "idle" }
-  | { status: "writing"; target: WriteTarget }
-  // 失敗は操作した行のすぐ下に出す。一覧の末尾だとスクロールしないと見えない。
-  | { status: "error"; target: WriteTarget; failure: Failure };
-
-const OFFLINE_FAILURE: Failure = {
-  reason: "オフラインのため保存できません。",
-  hint: "つながったらもう一度タップしてください。",
-  action: "retry",
 };
 
 // 「いま」の印を分単位で動かす。
@@ -88,9 +66,6 @@ const clockOf = (iso: string | undefined): string | undefined =>
 const joinClassNames = (names: readonly (string | false)[]): string =>
   names.filter((name): name is string => name !== false).join(" ");
 
-// 起床の記録などで frontmatter の行が増えると表の行番号がずれるので、時間枠は時刻とやることで見分ける。
-const slotKey = (row: ScheduleRow): string => `${row.time}\u0000${row.what}`;
-
 const ErrorMessage = ({ failure, onOpenSettings }: { failure: Failure; onOpenSettings: () => void }) => (
   <div className="message message-error" role="alert">
     <p>{failure.reason}</p>
@@ -110,9 +85,6 @@ const WAKE_DETAIL_ID = "slot-detail-wake";
  * チェック、起床、実績はその場で GitHub へ commit する。
  */
 export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }: Props) => {
-  const [write, setWrite] = useState<WriteState>({ status: "idle" });
-  // 保存前と保存に失敗した実績の入力。キーは slotKey。
-  const [actualDrafts, setActualDrafts] = useState<ReadonlyMap<string, string>>(new Map());
   const [openLine, setOpenLine] = useState<number | undefined>(undefined);
   const [isWakeOpen, setIsWakeOpen] = useState(false);
   // 完了して終わったコマのうち、タップで開いたもの。キーは slotKey。
@@ -120,6 +92,22 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const [slotSheet, setSlotSheet] = useState<SlotSheet>({ kind: "closed" });
   const closeSlotSheet = useCallback(() => setSlotSheet({ kind: "closed" }), []);
   const slotTask = useSlotTask(settings);
+  // 4:00 をまたいだら、前日の時間割で開いていたものを閉じる。前日の実績の入力は hook が捨てる。
+  const {
+    write,
+    isWriting,
+    writingTarget,
+    actualDrafts,
+    setActualDraft,
+    handleToggle,
+    handleWake,
+    saveActual,
+  } = useTodayWrite(settings, date, isOnline, daily, () => {
+    setIsWakeOpen(false);
+    setUnfoldedSlots(new Set());
+    setSlotSheet({ kind: "closed" });
+    slotTask.close();
+  });
   const minutesOfDay = useMinutesOfDay();
   const { state } = daily;
   const taskIds =
@@ -127,28 +115,6 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
       ? extractTurns(state.content).flatMap(({ label }) => splitTurnLabel(label).taskId ?? [])
       : [];
   const projectNames = useProjectNames(settings, taskIds);
-
-  // 4:00 をまたいだら、前日の時間割で持っている実績の入力を当日の daily に書かない。
-  // effect で消すと、日付が変わった直後の 1 回の描画で前日の入力が残るので、描画中に捨てる。
-  const [draftsDate, setDraftsDate] = useState(date);
-  const hasDateChanged = draftsDate !== date;
-  if (hasDateChanged) {
-    setDraftsDate(date);
-    setActualDrafts(new Map());
-    setIsWakeOpen(false);
-    setUnfoldedSlots(new Set());
-    setSlotSheet({ kind: "closed" });
-    slotTask.close();
-  }
-
-  // オフラインで出した失敗は、つながったら消す。
-  useEffect(() => {
-    if (isOnline) {
-      setWrite((current) =>
-        current.status === "error" && current.failure === OFFLINE_FAILURE ? { status: "idle" } : current,
-      );
-    }
-  }, [isOnline]);
 
   if (state.status === "unconfigured") {
     return <UnconfiguredCard onOpenSettings={onOpenSettings} />;
@@ -193,85 +159,11 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   }
 
   const view = parseDaily(state.content);
-  const isWriting = write.status === "writing";
-  const writingTarget = write.status === "writing" ? write.target : undefined;
   const checkedOf = (turn: TurnItem): boolean =>
     writingTarget?.kind === "turn" && writingTarget.line === turn.line
       ? writingTarget.nextChecked
       : turn.isChecked;
   const wakeClock = clockOf(view.wakeAt);
-
-  const runWrite = (
-    target: WriteTarget,
-    what: string,
-    transform: (current: string) => string,
-    onWritten?: () => void,
-  ): void => {
-    if (isWriting) {
-      return;
-    }
-    if (!isOnline) {
-      setWrite({ status: "error", target, failure: OFFLINE_FAILURE });
-      return;
-    }
-    setWrite({ status: "writing", target });
-    writeKnownFile(
-      settings,
-      dailyPath(date),
-      `chore(mobile): ${date} の${what}`,
-      { content: state.content, sha: state.sha },
-      transform,
-    )
-      .then((written) => {
-        daily.replace(written.content, written.sha);
-        onWritten?.();
-        setWrite({ status: "idle" });
-      })
-      .catch((error: unknown) => {
-        setWrite({ status: "error", target, failure: describeFailure(error) });
-      });
-  };
-
-  const handleToggle = (turn: TurnItem): void => {
-    const nextChecked = !turn.isChecked;
-    // 再試行時はリモートの最新内容に当てるので、行番号ではなくラベルで探し直す。
-    runWrite({ kind: "turn", line: turn.line, nextChecked }, "チェック", (current) => {
-      const target = extractTurns(current).find((candidate) => candidate.label === turn.label);
-      return target === undefined ? current : setTurnChecked(current, target.line, nextChecked);
-    });
-  };
-
-  const handleWake = (): void => {
-    const wakeAt = formatTokyoIso(new Date());
-    runWrite({ kind: "wake" }, "起床", (current) => setWakeAt(current, wakeAt));
-  };
-
-  const saveActual = (row: ScheduleRow): void => {
-    const slot = slotKey(row);
-    const value = actualDrafts.get(slot);
-    if (value === undefined || value.trim() === (row.actual ?? "")) {
-      return;
-    }
-    // 再試行時はリモートの最新内容に当てるので、行番号ではなく時間枠で探し直す。
-    runWrite(
-      { kind: "actual", slot },
-      "実績",
-      (current) => {
-        const target = extractSchedule(current).find((candidate) => slotKey(candidate) === slot);
-        return target === undefined ? current : setScheduleActual(current, target.line, value);
-      },
-      () =>
-        setActualDrafts((drafts) => {
-          // 保存中に書き換えた分は残す。
-          if (drafts.get(slot) !== value) {
-            return drafts;
-          }
-          const next = new Map(drafts);
-          next.delete(slot);
-          return next;
-        }),
-    );
-  };
 
   const errorAt = (place: WritePlace) => {
     const isFailedHere = write.status === "error" && isWriteAt(write.target, place);
@@ -508,7 +400,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                       value={actualValue}
                       onChange={(event) => {
                         const value = event.target.value;
-                        setActualDrafts((drafts) => new Map(drafts).set(key, value));
+                        setActualDraft(key, value);
                       }}
                       onBlur={() => saveActual(row)}
                     />
