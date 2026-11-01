@@ -367,10 +367,14 @@ test("「時間を決めていないこと」のチェックの保存に失敗�
   await page.goto("./");
   const unscheduled = page.getByRole("region", { name: "時間を決めていないこと" });
   const checkbox = unscheduled.getByRole("checkbox", { name: "小説の構想を音声で入れる" });
-  await checkbox.check();
+  // 失敗するとチェックは元に戻るので、check() の状態の確かめと競合しないよう click() で押す。
+  await checkbox.click();
   await expect.poll(() => rejected.length).toBe(1);
 
-  const row = unscheduled.getByRole("listitem").filter({ has: checkbox });
+  // has の locator は li からの相対で探すので、region から始めずに page から作る。
+  const row = unscheduled
+    .getByRole("listitem")
+    .filter({ has: page.getByRole("checkbox", { name: "小説の構想を音声で入れる" }) });
   await expect(row.getByRole("alert")).toBeVisible();
   await expect(unscheduled.getByRole("alert")).toHaveCount(1);
   await expect(page.getByRole("region", { name: "時間割" }).getByRole("alert")).toHaveCount(0);
