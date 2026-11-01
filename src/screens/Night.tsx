@@ -19,6 +19,7 @@ import { isConfigured, type Settings } from "../settings";
 import { StateCard } from "../ui";
 import { dailyPath, type useDaily } from "../useDaily";
 import { FailureAction, UnconfiguredCard } from "./common";
+import { hasSavedReview, isReviewChanged } from "./nightReview";
 
 type Props = {
   settings: Settings;
@@ -124,10 +125,13 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     return <UnconfiguredCard onOpenSettings={onOpenSettings} />;
   }
 
-  const isReviewChanged = review.trim() !== existingReview.trim() && review.trim() !== "";
+  const isReviewDirty = isReviewChanged(review, existingReview);
   const hasJournal = journal.trim() !== "";
-  const canSave = (isReviewChanged || hasJournal) && save.status !== "saving" && state.status !== "loading";
-  const savedAt = state.status === "ready" ? clockOf(extractReviewAt(state.content)) : undefined;
+  const canSave = (isReviewDirty || hasJournal) && save.status !== "saving" && state.status !== "loading";
+  const savedAt =
+    state.status === "ready" && hasSavedReview(existingReview)
+      ? clockOf(extractReviewAt(state.content))
+      : undefined;
 
   const handleSave = (): void => {
     if (!canSave) {
@@ -140,7 +144,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     setSave({ status: "saving" });
     const message = `chore(mobile): ${date} の振り返りと日記`;
     const now = new Date();
-    const shouldWriteReview = isReviewChanged;
+    const shouldWriteReview = isReviewDirty;
     const shouldWriteJournal = hasJournal;
     const savedReview = review;
     const savedJournal = journal;
@@ -269,7 +273,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           <span className="section-head">
             <span className="section-title">振り返り</span>
             <span className="section-meta">
-              {hasEditedReview && isReviewChanged
+              {hasEditedReview && isReviewDirty
                 ? "未保存"
                 : savedAt !== undefined
                   ? `${savedAt} に保存済み`

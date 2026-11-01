@@ -185,3 +185,28 @@ test("振り返りを保存すると、daily の「振り返り」と review_at 
   await expect(page.getByRole("textbox", { name: /^振り返り/ })).toHaveValue("よく歩いた");
   await expect(page.getByText("21:00 に保存済み")).toBeVisible();
 });
+
+test("保存済みの振り返りを全部消すと「未保存」になり、保存すると daily の「振り返り」が空になる", async ({
+  page,
+}) => {
+  await configure(page);
+  const reviewed = dailyToReview
+    .replace("review_at:\n", `review_at: ${date}T20:00:00+09:00\n`)
+    .replace("## 振り返り (夜に書く)\n", "## 振り返り (夜に書く)\n\nよく歩いた\n");
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, reviewed]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "夜" }).click();
+  const review = page.getByRole("textbox", { name: /^振り返り/ });
+  await expect(review).toHaveValue("よく歩いた");
+  await expect(page.getByText("20:00 に保存済み")).toBeVisible();
+
+  await review.fill("");
+  await expect(page.getByText("未保存")).toBeVisible();
+  await expect(page.getByText("20:00 に保存済み")).toHaveCount(0);
+  await page.getByRole("button", { name: "保存" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]?.path).toBe(`daily/${date}.md`);
+  expect(puts[0]?.content).toBe(dailyToReview.replace("review_at:\n", `review_at: ${date}T21:00:00+09:00\n`));
+  await expect(page.getByText("振り返りを保存しました")).toBeVisible();
+  await expect(page.getByText(/に保存済み/)).toHaveCount(0);
+});
