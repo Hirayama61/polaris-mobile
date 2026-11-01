@@ -32,6 +32,21 @@ export const splitTaskRef = (label: string): LabelParts => {
 
 const SLOT_PATTERN = /^(\d{1,2}):(\d{2})\s*[–\-~〜]\s*(\d{1,2}):(\d{2})$/;
 
+type SlotRange = { start: number; end: number };
+
+const NO_SLOT_RANGE = undefined;
+
+const toSlotRange = (time: string): SlotRange | undefined => {
+  const match = SLOT_PATTERN.exec(time.trim());
+  if (match === null) {
+    return NO_SLOT_RANGE;
+  }
+  const [, startHour, startMinute, endHour, endMinute] = match;
+  const start = Number(startHour) * 60 + Number(startMinute);
+  const end = Number(endHour) * 60 + Number(endMinute);
+  return { start, end };
+};
+
 /**
  * 時間割の「時刻」が現在時刻を含むかを判定する。
  *
@@ -40,15 +55,37 @@ const SLOT_PATTERN = /^(\d{1,2}):(\d{2})\s*[–\-~〜]\s*(\d{1,2}):(\d{2})$/;
  * @returns 開始を含み終了を含まない範囲に入っていれば true。形式が違えば false。
  */
 export const isNowInSlot = (time: string, minutesOfDay: number): boolean => {
-  const match = SLOT_PATTERN.exec(time.trim());
-  if (match === null) {
+  const range = toSlotRange(time);
+  if (range === NO_SLOT_RANGE) {
     return false;
   }
-  const [, startHour, startMinute, endHour, endMinute] = match;
-  const start = Number(startHour) * 60 + Number(startMinute);
-  const end = Number(endHour) * 60 + Number(endMinute);
-  return minutesOfDay >= start && minutesOfDay < end;
+  return minutesOfDay >= range.start && minutesOfDay < range.end;
 };
+
+/**
+ * 時間割の「時刻」の終了が現在時刻以前かを判定する。
+ *
+ * @param time - `07:00–07:30` の形。区切りは {@link isNowInSlot} と同じ。
+ * @param minutesOfDay - 0:00 からの経過分。
+ * @returns 終了時刻が現在以前なら true。形式が違えば、終わったか分からないので false。
+ */
+export const hasSlotEnded = (time: string, minutesOfDay: number): boolean => {
+  const range = toSlotRange(time);
+  if (range === NO_SLOT_RANGE) {
+    return false;
+  }
+  return range.end <= minutesOfDay;
+};
+
+const DONE_ACTUAL = "完了";
+
+/**
+ * 時間割の「実績」が完了を表すかを判定する。
+ *
+ * @param actual - 実績のセル。列やセルが無ければ undefined。
+ * @returns 前後の空白を除いて「完了」と一致すれば true。「完了 20分」のような書き足しは完了とみなさない。
+ */
+export const isDoneActual = (actual: string | undefined): boolean => actual?.trim() === DONE_ACTUAL;
 
 /**
  * 「あなたの番」の 1 項目を 1 行表示と展開部分に分けた結果。

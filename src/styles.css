@@ -734,6 +734,25 @@ a {
   background: var(--accent-soft);
 }
 
+/* 完了して終わったコマ。これからのコマが目に入るよう、1 行に畳んで控えめにする */
+.slot-folded {
+  padding-top: 0;
+  padding-bottom: 0;
+}
+
+.slot-folded-toggle {
+  margin: 0;
+  padding: 0;
+  color: var(--text-3);
+}
+
+.slot-folded-toggle .slot-what {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .timeline .slot + .slot {
   border-top: 1px solid var(--border);
 }

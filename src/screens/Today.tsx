@@ -10,7 +10,7 @@ import {
   setWakeAt,
   type TurnItem,
 } from "../daily";
-import { isNowInSlot, splitTurnLabel } from "../display";
+import { hasSlotEnded, isDoneActual, isNowInSlot, splitTurnLabel } from "../display";
 import { describeFailure, type Failure } from "../failure";
 import { writeKnownFile } from "../github";
 import { QuestionSheet } from "../QuestionSheet";
@@ -110,6 +110,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const [actualDrafts, setActualDrafts] = useState<ReadonlyMap<string, string>>(new Map());
   const [openLine, setOpenLine] = useState<number | undefined>(undefined);
   const [isWakeOpen, setIsWakeOpen] = useState(false);
+  // 完了して終わったコマのうち、タップで開いたもの。キーは slotKey。
+  const [unfoldedSlots, setUnfoldedSlots] = useState<ReadonlySet<string>>(new Set());
   const [slotSheet, setSlotSheet] = useState<SlotSheet>({ kind: "closed" });
   const closeSlotSheet = useCallback(() => setSlotSheet({ kind: "closed" }), []);
   const slotTask = useSlotTask(settings);
@@ -129,6 +131,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     setDraftsDate(date);
     setActualDrafts(new Map());
     setIsWakeOpen(false);
+    setUnfoldedSlots(new Set());
     setSlotSheet({ kind: "closed" });
     slotTask.close();
   }
@@ -373,6 +376,26 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             }
             const { row, text, taskId, opens, turn } = slot;
             const key = slotKey(row);
+            const isFolded =
+              isDoneActual(row.actual) && hasSlotEnded(row.time, minutesOfDay) && !unfoldedSlots.has(key);
+            const foldedLabel = `${row.time} ${text} 完了`;
+            if (isFolded) {
+              return (
+                <li key={row.line} className="slot slot-folded">
+                  <button
+                    type="button"
+                    className="slot-main slot-toggle slot-folded-toggle"
+                    aria-label={foldedLabel}
+                    aria-expanded={false}
+                    onClick={() => setUnfoldedSlots((slots) => new Set(slots).add(key))}
+                  >
+                    <span className="slot-time">{row.time}</span>
+                    <span className="slot-what">{text}</span>
+                    <span className="tag">完了</span>
+                  </button>
+                </li>
+              );
+            }
             const isNow = isNowInSlot(row.time, minutesOfDay);
             const isMineSlot = isMine(row.who);
             const hasWho = row.who !== "";
