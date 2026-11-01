@@ -5,9 +5,14 @@
  */
 export type RateLimit = { resetAt: Date | undefined };
 
-const NO_RATE_LIMIT = undefined;
+/** レート制限ではない応答の `getRateLimit` の戻り値。 */
+export const NO_RATE_LIMIT = undefined;
 
+/** 1 秒のミリ秒。ヘッダーの秒数を `Date` のミリ秒に直すのに使う。 */
 const SECOND_MS = 1000;
+
+/** ヘッダーから解除時刻を読めなかったときの `resetAt`。 */
+export const UNKNOWN_RESET_AT = undefined;
 
 /** GitHub がレート制限に当たったときに返すステータス。出どころは GitHub REST API の "Rate limits" の節。 */
 const STATUS_TOO_MANY_REQUESTS = 429;
@@ -18,8 +23,10 @@ const STATUS_FORBIDDEN = 403;
 /** 残りのリクエスト数を使い切ったときの `x-ratelimit-remaining` の値。 */
 const NO_REMAINING = "0";
 
+/** `Headers.get` がヘッダーの無いときに返す値。 */
 const MISSING_HEADER = null;
 
+/** 秒数として読めないヘッダーの値。 */
 const NO_SECONDS = undefined;
 
 /** `retry-after` と `x-ratelimit-reset` が取りうる最小の秒数。負の値は壊れたヘッダーとして捨てる。 */
@@ -49,7 +56,7 @@ const getResetAt = (headers: Headers, now: Date): Date | undefined => {
   if (hasReset) {
     return new Date(reset * SECOND_MS);
   }
-  return undefined;
+  return UNKNOWN_RESET_AT;
 };
 
 /**

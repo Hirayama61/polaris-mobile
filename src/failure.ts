@@ -1,6 +1,6 @@
 import { formatTokyoTime } from "./clock";
 import { GitHubError } from "./github";
-import type { RateLimit } from "./rateLimit";
+import { NO_RATE_LIMIT, type RateLimit, UNKNOWN_RESET_AT } from "./rateLimit";
 
 /**
  * 失敗を利用者に見せるための説明。
@@ -17,7 +17,7 @@ const RATE_LIMITED_REASON = "GitHub の読み取りの上限に当たりまし�
 
 const describeRateLimit = (rateLimit: RateLimit): Failure => {
   const { resetAt } = rateLimit;
-  const hasResetAt = resetAt !== undefined;
+  const hasResetAt = resetAt !== UNKNOWN_RESET_AT;
   if (!hasResetAt) {
     return {
       reason: RATE_LIMITED_REASON,
@@ -45,7 +45,7 @@ export const describeFailure = (error: unknown): Failure => {
     return { reason, hint: "もう一度試してください。", action: "retry" };
   }
   const { rateLimit } = error;
-  const isRateLimited = rateLimit !== undefined;
+  const isRateLimited = rateLimit !== NO_RATE_LIMIT;
   if (isRateLimited) {
     return describeRateLimit(rateLimit);
   }
