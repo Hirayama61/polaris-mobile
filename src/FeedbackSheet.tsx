@@ -177,9 +177,10 @@ export const FeedbackSheet = ({
           </div>
         )}
         {send.status === "sent" && (
-          <p className="message message-ok" role="status">
-            {send.path} に書きました。
-          </p>
+          <div className="message message-ok" role="status">
+            <p>受信箱に送りました。整理ループが分類します。</p>
+            <p className="field-hint">{send.path}</p>
+          </div>
         )}
 
         <button

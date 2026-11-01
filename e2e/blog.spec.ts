@@ -87,7 +87,9 @@ test("アイデアを書くと ideas に書いたままのファイルを作り�
     /^---\ncreated: \d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\+09:00\nsource: mobile\nstatus: new\n---\n\n/,
   );
   expect(puts[0]?.content.endsWith(`---\n\n${body}\n`)).toBe(true);
-  await expect(page.getByRole("dialog").getByRole("status")).toContainText("に書きました");
+  await expect(page.getByRole("dialog").getByRole("status")).toHaveText(
+    /^アイデアを書きました。writing\/blog\/ideas\//,
+  );
   await expect(page.getByRole("dialog").getByRole("textbox", { name: "アイデア" })).toHaveValue("");
 
   await page.getByRole("dialog").getByRole("button", { name: "閉じる" }).click();
@@ -126,7 +128,7 @@ test("アイデアの送信の応答を待つ間は、閉じるでも外側の�
   await expect(dialog).toBeVisible();
 
   release();
-  await expect(dialog.getByRole("status")).toContainText("に書きました");
+  await expect(dialog.getByRole("status")).toHaveText(/^アイデアを書きました。/);
   expect(puts).toHaveLength(1);
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();

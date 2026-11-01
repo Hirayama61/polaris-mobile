@@ -129,9 +129,10 @@ export const BlogIdeaSheet = (props: Props) => {
         </div>
       )}
       {isSent && (
-        <p className="message message-ok" role="status">
-          {send.path} に書きました。
-        </p>
+        <div className="message message-ok" role="status">
+          <p>アイデアを書きました。</p>
+          <p className="field-hint">{send.path}</p>
+        </div>
       )}
 
       <button

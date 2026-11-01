@@ -97,7 +97,7 @@ export const BlogScreen = (props: Props) => {
             ))}
           </ul>
         )}
-        {!hasPosts && <p className="panel panel-empty muted">writing/blog/ に記事がありません。</p>}
+        {!hasPosts && <p className="panel panel-empty muted">まだ記事がありません。</p>}
       </section>
 
       <section className="section">
