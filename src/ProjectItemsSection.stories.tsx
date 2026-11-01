@@ -49,3 +49,28 @@ export const Empty: Story = {
 export const NotLoaded: Story = {
   args: { items: undefined },
 };
+
+export const LongTitles: Story = {
+  args: {
+    items: [
+      {
+        kind: "question",
+        id: "20261031-q3",
+        title: "プロジェクトのシートで、タイトルが長いときに回答済みの印が改行されずに右端へ並ぶかを確かめる",
+        answered: true,
+        projectSlug: "polaris",
+        projectName: "Polaris",
+        created: undefined,
+      },
+      {
+        kind: "task",
+        id: "20261031-t4",
+        title: "長いタイトルのタスクでも、先頭の印とタイトルの位置が質問の行と揃っていることを見る",
+        projectSlug: "polaris",
+        projectName: "Polaris",
+        created: undefined,
+      },
+      ...meta.args.items,
+    ],
+  },
+};
