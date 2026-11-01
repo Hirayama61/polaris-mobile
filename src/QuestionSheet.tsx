@@ -275,9 +275,10 @@ export const QuestionSheet = ({
         {selected === undefined ? (
           <>
             {save.status === "saved" && (
-              <p className="message message-ok" role="status">
-                {save.path} の「回答」に書きました。
-              </p>
+              <div className="message message-ok" role="status">
+                <p>回答を書きました。</p>
+                <p className="field-hint">{save.path}</p>
+              </div>
             )}
             {list.status === "loading" && (
               <div className="skeleton" role="status" aria-busy="true" aria-label="読み込み中">

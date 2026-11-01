@@ -17,7 +17,7 @@ test("要望シートの送信を連打しても、inbox に書いたままの�
   await dialog.getByRole("textbox", { name: "タイトル" }).fill("チェックした項目を下に回したい");
   await dialog.getByRole("textbox", { name: /^詳しく/ }).fill("終わったものが上に残ると探しにくい");
   await dialog.getByRole("button", { name: "送信" }).click({ clickCount: 3 });
-  await expect(dialog.getByRole("status")).toContainText("に書きました。");
+  await expect(dialog.getByRole("status")).toHaveText(/^受信箱に送りました。整理ループが分類します。inbox\//);
   expect(puts).toHaveLength(1);
   expect(puts[0]?.path).toMatch(/^inbox\/20261031-[0-9a-z]+\.md$/);
   expect(puts[0]?.sha).toBeUndefined();
