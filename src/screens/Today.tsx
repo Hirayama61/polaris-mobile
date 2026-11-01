@@ -25,6 +25,7 @@ import { FailureAction, UnconfiguredCard } from "./common";
 import { AddSlotSheet, ChangeSlotSheet, type SlotTarget } from "./SlotEditSheet";
 import { SlotTaskDetail } from "./SlotTaskDetail";
 import { useSlotTask } from "./useSlotTask";
+import { isWriteAt, type WritePlace, type WriteTarget } from "./writePlace";
 
 type Props = {
   settings: Settings;
@@ -33,11 +34,6 @@ type Props = {
   isOnline: boolean;
   onOpenSettings: () => void;
 };
-
-type WriteTarget =
-  | { kind: "turn"; line: number; nextChecked: boolean }
-  | { kind: "wake" }
-  | { kind: "actual"; slot: string };
 
 // 時間割のコマを足すか直すシート。同時に開くのは 1 つだけ。
 type SlotSheet = { kind: "closed" } | { kind: "add" } | { kind: "change"; target: SlotTarget };
@@ -50,14 +46,12 @@ const changingTargetOf = (sheet: SlotSheet): SlotTarget | undefined => {
   return sheet.target;
 };
 
-// 失敗はその操作をした節の下に出す。起床の失敗は起床のコマの下に出す。
-type WriteArea = "turns" | "wake" | "schedule";
-
 // 同じ daily への書き込みは 1 つずつにする。
 type WriteState =
   | { status: "idle" }
   | { status: "writing"; target: WriteTarget }
-  | { status: "error"; area: WriteArea; failure: Failure };
+  // 失敗は操作した行のすぐ下に出す。一覧の末尾だとスクロールしないと見えない。
+  | { status: "error"; target: WriteTarget; failure: Failure };
 
 const OFFLINE_FAILURE: Failure = {
   reason: "オフラインのため保存できません。",
@@ -209,7 +203,6 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
 
   const runWrite = (
     target: WriteTarget,
-    area: WriteArea,
     what: string,
     transform: (current: string) => string,
     onWritten?: () => void,
@@ -218,7 +211,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
       return;
     }
     if (!isOnline) {
-      setWrite({ status: "error", area, failure: OFFLINE_FAILURE });
+      setWrite({ status: "error", target, failure: OFFLINE_FAILURE });
       return;
     }
     setWrite({ status: "writing", target });
@@ -235,14 +228,14 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         setWrite({ status: "idle" });
       })
       .catch((error: unknown) => {
-        setWrite({ status: "error", area, failure: describeFailure(error) });
+        setWrite({ status: "error", target, failure: describeFailure(error) });
       });
   };
 
-  const handleToggle = (turn: TurnItem, area: WriteArea): void => {
+  const handleToggle = (turn: TurnItem): void => {
     const nextChecked = !turn.isChecked;
     // 再試行時はリモートの最新内容に当てるので、行番号ではなくラベルで探し直す。
-    runWrite({ kind: "turn", line: turn.line, nextChecked }, area, "チェック", (current) => {
+    runWrite({ kind: "turn", line: turn.line, nextChecked }, "チェック", (current) => {
       const target = extractTurns(current).find((candidate) => candidate.label === turn.label);
       return target === undefined ? current : setTurnChecked(current, target.line, nextChecked);
     });
@@ -250,7 +243,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
 
   const handleWake = (): void => {
     const wakeAt = formatTokyoIso(new Date());
-    runWrite({ kind: "wake" }, "wake", "起床", (current) => setWakeAt(current, wakeAt));
+    runWrite({ kind: "wake" }, "起床", (current) => setWakeAt(current, wakeAt));
   };
 
   const saveActual = (row: ScheduleRow): void => {
@@ -262,7 +255,6 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     // 再試行時はリモートの最新内容に当てるので、行番号ではなく時間枠で探し直す。
     runWrite(
       { kind: "actual", slot },
-      "schedule",
       "実績",
       (current) => {
         const target = extractSchedule(current).find((candidate) => slotKey(candidate) === slot);
@@ -281,10 +273,13 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
     );
   };
 
-  const errorIn = (area: WriteArea) =>
-    write.status === "error" && write.area === area ? (
-      <ErrorMessage failure={write.failure} onOpenSettings={onOpenSettings} />
-    ) : undefined;
+  const errorAt = (place: WritePlace) => {
+    const isFailedHere = write.status === "error" && isWriteAt(write.target, place);
+    if (!isFailedHere) {
+      return undefined;
+    }
+    return <ErrorMessage failure={write.failure} onOpenSettings={onOpenSettings} />;
+  };
 
   const timetable = buildTimetable(view.schedule, view.turns);
   const nowMarker = getNowMarker(timetable.slots.map(getSlotTime), minutesOfDay);
@@ -329,7 +324,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
           <span className="wake-time">{wakeClock}</span> に起床
         </p>
       )}
-      {errorIn("wake")}
+      {errorAt({ kind: "wake" })}
     </div>
   );
 
@@ -453,7 +448,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                   className="turn-box"
                   checked={checkedOf(turn)}
                   disabled={isWriting}
-                  onChange={() => handleToggle(turn, "schedule")}
+                  onChange={() => handleToggle(turn)}
                 />
               </label>
             );
@@ -520,6 +515,8 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                     {isActualWriting && <span className="slot-actual-status">保存中</span>}
                   </form>
                 )}
+                {hasTurn && errorAt({ kind: "turn", line: turn.line })}
+                {errorAt({ kind: "actual", slot: key })}
                 {isWakeSlot && isWakeOpen && wakeDetail}
                 {isTaskSlot && isTaskOpen && (
                   <div id={detailId} className="slot-detail">
@@ -536,7 +533,6 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
             );
           })}
         </ol>
-        {errorIn("schedule")}
       </section>
 
       {hasUnscheduledTurns && (
@@ -564,10 +560,11 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                   className="turn-box"
                   checked={isChecked}
                   disabled={isWriting}
-                  onChange={() => handleToggle(turn, "turns")}
+                  onChange={() => handleToggle(turn)}
                 />
               );
               const status = isTurnWriting && <span className="turn-status">保存中</span>;
+              const turnError = errorAt({ kind: "turn", line: turn.line });
               const rowClass = isChecked ? "turn turn-checked" : "turn";
               if (steps === undefined && taskPath === undefined) {
                 return (
@@ -581,6 +578,7 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                       </span>
                       {status}
                     </label>
+                    {turnError}
                   </li>
                 );
               }
@@ -625,11 +623,11 @@ export const TodayScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
                       {taskId !== undefined && <span className="turn-task">{taskId}</span>}
                     </div>
                   )}
+                  {turnError}
                 </li>
               );
             })}
           </ul>
-          {errorIn("turns")}
         </section>
       )}
 

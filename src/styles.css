@@ -876,6 +876,15 @@ a {
   color: var(--danger);
 }
 
+/* 書き込みの失敗は操作した行のすぐ下に出す。 */
+.slot > .message {
+  margin-top: 8px;
+}
+
+.turns > li > .message {
+  margin: 0 16px 12px;
+}
+
 .message-ok {
   display: block;
   background: var(--running-soft);
