@@ -115,6 +115,10 @@
       {
         "spec": "e2e/night.spec.ts",
         "test": "振り返りを保存すると、daily の「振り返り」と review_at だけが変わり、開き直しても出る"
+      },
+      {
+        "spec": "e2e/night.spec.ts",
+        "test": "保存済みの振り返りを全部消すと「未保存」になり、保存すると daily の「振り返り」が空になる"
       }
     ]
   },
