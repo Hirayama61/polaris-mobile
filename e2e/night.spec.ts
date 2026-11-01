@@ -95,3 +95,46 @@ test("daily が無ければ、今日の記録はまだないと出す", async ({
   const done = page.getByRole("region", { name: "今日やったこと" });
   await expect(done.getByText("今日の記録はまだありません。")).toBeVisible();
 });
+
+const dailyToReview = `---
+date: ${date}
+plan_at: ${date}T06:00:00+09:00
+review_at:
+---
+
+## 今日の時間割
+| 時刻 | やること | 誰 | 実績 |
+| --- | --- | --- | --- |
+| 07:00–07:30 | 散歩 | あなた | 完了 |
+
+## あなたの番 (3 つまで)
+- [x] 散歩
+
+## 振り返り (夜に書く)
+
+## 朝ジョブの記録
+- ...
+`;
+
+test("振り返りを保存すると、daily の「振り返り」と review_at だけが変わり、開き直しても出る", async ({
+  page,
+}) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, dailyToReview]]));
+  await page.goto("./");
+  await page.getByRole("button", { name: "夜" }).click();
+  await page.getByRole("textbox", { name: /^振り返り/ }).fill("よく歩いた");
+  await page.getByRole("button", { name: "保存" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]?.path).toBe(`daily/${date}.md`);
+  expect(puts[0]?.content).toBe(
+    dailyToReview
+      .replace("review_at:\n", `review_at: ${date}T21:00:00+09:00\n`)
+      .replace("## 振り返り (夜に書く)\n", "## 振り返り (夜に書く)\n\nよく歩いた\n"),
+  );
+
+  await page.reload();
+  await page.getByRole("button", { name: "夜" }).click();
+  await expect(page.getByRole("textbox", { name: /^振り返り/ })).toHaveValue("よく歩いた");
+  await expect(page.getByText("21:00 に保存済み")).toBeVisible();
+});

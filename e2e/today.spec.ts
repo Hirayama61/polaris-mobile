@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Page, test } from "@playwright/test";
 import { configure, mockGitHub } from "./github";
 
 const date = "2026-10-31";
@@ -284,4 +284,108 @@ test("終わったコマの実績を「完了」で保存すると、PUT した�
   expect(changedLines(daily, puts[0]?.content)).toEqual([line]);
   await expect(page.getByRole("button", { name: "07:00–07:30 散歩 完了" })).toBeVisible();
   await expect(actual).toHaveCount(0);
+});
+
+test("実績のセルに書いた文は、その行の実績の列にだけ入り、開き直しても出る", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([[`daily/${date}.md`, daily]]));
+  await page.goto("./");
+  const actual = page.getByRole("textbox", { name: "07:00–07:30 の実績" });
+  await actual.fill("30 分歩いた");
+  await actual.press("Enter");
+  await expect.poll(() => puts.length).toBe(1);
+  const line = daily.split("\n").indexOf("| 07:00–07:30 | 散歩 | あなた | |");
+  expect(puts[0]?.path).toBe(`daily/${date}.md`);
+  expect(changedLines(daily, puts[0]?.content)).toEqual([line]);
+  expect(puts[0]?.content.split("\n")[line]).toBe("| 07:00–07:30 | 散歩 | あなた | 30 分歩いた |");
+
+  await page.reload();
+  await expect(page.getByRole("textbox", { name: "07:00–07:30 の実績" })).toHaveValue("30 分歩いた");
+});
+
+test("チェックの保存が 409 で競合したら読み直して当て直し、別の端末で付けたチェックを外さない", async ({
+  page,
+}) => {
+  await configure(page);
+  const files = new Map([[`daily/${date}.md`, daily]]);
+  const puts = await mockGitHub(page, files, 1);
+  await page.goto("./");
+  const checkbox = page.getByRole("checkbox", { name: "散歩" });
+  await expect(checkbox).not.toBeChecked();
+
+  // 今日の画面を開いた後に、別の端末で同じ項目にチェックを付けたことにする。
+  const checkedLine = daily.split("\n").indexOf("- [ ] 散歩");
+  files.set(`daily/${date}.md`, daily.replace("- [ ] 散歩", "- [x] 散歩"));
+  await checkbox.check();
+  await expect.poll(() => puts.length).toBe(2);
+  expect(puts.map((put) => put.status)).toEqual([409, 200]);
+  expect(changedLines(daily, puts[1]?.content)).toEqual([checkedLine]);
+  expect(puts[1]?.content.split("\n")[checkedLine]).toBe("- [x] 散歩");
+  await expect(checkbox).toBeChecked();
+});
+
+const taskId = "20261029-t1";
+
+const paperTask = `---
+id: ${taskId}
+title: 書類を出す
+assignee: human
+status: todo
+---
+
+## あなたがやること
+- [ ] 申請書を印刷する
+- [ ] 窓口に出す
+`;
+
+const dailyWithTask = daily.replace("- [ ] 小説の構想を音声で入れる", `- [ ] 書類を出す (task: ${taskId})`);
+
+const openChecklist = async (page: Page): Promise<void> => {
+  await page.getByRole("button", { name: /書類を出す/ }).click();
+};
+
+test("タスクのチェックリストの項目を付けると、tasks のその行だけが [x] になり、開き直しても付いている", async ({
+  page,
+}) => {
+  await configure(page);
+  const puts = await mockGitHub(
+    page,
+    new Map([
+      [`daily/${date}.md`, dailyWithTask],
+      [`tasks/${taskId}.md`, paperTask],
+    ]),
+  );
+  await page.goto("./");
+  await openChecklist(page);
+  await page.getByRole("checkbox", { name: "申請書を印刷する" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]?.path).toBe(`tasks/${taskId}.md`);
+  expect(puts[0]?.content).toBe(paperTask.replace("- [ ] 申請書を印刷する", "- [x] 申請書を印刷する"));
+
+  await page.reload();
+  await openChecklist(page);
+  await expect(page.getByRole("checkbox", { name: "申請書を印刷する" })).toBeChecked();
+  await expect(page.getByRole("checkbox", { name: "窓口に出す" })).not.toBeChecked();
+});
+
+test("チェックリストの保存が 409 で競合したら、やり直さずに読み直し、別の場所で付けたチェックを外さない", async ({
+  page,
+}) => {
+  await configure(page);
+  const files = new Map([
+    [`daily/${date}.md`, dailyWithTask],
+    [`tasks/${taskId}.md`, paperTask],
+  ]);
+  const puts = await mockGitHub(page, files, 1);
+  await page.goto("./");
+  await openChecklist(page);
+  const checkbox = page.getByRole("checkbox", { name: "申請書を印刷する" });
+  await expect(checkbox).not.toBeChecked();
+
+  // チェックリストを開いた後に、別の場所で同じ項目にチェックを付けたことにする。
+  files.set(`tasks/${taskId}.md`, paperTask.replace("- [ ] 申請書を印刷する", "- [x] 申請書を印刷する"));
+  await checkbox.click();
+  await expect(page.getByText("別の場所で変更されていたので、保存せずに読み直しました。")).toBeVisible();
+  await expect(checkbox).toBeChecked();
+  expect(puts.map((put) => put.status)).toEqual([409]);
 });

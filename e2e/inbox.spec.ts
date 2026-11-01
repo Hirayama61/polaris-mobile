@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, type Locator, type Page, test } from "@playwright/test";
 import { configure, mockGitHub } from "./github";
 
 const date = "2026-10-31";
@@ -111,4 +111,71 @@ test("幅 375px で長いタイトルの行も、回答済みの印は 1 行の�
   expect(longBox.height).toBeCloseTo(shortBox.height, 0);
   expect(longBox.width).toBeCloseTo(shortBox.width, 0);
   expect(longBox.x + longBox.width).toBeCloseTo(shortBox.x + shortBox.width, 0);
+});
+
+const openTask = async (page: Page): Promise<Locator> => {
+  await page.getByRole("button", { name: /^受信箱/ }).click();
+  await page.getByRole("button", { name: /Google アカウントを作る/ }).click();
+  return page.getByRole("dialog");
+};
+
+test("タスクのシートで項目にチェックを付けると、tasks のその行だけが [x] になる", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, files());
+  await page.goto("./");
+  const dialog = await openTask(page);
+  const checkbox = dialog.getByRole("checkbox", { name: "電話番号で確認する" });
+  await checkbox.click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]?.path).toBe("tasks/20261029-t1.md");
+  expect(puts[0]?.content).toBe(task.replace("- [ ] 電話番号で確認する", "- [x] 電話番号で確認する"));
+  await expect(checkbox).toBeChecked();
+});
+
+test("タスクのシートで疑問点を足すと、「## 疑問点」に 1 行だけ足して一覧に出す", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, files());
+  await page.goto("./");
+  const dialog = await openTask(page);
+  await dialog.getByRole("textbox", { name: "疑問点" }).fill("どの電話番号を使うか");
+  await dialog.getByRole("button", { name: "足す" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]?.path).toBe("tasks/20261029-t1.md");
+  expect(puts[0]?.content).toBe(`${task}\n## 疑問点\n\n- [ ] どの電話番号を使うか\n`);
+  await expect(dialog.getByRole("listitem").filter({ hasText: "どの電話番号を使うか" })).toBeVisible();
+  await expect(dialog.getByRole("textbox", { name: "疑問点" })).toHaveValue("");
+});
+
+test("全部チェックしたタスクを完了にすると、status と updated だけを書き換え、一覧から外す", async ({
+  page,
+}) => {
+  const checkedTask = task.replace("- [ ] 電話番号で確認する", "- [x] 電話番号で確認する");
+  await configure(page);
+  const puts = await mockGitHub(page, new Map([["tasks/20261029-t1.md", checkedTask]]));
+  await page.goto("./");
+  const dialog = await openTask(page);
+  await dialog.getByRole("button", { name: "完了にする" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]?.path).toBe("tasks/20261029-t1.md");
+  expect(puts[0]?.content).toBe(
+    checkedTask.replace("status: todo\n", `status: done\nupdated: ${date}T09:00:00+09:00\n`),
+  );
+  await expect(dialog.getByText("いまあなたのタスクはありません。")).toBeVisible();
+});
+
+test("質問に A で答えて保存すると、「## 回答」だけを書き換え、一覧で回答済みにする", async ({ page }) => {
+  await configure(page);
+  const puts = await mockGitHub(page, files());
+  await page.goto("./");
+  await page.getByRole("button", { name: /^受信箱/ }).click();
+  await page.getByRole("button", { name: /受信箱のタブはどこに置く/ }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "A", exact: true }).click();
+  await dialog.getByRole("button", { name: "保存" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0]?.path).toBe("tasks/20261030-q1.md");
+  expect(puts[0]?.content).toBe(question.replace("## 回答\n(未回答)\n", "## 回答\n\nA\n"));
+  await expect(
+    dialog.getByRole("button", { name: /受信箱のタブはどこに置く/ }).getByText("回答済み"),
+  ).toBeVisible();
 });
