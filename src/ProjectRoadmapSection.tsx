@@ -1,5 +1,5 @@
 import { getRepoFailureHint } from "./devPlan";
-import type { RepoIssue, RepoOpenIssue } from "./github";
+import type { RepoIssue, RepoOpenIssue } from "./repoEntries";
 import { type DayCount, formatShortDate, getBarHeight, type ProjectRoadmap, ROADMAP_DAYS } from "./roadmap";
 import type { ProjectRoadmapState } from "./useProjectRoadmap";
 

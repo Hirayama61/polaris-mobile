@@ -6,8 +6,8 @@
 import { polarisToday } from "./clock";
 import { isDevProject } from "./devPlan";
 import type { Failure } from "./failure";
-import type { RepoIssue, RepoOpenIssue } from "./github";
 import type { ProjectSummary } from "./projects";
+import type { RepoIssue, RepoOpenIssue } from "./repoEntries";
 
 /**
  * 1 日分のマージされた PR の数。`date` は `YYYY-MM-DD` (東京、4 時が境界)。

@@ -1,6 +1,15 @@
 import { loadBlob, saveBlob } from "./blobCache";
 import { createLimiter } from "./limit";
 import { getRateLimit, type RateLimit } from "./rateLimit";
+import {
+  hasHeadRef,
+  hasMergedAt,
+  isIssueEntry,
+  type RepoIssue,
+  type RepoOpenIssue,
+  toRepoIssues,
+  toRepoOpenIssue,
+} from "./repoEntries";
 import type { Settings } from "./settings";
 import { getFileNamesIn, type RepoTree, toRepoTree } from "./tree";
 
@@ -487,11 +496,6 @@ export const createRepoReader = (settings: Settings): RepoReader => {
   };
 };
 
-/**
- * 他のリポジトリの Issue の 1 件。PR は含めない。
- */
-export type RepoIssue = { number: number; title: string; closedAt: string | undefined };
-
 const getRepoJson = async (settings: Settings, repo: string, pathAndQuery: string): Promise<unknown> => {
   const encodedRepo = repo.split("/").map(encodeURIComponent).join("/");
   const response = await request(`${API_BASE}/repos/${encodedRepo}/${pathAndQuery}`, {
@@ -502,53 +506,6 @@ const getRepoJson = async (settings: Settings, repo: string, pathAndQuery: strin
     throw await toGitHubError(response);
   }
   return response.json();
-};
-
-type IssueEntry = { number: number; title: string; closed_at?: unknown; labels?: unknown };
-
-type PullEntry = { head: { ref: string } };
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null;
-
-const isIssueEntry = (entry: unknown): entry is IssueEntry => {
-  if (!isRecord(entry)) {
-    return false;
-  }
-  const isPull = "pull_request" in entry;
-  const hasNumber = typeof entry.number === "number";
-  const hasTitle = typeof entry.title === "string";
-  return !isPull && hasNumber && hasTitle;
-};
-
-const hasHeadRef = (entry: unknown): entry is PullEntry => {
-  if (!isRecord(entry) || !isRecord(entry.head)) {
-    return false;
-  }
-  const hasRef = typeof entry.head.ref === "string";
-  return hasRef;
-};
-
-const getClosedAt = (entry: IssueEntry): string | undefined => {
-  const { closed_at: closedAt } = entry;
-  const hasClosedAt = typeof closedAt === "string";
-  if (!hasClosedAt) {
-    return undefined;
-  }
-  return closedAt;
-};
-
-const toRepoIssue = (entry: IssueEntry): RepoIssue => ({
-  number: entry.number,
-  title: entry.title,
-  closedAt: getClosedAt(entry),
-});
-
-const toRepoIssues = (body: unknown): RepoIssue[] => {
-  if (!Array.isArray(body)) {
-    return [];
-  }
-  return body.filter(isIssueEntry).map(toRepoIssue);
 };
 
 /**
@@ -594,47 +551,6 @@ export const listOpenPullHeadRefs = async (settings: Settings, repo: string): Pr
     return [];
   }
   return body.filter(hasHeadRef).map((entry) => entry.head.ref);
-};
-
-/**
- * 他のリポジトリの open の Issue の 1 件。PR は含めない。
- */
-export type RepoOpenIssue = { number: number; title: string; labels: string[] };
-
-type MergedPullEntry = { merged_at: string };
-
-const toLabelName = (label: unknown): string | undefined => {
-  if (!isRecord(label)) {
-    return undefined;
-  }
-  const { name } = label;
-  const hasName = typeof name === "string";
-  if (!hasName) {
-    return undefined;
-  }
-  return name;
-};
-
-const getLabelNames = (entry: IssueEntry): string[] => {
-  const { labels } = entry;
-  if (!Array.isArray(labels)) {
-    return [];
-  }
-  return labels.map(toLabelName).filter((name) => name !== undefined);
-};
-
-const toRepoOpenIssue = (entry: IssueEntry): RepoOpenIssue => ({
-  number: entry.number,
-  title: entry.title,
-  labels: getLabelNames(entry),
-});
-
-const hasMergedAt = (entry: unknown): entry is MergedPullEntry => {
-  if (!isRecord(entry)) {
-    return false;
-  }
-  const isMerged = typeof entry.merged_at === "string";
-  return isMerged;
 };
 
 /**
