@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { formatTokyoIso } from "../clock";
 import {
   createMinimalDaily,
@@ -11,15 +11,16 @@ import {
 } from "../daily";
 import { loadDraft, nightDraftKeys, remainingAfterSave, removeDraft, saveDraft } from "../drafts";
 import { describeFailure, type Failure } from "../failure";
-import { readFile, updateFile } from "../github";
-import { appendJournal, extractPosts, type JournalPost, journalPath } from "../journal";
+import { updateFile } from "../github";
+import { appendJournal, journalPath } from "../journal";
 import { toKeyedItems } from "../keys";
-import { PostField, waitForPost } from "../PostField";
-import { isConfigured, type Settings } from "../settings";
+import { PostField } from "../PostField";
+import type { Settings } from "../settings";
 import { StateCard } from "../ui";
 import { dailyPath, type useDaily } from "../useDaily";
 import { FailureAction, UnconfiguredCard } from "./common";
 import { hasSavedReview, isReviewChanged } from "./nightReview";
+import { useNightPosts } from "./useNightPosts";
 
 type Props = {
   settings: Settings;
@@ -39,44 +40,10 @@ type SaveState =
 const clockOf = (iso: string | undefined): string | undefined =>
   iso === undefined ? undefined : /T(\d{2}:\d{2})/.exec(iso)?.[1];
 
-type PostsState =
-  | { status: "loading" }
-  | { status: "ready"; posts: JournalPost[] }
-  | { status: "error"; failure: Failure };
-
 const OFFLINE_FAILURE: Failure = {
   reason: "オフラインのため保存できません。",
   hint: "書いた内容はこの端末に残っています。つながったら保存してください。",
   action: "retry",
-};
-
-// 今日の journal から投稿を読む。日記を保存したか投稿を送ったら reloadKey を変えて読み直す。
-// 送った投稿がまだ送信中なら、終わってから読む。先に読むと一覧に出ない。
-const usePosts = (settings: Settings, date: string, reloadKey: number): PostsState => {
-  const [posts, setPosts] = useState<PostsState>({ status: "loading" });
-  // biome-ignore lint/correctness/useExhaustiveDependencies(reloadKey): 日記を保存したら読み直すためのきっかけ。中では使わない。
-  useEffect(() => {
-    if (!isConfigured(settings)) {
-      return;
-    }
-    let isCancelled = false;
-    waitForPost()
-      .then(() => readFile(settings, journalPath(date)))
-      .then((file) => {
-        if (!isCancelled) {
-          setPosts({ status: "ready", posts: file.kind === "found" ? extractPosts(file.content) : [] });
-        }
-      })
-      .catch((error: unknown) => {
-        if (!isCancelled) {
-          setPosts({ status: "error", failure: describeFailure(error) });
-        }
-      });
-    return () => {
-      isCancelled = true;
-    };
-  }, [settings, date, reloadKey]);
-  return posts;
 };
 
 // 「今日やったこと」は読めた daily だけから作る。無いか読めていなければ空の本文として扱う。
@@ -103,12 +70,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
   const [review, setReviewDraft] = useState(() => loadDraft(reviewKey) ?? existingReview);
   const [journal, setJournal] = useState(() => loadDraft(journalKey) ?? "");
   const [save, setSave] = useState<SaveState>({ status: "idle" });
-  const [journalSaveCount, setJournalSaveCount] = useState(0);
-  const [sentPostCount, setSentPostCount] = useState(0);
-  const [postsRetryCount, setPostsRetryCount] = useState(0);
-  const handlePostSent = useCallback(() => setSentPostCount((count) => count + 1), []);
-  const handleRetryPosts = useCallback(() => setPostsRetryCount((count) => count + 1), []);
-  const posts = usePosts(settings, date, journalSaveCount + sentPostCount + postsRetryCount);
+  const { posts, reload: reloadPosts } = useNightPosts(settings, date);
   // 保存の完了時に、その時点の入力と保存した内容を比べるために使う。
   const latest = useRef({ review, journal });
   latest.current = { review, journal };
@@ -165,7 +127,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         await updateFile(settings, journalPath(date), message, (current) =>
           appendJournal(current, date, journal),
         );
-        setJournalSaveCount((count) => count + 1);
+        reloadPosts();
         if (remainingAfterSave(latest.current.journal, savedJournal) === undefined) {
           removeDraft(journalKey);
           setJournal("");
@@ -195,7 +157,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
         date={date}
         isOnline={isOnline}
         onOpenSettings={onOpenSettings}
-        onSent={handlePostSent}
+        onSent={reloadPosts}
       />
 
       {posts.status !== "loading" && (
@@ -215,7 +177,7 @@ export const NightScreen = ({ settings, date, daily, isOnline, onOpenSettings }:
               action={
                 <FailureAction
                   failure={posts.failure}
-                  onRetry={handleRetryPosts}
+                  onRetry={reloadPosts}
                   onOpenSettings={onOpenSettings}
                 />
               }

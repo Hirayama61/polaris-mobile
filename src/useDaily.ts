@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { loadCachedFile, removeCachedFile, saveCachedFile } from "./cache";
 import { describeFailure, type Failure } from "./failure";
 import { readFile } from "./github";
+import { beginLatest, cancelLatest, type LatestRef } from "./latest";
 import { isConfigured, type Settings } from "./settings";
 
 /**
@@ -31,6 +32,59 @@ export type DailyState =
 export const dailyPath = (date: string): string => `daily/${date}.md`;
 
 /**
+ * daily を読み始める。キャッシュがあれば先にそれを `refreshing` で渡し、読み終えたら結果を渡す。
+ * 後から始めた読み込みがあれば、この応答は捨てる。
+ *
+ * @param latest - 読み込みの世代。
+ * @param settings - 接続設定。未設定なら読まずに `unconfigured` を渡す。
+ * @param path - 読む daily のパス。
+ * @param apply - 状態を受け取る関数。
+ * @returns 応答を渡し終えたら解決する。
+ */
+export const startDailyLoad = async (
+  latest: LatestRef,
+  settings: Settings,
+  path: string,
+  apply: (state: DailyState) => void,
+): Promise<void> => {
+  if (!isConfigured(settings)) {
+    cancelLatest(latest);
+    apply({ status: "unconfigured" });
+    return;
+  }
+  const isCurrent = beginLatest(latest);
+  const cached = loadCachedFile(path);
+  apply(
+    cached === undefined
+      ? { status: "loading" }
+      : { status: "ready", ...cached, freshness: { kind: "refreshing" } },
+  );
+  try {
+    const file = await readFile(settings, path);
+    if (!isCurrent()) {
+      return;
+    }
+    if (file.kind === "missing") {
+      removeCachedFile(path);
+      apply({ status: "missing" });
+      return;
+    }
+    saveCachedFile(path, { content: file.content, sha: file.sha, fetchedAt: new Date().toISOString() });
+    apply({ status: "ready", content: file.content, sha: file.sha, freshness: { kind: "fresh" } });
+  } catch (error: unknown) {
+    if (!isCurrent()) {
+      return;
+    }
+    const failure = describeFailure(error);
+    apply(
+      cached === undefined
+        ? { status: "error", failure }
+        : { status: "ready", ...cached, freshness: { kind: "stale", failure } },
+    );
+  }
+};
+
+/**
  * 今日の daily を GitHub から読み、オフラインならキャッシュで代える。
  *
  * @param settings - 接続設定。未設定なら `unconfigured` のまま読まない。
@@ -46,62 +100,19 @@ export const useDaily = (
   replace: (content: string, sha: string) => void;
 } => {
   const [state, setState] = useState<DailyState>({ status: "unconfigured" });
-  const [reloadCount, setReloadCount] = useState(0);
+  const latest = useRef(0);
   const path = dailyPath(date);
   const currentPath = useRef(path);
   currentPath.current = path;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies(reloadCount): reload() で読み直すためのきっかけ。中では使わない。
   useEffect(() => {
-    if (!isConfigured(settings)) {
-      setState({ status: "unconfigured" });
-      return;
-    }
-    let isCancelled = false;
-    const cached = loadCachedFile(path);
-    setState(
-      cached === undefined
-        ? { status: "loading" }
-        : { status: "ready", ...cached, freshness: { kind: "refreshing" } },
-    );
-    readFile(settings, path)
-      .then((file) => {
-        if (isCancelled) {
-          return;
-        }
-        if (file.kind === "missing") {
-          removeCachedFile(path);
-          setState({ status: "missing" });
-          return;
-        }
-        saveCachedFile(path, {
-          content: file.content,
-          sha: file.sha,
-          fetchedAt: new Date().toISOString(),
-        });
-        setState({ status: "ready", content: file.content, sha: file.sha, freshness: { kind: "fresh" } });
-      })
-      .catch((error: unknown) => {
-        if (isCancelled) {
-          return;
-        }
-        const failure = describeFailure(error);
-        if (cached === undefined) {
-          setState({ status: "error", failure });
-          return;
-        }
-        setState({
-          status: "ready",
-          ...cached,
-          freshness: { kind: "stale", failure },
-        });
-      });
-    return () => {
-      isCancelled = true;
-    };
-  }, [settings, path, reloadCount]);
+    void startDailyLoad(latest, settings, path, setState);
+    return () => cancelLatest(latest);
+  }, [settings, path]);
 
-  const reload = useCallback(() => setReloadCount((count) => count + 1), []);
+  const reload = (): void => {
+    void startDailyLoad(latest, settings, path, setState);
+  };
 
   const replace = useCallback(
     (content: string, sha: string) => {
