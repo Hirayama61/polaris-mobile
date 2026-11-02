@@ -1,5 +1,5 @@
 import { type DevPlanEntry, type DevRepoPlan, getEntryLabel, getRepoFailureHint } from "./devPlan";
-import type { RepoIssue } from "./github";
+import type { RepoIssue } from "./repoEntries";
 import type { DevPlanState } from "./useDevPlan";
 
 const toIssueLine = (issue: RepoIssue): string => `#${issue.number} ${issue.title}`;

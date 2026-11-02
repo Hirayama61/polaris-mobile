@@ -5,8 +5,8 @@
  */
 import { polarisToday, tokyoMinutesOfDay } from "./clock";
 import type { Failure } from "./failure";
-import type { RepoIssue } from "./github";
 import type { ProjectSummary } from "./projects";
+import type { RepoIssue } from "./repoEntries";
 
 /**
  * 予定の 1 行。`slot` は枠に入った Issue、`pr` は PR が出ている Issue、`later` は枠が足りず今日に入らない Issue。
